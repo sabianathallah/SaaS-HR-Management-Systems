@@ -1,0 +1,27 @@
+const { verifyToken } = require('../helpers/jwt')
+
+const authentication = async (req, res, next) => {
+    try {
+        const { authorization } = req.headers
+
+        if (!authorization) throw { name: "Unauthorized" }
+
+        const token = authorization.split(' ')[1]
+
+        const decoded = verifyToken(token)
+
+        const tokenUserId = decoded.id || decoded.userId
+
+        req.user = {
+            id: decoded.id || decoded.userId,
+            userId: decoded.id || decoded.userId,
+            email: decoded.email,
+            role: decoded.role
+        }
+        next()
+    } catch (err) {
+        next(err)
+    }
+} 
+
+module.exports = authentication
