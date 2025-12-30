@@ -8,7 +8,7 @@ class LoginController {
             const { email, password, name } = req.body
             if (!email || !password) throw { name: "BadRequest" }
 
-            const user = await User.create({ email, password, name, role: role || 'Employee' })
+            const user = await User.create({ email, password, name, role: 'Employee' })
 
             res.status(201).json({
                 message: "Success create new user",
@@ -26,7 +26,7 @@ class LoginController {
             const user = await User.findOne({ where: { email } })
             if (!user) throw { name: "LoginError" }
 
-            if (!compare, password, user.password) throw { name: "LoginError" }
+            if (!compare(password, user.password)) throw { name: "LoginError" }
 
             const payload = {
                 id: user.id,
