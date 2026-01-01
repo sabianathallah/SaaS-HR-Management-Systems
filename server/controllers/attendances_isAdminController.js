@@ -1,6 +1,6 @@
 const { Attandance, User, WorkSchedule, Holiday } = require('../models');
 const { Op } = require('sequelize');
-const { getTodayRange } = require('../helpers/attendance');
+const { getTodayRange, processAutoSetAbsent } = require('../helpers/attendance');
 
 class AttendanceAdminController {
 
@@ -61,46 +61,26 @@ class AttendanceAdminController {
   // Auto set absent (Manual trigger by admin or cron job)
   static async autoSetAbsent(req, res, next) {
     try {
-      const { startOfDay, endOfDay } = getTodayRange();
+      const result = await processAutoSetAbsent();
       
-      // Get all users
-      const allUsers = await User.findAll({
-        attributes: ['id', 'email']
-      });
-      
-      // Get users yang sudah clock-in hari ini
-      const attendedUserIds = await Attandance.findAll({
-        where: {
-          date: {
-            [Op.between]: [startOfDay, endOfDay]
+      if (result.isHoliday) {
+        return res.status(200).json({
+          message: `Today is a holiday: ${result.holidayDescription}. ${result.absentCount} users marked as HOLIDAY.`,
+          data: {
+            isHoliday: true,
+            holidayDescription: result.holidayDescription,
+            markedCount: result.absentCount,
+            markedUserIds: result.absentUserIds
           }
-        },
-        attributes: ['UserId']
-      });
-      
-      const attendedIds = attendedUserIds.map(a => a.UserId);
-      
-      // Filter users yang belum clock-in
-      const absentUsers = allUsers.filter(user => !attendedIds.includes(user.id));
-      
-      // Create absent records for users yang tidak hadir
-      const absentRecords = await Promise.all(
-        absentUsers.map(user => 
-          Attandance.create({
-            UserId: user.id,
-            date: new Date(),
-            clockIn: new Date(),
-            clockOut: new Date(),
-            status: Attandance.ATTENDANCE_STATUS.ABSENT
-          })
-        )
-      );
+        });
+      }
       
       res.status(200).json({ 
-        message: `Auto set absent completed. ${absentRecords.length} users marked as absent.`,
+        message: `Auto set absent completed. ${result.absentCount} users marked as absent.`,
         data: {
-          absentCount: absentRecords.length,
-          absentUserIds: absentUsers.map(u => u.id)
+          isHoliday: false,
+          absentCount: result.absentCount,
+          absentUserIds: result.absentUserIds
         }
       });
 

@@ -1,4 +1,5 @@
-const { Attandance, WorkSchedule } = require('../models');
+const { Attandance, WorkSchedule, User, Holiday } = require('../models');
+const { Op } = require('sequelize');
 
 /**
  * Helper function untuk mendapatkan start dan end of day
@@ -63,9 +64,96 @@ const determineFinalStatus = async (clockInTime) => {
     : Attandance.ATTENDANCE_STATUS.ON_TIME;
 };
 
+/**
+ * Core logic untuk auto set absent (reusable)
+ * Digunakan oleh cron job dan admin endpoint
+ * @returns {Object} { absentCount, absentUserIds, isHoliday, holidayDescription }
+ */
+const processAutoSetAbsent = async () => {
+  // Check if today is a holiday
+  const today = new Date();
+  const todayDateOnly = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+  
+  const holiday = await Holiday.findOne({
+    where: {
+      date: todayDateOnly,
+      isActive: true
+    }
+  });
+
+  const { startOfDay, endOfDay } = getTodayRange();
+  
+  // Get all users
+  const allUsers = await User.findAll({
+    attributes: ['id', 'email']
+  });
+  
+  // Get users yang sudah clock-in hari ini
+  const attendedUserIds = await Attandance.findAll({
+    where: {
+      date: {
+        [Op.between]: [startOfDay, endOfDay]
+      }
+    },
+    attributes: ['UserId']
+  });
+  
+  const attendedIds = attendedUserIds.map(a => a.UserId);
+  const usersWithoutRecord = allUsers.filter(user => !attendedIds.includes(user.id));
+  
+  // If it's a holiday, mark as HOLIDAY
+  if (holiday) {
+    if (usersWithoutRecord.length > 0) {
+      await Promise.all(
+        usersWithoutRecord.map(user => 
+          Attandance.create({
+            UserId: user.id,
+            date: new Date(),
+            clockIn: new Date(),
+            clockOut: new Date(),
+            status: Attandance.ATTENDANCE_STATUS.HOLIDAY
+          })
+        )
+      );
+    }
+    
+    return {
+      isHoliday: true,
+      holidayDescription: holiday.description,
+      absentCount: usersWithoutRecord.length,
+      absentUserIds: usersWithoutRecord.map(u => u.id),
+      absentUserEmails: usersWithoutRecord.map(u => u.email)
+    };
+  }
+  
+  // If not a holiday, mark as ABSENT
+  if (usersWithoutRecord.length > 0) {
+    await Promise.all(
+      usersWithoutRecord.map(user => 
+        Attandance.create({
+          UserId: user.id,
+          date: new Date(),
+          clockIn: new Date(),
+          clockOut: new Date(),
+          status: Attandance.ATTENDANCE_STATUS.ABSENT
+        })
+      )
+    );
+  }
+  
+  return {
+    isHoliday: false,
+    holidayDescription: null,
+    absentCount: usersWithoutRecord.length,
+    absentUserIds: usersWithoutRecord.map(u => u.id),
+    absentUserEmails: usersWithoutRecord.map(u => u.email)
+  };
+};
+
 module.exports = {
   getTodayRange,
   calculateWorkDuration,
   isLateClockIn,
-  determineFinalStatus
+  determineFinalStatus,
+  processAutoSetAbsent
 };

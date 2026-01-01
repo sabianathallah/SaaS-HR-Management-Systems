@@ -1,105 +1,26 @@
 const cron = require('node-cron');
-const { Attandance, User, WorkSchedule, Holiday } = require('../models');
-const { Op } = require('sequelize');
-const { getTodayRange } = require('../helpers/attendance');
+const { WorkSchedule } = require('../models');
+const { processAutoSetAbsent } = require('../helpers/attendance');
 
-// Function untuk auto set absent (dengan logging untuk cron job)
+// Function untuk auto set absent dengan logging untuk cron job
 const autoSetAbsent = async () => {
   try {
     console.log('🤖 Running auto set absent job...');
     
-    // Check if today is a holiday
-    const today = new Date();
-    const todayDateOnly = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+    const result = await processAutoSetAbsent();
     
-    const isHoliday = await Holiday.findOne({
-      where: {
-        date: todayDateOnly,
-        isActive: true
+    if (result.isHoliday) {
+      console.log(`🎉 Today is a holiday: ${result.holidayDescription}`);
+      console.log(`✅ ${result.absentCount} users marked as HOLIDAY.`);
+      if (result.absentCount > 0) {
+        console.log(`📋 Holiday marked users:`, result.absentUserEmails);
       }
-    });
-
-    if (isHoliday) {
-      console.log(`🎉 Today is a holiday: ${isHoliday.description}`);
-      console.log('⏭️  Skipping auto set absent for holiday.');
-      
-      // Mark all users as HOLIDAY
-      const allUsers = await User.findAll({
-        attributes: ['id', 'email']
-      });
-
-      const { startOfDay, endOfDay } = getTodayRange();
-      
-      // Check which users don't have attendance record today
-      const attendedUserIds = await Attandance.findAll({
-        where: {
-          date: {
-            [Op.between]: [startOfDay, endOfDay]
-          }
-        },
-        attributes: ['UserId']
-      });
-      
-      const attendedIds = attendedUserIds.map(a => a.UserId);
-      const usersWithoutRecord = allUsers.filter(user => !attendedIds.includes(user.id));
-      
-      // Create HOLIDAY records for users without attendance
-      if (usersWithoutRecord.length > 0) {
-        await Promise.all(
-          usersWithoutRecord.map(user => 
-            Attandance.create({
-              UserId: user.id,
-              date: new Date(),
-              clockIn: new Date(),
-              clockOut: new Date(),
-              status: Attandance.ATTENDANCE_STATUS.HOLIDAY
-            })
-          )
-        );
-        console.log(`✅ ${usersWithoutRecord.length} users marked as HOLIDAY.`);
-      }
-      
       return;
     }
-
-    const { startOfDay, endOfDay } = getTodayRange();
     
-    // Get all users
-    const allUsers = await User.findAll({
-      attributes: ['id', 'email']
-    });
-    
-    // Get users yang sudah clock-in hari ini
-    const attendedUserIds = await Attandance.findAll({
-      where: {
-        date: {
-          [Op.between]: [startOfDay, endOfDay]
-        }
-      },
-      attributes: ['UserId']
-    });
-    
-    const attendedIds = attendedUserIds.map(a => a.UserId);
-    
-    // Filter users yang belum clock-in
-    const absentUsers = allUsers.filter(user => !attendedIds.includes(user.id));
-    
-    // Create absent records for users yang tidak hadir
-    if (absentUsers.length > 0) {
-      await Promise.all(
-        absentUsers.map(user => 
-          Attandance.create({
-            UserId: user.id,
-            date: new Date(),
-            clockIn: new Date(),
-            clockOut: new Date(),
-            status: Attandance.ATTENDANCE_STATUS.ABSENT
-          })
-        )
-      );
-      
-      console.log(`✅ Auto set absent completed. ${absentUsers.length} users marked as absent.`);
-      console.log(`📋 Absent users:`, absentUsers.map(u => u.email));
+    if (result.absentCount > 0) {
+      console.log(`✅ Auto set absent completed. ${result.absentCount} users marked as absent.`);
+      console.log(`📋 Absent users:`, result.absentUserEmails);
     } else {
       console.log('✅ All users have clocked in today. No absent records created.');
     }
