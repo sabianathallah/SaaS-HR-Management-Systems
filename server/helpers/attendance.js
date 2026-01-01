@@ -67,7 +67,7 @@ const determineFinalStatus = async (clockInTime) => {
 /**
  * Core logic untuk auto set absent (reusable)
  * Digunakan oleh cron job dan admin endpoint
- * @returns {Object} { absentCount, absentUserIds, isHoliday, holidayDescription }
+ * @returns {Object} { absentCount, absentUserIds, isHoliday, holidayDescription, workScheduleId, holidayId }
  */
 const processAutoSetAbsent = async () => {
   // Check if today is a holiday
@@ -79,6 +79,11 @@ const processAutoSetAbsent = async () => {
       date: todayDateOnly,
       isActive: true
     }
+  });
+
+  // Get active work schedule
+  const workSchedule = await WorkSchedule.findOne({
+    where: { isActive: true }
   });
 
   const { startOfDay, endOfDay } = getTodayRange();
@@ -108,6 +113,8 @@ const processAutoSetAbsent = async () => {
         usersWithoutRecord.map(user => 
           Attandance.create({
             UserId: user.id,
+            WorkScheduleId: workSchedule ? workSchedule.id : null,
+            HolidayId: holiday.id, // Save reference to holiday
             date: new Date(),
             clockIn: new Date(),
             clockOut: new Date(),
@@ -120,6 +127,8 @@ const processAutoSetAbsent = async () => {
     return {
       isHoliday: true,
       holidayDescription: holiday.description,
+      holidayId: holiday.id,
+      workScheduleId: workSchedule ? workSchedule.id : null,
       absentCount: usersWithoutRecord.length,
       absentUserIds: usersWithoutRecord.map(u => u.id),
       absentUserEmails: usersWithoutRecord.map(u => u.email)
@@ -132,6 +141,8 @@ const processAutoSetAbsent = async () => {
       usersWithoutRecord.map(user => 
         Attandance.create({
           UserId: user.id,
+          WorkScheduleId: workSchedule ? workSchedule.id : null,
+          HolidayId: null,
           date: new Date(),
           clockIn: new Date(),
           clockOut: new Date(),
@@ -144,6 +155,8 @@ const processAutoSetAbsent = async () => {
   return {
     isHoliday: false,
     holidayDescription: null,
+    holidayId: null,
+    workScheduleId: workSchedule ? workSchedule.id : null,
     absentCount: usersWithoutRecord.length,
     absentUserIds: usersWithoutRecord.map(u => u.id),
     absentUserEmails: usersWithoutRecord.map(u => u.email)

@@ -21,7 +21,23 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
-      // define association here
+      // Attendance belongs to User
+      Attandance.belongsTo(models.User, { 
+        foreignKey: 'UserId',
+        as: 'User'
+      });
+
+      // Attendance belongs to WorkSchedule
+      Attandance.belongsTo(models.WorkSchedule, { 
+        foreignKey: 'WorkScheduleId',
+        as: 'WorkSchedule'
+      });
+
+      // Attendance belongs to Holiday (only when status = HOLIDAY)
+      Attandance.belongsTo(models.Holiday, { 
+        foreignKey: 'HolidayId',
+        as: 'Holiday'
+      });
     }
   }
   Attandance.init({
@@ -34,6 +50,26 @@ module.exports = (sequelize, DataTypes) => {
       },
       onUpdate: 'CASCADE',
       onDelete: 'CASCADE'
+    },
+    WorkScheduleId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'WorkSchedules',
+        key: 'id'
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL'
+    },
+    HolidayId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'Holidays',
+        key: 'id'
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL'
     },
     date: {
       type: DataTypes.DATE,

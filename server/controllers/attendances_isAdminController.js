@@ -137,9 +137,26 @@ class AttendanceAdminController {
         });
       }
 
+      // Get active work schedule
+      const workSchedule = await WorkSchedule.findOne({
+        where: { isActive: true }
+      });
+
+      // Check if date is a holiday
+      const targetDate = new Date(date);
+      const targetDateOnly = targetDate.toISOString().split('T')[0];
+      const holiday = await Holiday.findOne({
+        where: {
+          date: targetDateOnly,
+          isActive: true
+        }
+      });
+
       // Create manual attendance
       const manualAttendance = await Attandance.create({
         UserId: userId,
+        WorkScheduleId: workSchedule ? workSchedule.id : null,
+        HolidayId: (status === Attandance.ATTENDANCE_STATUS.HOLIDAY && holiday) ? holiday.id : null,
         date: new Date(date),
         clockIn: new Date(clockIn),
         clockOut: new Date(clockOut),

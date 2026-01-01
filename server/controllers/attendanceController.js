@@ -1,4 +1,4 @@
-const { Attandance, User } = require('../models');
+const { Attandance, User, WorkSchedule } = require('../models');
 const { Op } = require('sequelize');
 const { 
   getTodayRange, 
@@ -31,10 +31,17 @@ class AttendanceController {
         });
       }
       
+      // Get active work schedule
+      const workSchedule = await WorkSchedule.findOne({
+        where: { isActive: true }
+      });
+      
       // Jika belum, buat attendance baru
       const now = new Date();
       const newAttendance = await Attandance.create({
         UserId: userId,
+        WorkScheduleId: workSchedule ? workSchedule.id : null, // Save reference to work schedule
+        HolidayId: null, // Not a holiday
         date: now,
         clockIn: now,
         clockOut: now, // Default value, akan diupdate saat clock-out
