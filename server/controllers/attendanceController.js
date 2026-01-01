@@ -1,13 +1,10 @@
-const { Attandance } = require('../models');
+const { Attandance, User } = require('../models');
 const { Op } = require('sequelize');
-
-// Helper function untuk mendapatkan start dan end of day
-const getTodayRange = () => {
-  const today = new Date();
-  const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-  const endOfDay = new Date(today.setHours(23, 59, 59, 999));
-  return { startOfDay, endOfDay };
-};
+const { 
+  getTodayRange, 
+  calculateWorkDuration, 
+  determineFinalStatus 
+} = require('../helpers/attendance');
 
 class AttendanceController {
 
@@ -87,13 +84,21 @@ class AttendanceController {
         });
       }
       
-      // Update record dengan clock-out time
-      attendance.clockOut = new Date();
+      // Update record dengan clock-out time dan status final
+      const clockOutTime = new Date();
+      attendance.clockOut = clockOutTime;
+      attendance.status = determineFinalStatus(attendance.clockIn);
       await attendance.save();
+      
+      // Hitung durasi kerja
+      const workDuration = calculateWorkDuration(attendance.clockIn, clockOutTime);
       
       res.status(200).json({ 
         message: "Clock-out successful",
-        data: attendance
+        data: {
+          ...attendance.toJSON(),
+          workDurationHours: workDuration
+        }
       });
 
     } catch (error) {
@@ -113,6 +118,97 @@ class AttendanceController {
       res.status(200).json({ 
         message: "My attendance records",
         data: attendances
+      });
+
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getTodayAttendance(req, res, next) {
+    try {
+      const userId = req.user.id;
+      const { startOfDay, endOfDay } = getTodayRange();
+      
+      const attendance = await Attandance.findOne({
+        where: {
+          UserId: userId,
+          date: {
+            [Op.between]: [startOfDay, endOfDay]
+          }
+        }
+      });
+      
+      if (!attendance) {
+        return res.status(200).json({ 
+          message: "No attendance record for today",
+          data: null
+        });
+      }
+
+      // Hitung durasi jika sudah clock-out
+      let workDuration = null;
+      if (attendance.status !== Attandance.ATTENDANCE_STATUS.ON_PROGRESS) {
+        workDuration = calculateWorkDuration(attendance.clockIn, attendance.clockOut);
+      }
+      
+      res.status(200).json({ 
+        message: "Today's attendance record",
+        data: {
+          ...attendance.toJSON(),
+          workDurationHours: workDuration
+        }
+      });
+
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Method untuk auto set absent (dipanggil oleh cron job atau scheduler)
+  static async autoSetAbsent(req, res, next) {
+    try {
+      const { startOfDay, endOfDay } = getTodayRange();
+      
+      // Get all users
+      const allUsers = await User.findAll({
+        attributes: ['id']
+      });
+      
+      // Get users yang sudah clock-in hari ini
+      const attendedUserIds = await Attandance.findAll({
+        where: {
+          date: {
+            [Op.between]: [startOfDay, endOfDay]
+          }
+        },
+        attributes: ['UserId']
+      });
+      
+      const attendedIds = attendedUserIds.map(a => a.UserId);
+      
+      // Filter users yang belum clock-in
+      const absentUsers = allUsers.filter(user => !attendedIds.includes(user.id));
+      
+      // Create absent records for users yang tidak hadir
+      const absentRecords = await Promise.all(
+        absentUsers.map(user => 
+          Attandance.create({
+            UserId: user.id,
+            date: new Date(),
+            clockIn: new Date(),
+            clockOut: new Date(),
+            status: Attandance.ATTENDANCE_STATUS.ABSENT
+          })
+        )
+      );
+      
+      res.status(200).json({ 
+        message: `Auto set absent completed. ${absentRecords.length} users marked as absent.`,
+        data: {
+          absentCount: absentRecords.length,
+          absentUserIds: absentUsers.map(u => u.id)
+        }
       });
 
     } catch (error) {

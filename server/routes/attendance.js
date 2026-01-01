@@ -5,7 +5,10 @@ const isAdmin = require("../middlewares/authorization");
 
 // for admin only
 router.get("/all-attendance", isAdmin, AttendanceController.getAllAttendance);
+router.post("/auto-set-absent", isAdmin, AttendanceController.autoSetAbsent);
+router.get("/today-attendance", isAdmin, AttendanceController.getTodayAttendance);
 
+// for authenticated users
 router.post("/clock-in", AttendanceController.clockIn);
 router.post("/clock-out", AttendanceController.clockOut);
 router.get("/my-attendance", AttendanceController.getMyAttendance);
