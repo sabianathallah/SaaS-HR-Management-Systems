@@ -1,10 +1,13 @@
 const { Attandance } = require('../models');
 const { Op } = require('sequelize');
 
-// Mendapatkan tanggal hari ini (start dan end of day)
-const today = new Date();
-const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+// Helper function untuk mendapatkan start dan end of day
+const getTodayRange = () => {
+  const today = new Date();
+  const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+  const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+  return { startOfDay, endOfDay };
+};
 
 class AttendanceController {
 
@@ -23,6 +26,7 @@ class AttendanceController {
   static async clockIn(req, res, next) {
     try {
       const userId = req.user.id;
+      const { startOfDay, endOfDay } = getTodayRange();
       
       // Cek apakah user sudah clock-in hari ini
       const existingAttendance = await Attandance.findOne({
@@ -64,6 +68,7 @@ class AttendanceController {
   static async clockOut(req, res, next) {
     try {
       const userId = req.user.id;
+      const { startOfDay, endOfDay } = getTodayRange();
       
       // Cari attendance hari ini
       const attendance = await Attandance.findOne({
