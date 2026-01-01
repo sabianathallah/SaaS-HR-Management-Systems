@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const { Attandance, User } = require('../models');
+const { Attandance, User, WorkSchedule, Holiday } = require('../models');
 const { Op } = require('sequelize');
 const { getTodayRange } = require('../helpers/attendance');
 
@@ -7,6 +7,61 @@ const { getTodayRange } = require('../helpers/attendance');
 const autoSetAbsent = async () => {
   try {
     console.log('🤖 Running auto set absent job...');
+    
+    // Check if today is a holiday
+    const today = new Date();
+    const todayDateOnly = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+    
+    const isHoliday = await Holiday.findOne({
+      where: {
+        date: todayDateOnly,
+        isActive: true
+      }
+    });
+
+    if (isHoliday) {
+      console.log(`🎉 Today is a holiday: ${isHoliday.description}`);
+      console.log('⏭️  Skipping auto set absent for holiday.');
+      
+      // Mark all users as HOLIDAY
+      const allUsers = await User.findAll({
+        attributes: ['id', 'email']
+      });
+
+      const { startOfDay, endOfDay } = getTodayRange();
+      
+      // Check which users don't have attendance record today
+      const attendedUserIds = await Attandance.findAll({
+        where: {
+          date: {
+            [Op.between]: [startOfDay, endOfDay]
+          }
+        },
+        attributes: ['UserId']
+      });
+      
+      const attendedIds = attendedUserIds.map(a => a.UserId);
+      const usersWithoutRecord = allUsers.filter(user => !attendedIds.includes(user.id));
+      
+      // Create HOLIDAY records for users without attendance
+      if (usersWithoutRecord.length > 0) {
+        await Promise.all(
+          usersWithoutRecord.map(user => 
+            Attandance.create({
+              UserId: user.id,
+              date: new Date(),
+              clockIn: new Date(),
+              clockOut: new Date(),
+              status: Attandance.ATTENDANCE_STATUS.HOLIDAY
+            })
+          )
+        );
+        console.log(`✅ ${usersWithoutRecord.length} users marked as HOLIDAY.`);
+      }
+      
+      return;
+    }
+
     const { startOfDay, endOfDay } = getTodayRange();
     
     // Get all users
@@ -55,23 +110,42 @@ const autoSetAbsent = async () => {
 };
 
 // Setup cron jobs
-const setupCronJobs = () => {
+const setupCronJobs = async () => {
   console.log('⏰ Setting up cron jobs...');
   
-  // Auto set absent setiap hari jam 18:00 (6 PM)
-  cron.schedule('0 18 * * *', () => {
-    console.log('⏰ Cron job triggered at 6 PM');
-    autoSetAbsent();
+  // Get work schedule from database
+  const workSchedule = await WorkSchedule.findOne({
+    where: { isActive: true }
   });
+
+  let autoAbsentTime = '18:00'; // Default fallback
   
-  // Optional: Backup schedule jam 23:00 (11 PM)
-  cron.schedule('0 23 * * *', () => {
-    console.log('⏰ Backup cron job triggered at 11 PM');
+  if (workSchedule) {
+    autoAbsentTime = workSchedule.autoAbsentTime;
+    console.log(`📅 Work Schedule Configuration:`);
+    console.log(`   - Work Start: ${workSchedule.workStartTime}`);
+    console.log(`   - Work End: ${workSchedule.workEndTime}`);
+    console.log(`   - Auto Absent: ${workSchedule.autoAbsentTime}`);
+  } else {
+    console.log('⚠️  No work schedule found in database, using default: 18:00');
+  }
+
+  // Parse hour and minute from autoAbsentTime (format: HH:MM)
+  const [hour, minute] = autoAbsentTime.split(':');
+  
+  // Create cron expression: minute hour * * *
+  const cronExpression = `${minute} ${hour} * * *`;
+  
+  console.log(`⏰ Setting up auto absent cron job with expression: ${cronExpression}`);
+  
+  // Auto set absent based on database configuration
+  cron.schedule(cronExpression, () => {
+    console.log(`⏰ Cron job triggered at ${autoAbsentTime}`);
     autoSetAbsent();
   });
   
   console.log('✅ Cron jobs setup complete');
-  console.log('📅 Schedule: Auto set absent at 6 PM and 11 PM daily');
+  console.log(`📅 Schedule: Auto set absent daily at ${autoAbsentTime}`);
 };
 
 module.exports = { setupCronJobs, autoSetAbsent };

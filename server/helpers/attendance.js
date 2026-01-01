@@ -1,4 +1,4 @@
-const { Attandance } = require('../models');
+const { Attandance, WorkSchedule } = require('../models');
 
 /**
  * Helper function untuk mendapatkan start dan end of day
@@ -28,10 +28,25 @@ const calculateWorkDuration = (clockIn, clockOut) => {
  * @param {Date} clockInTime - Waktu clock-in
  * @returns {Boolean} true jika terlambat, false jika tepat waktu
  */
-const isLateClockIn = (clockInTime) => {
+const isLateClockIn = async (clockInTime) => {
   const clockIn = new Date(clockInTime);
   const workStartTime = new Date(clockIn);
-  workStartTime.setHours(9, 0, 0, 0); // Jam kerja mulai 09:00
+  
+  // Get work start time from database
+  const workSchedule = await WorkSchedule.findOne({
+    where: { isActive: true }
+  });
+  
+  let startHour = 9;
+  let startMinute = 0;
+  
+  if (workSchedule && workSchedule.workStartTime) {
+    const [hour, minute] = workSchedule.workStartTime.split(':');
+    startHour = parseInt(hour);
+    startMinute = parseInt(minute);
+  }
+  
+  workStartTime.setHours(startHour, startMinute, 0, 0);
   
   return clockIn > workStartTime;
 };
@@ -41,8 +56,9 @@ const isLateClockIn = (clockInTime) => {
  * @param {Date} clockInTime - Waktu clock-in
  * @returns {String} Status final (ON_TIME atau LATE)
  */
-const determineFinalStatus = (clockInTime) => {
-  return isLateClockIn(clockInTime) 
+const determineFinalStatus = async (clockInTime) => {
+  const isLate = await isLateClockIn(clockInTime);
+  return isLate 
     ? Attandance.ATTENDANCE_STATUS.LATE 
     : Attandance.ATTENDANCE_STATUS.ON_TIME;
 };
