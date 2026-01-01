@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const AttendanceController = require("../controllers/attendanceController");
-const AttendanceAdminController = require("../controllers/attendances_forAdmin");
+const AttendanceAdminController = require("../controllers/attendances_isAdminController");
 const isAdmin = require("../middlewares/authorization");
 
 // ===== ADMIN ONLY ROUTES =====
