@@ -20,16 +20,28 @@ module.exports = {
         onDelete: 'CASCADE'
       },
       date: {
-        type: Sequelize.DATE
+        type: Sequelize.DATE,
+        allowNull: false
       },
       clockIn: {
-        type: Sequelize.DATE
+        type: Sequelize.DATE,
+        allowNull: false
       },
       clockOut: {
-        type: Sequelize.DATE
+        type: Sequelize.DATE,
+        allowNull: false
       },
       status: {
-        type: Sequelize.STRING
+        type: Sequelize.ENUM(
+          'ON_PROGRESS',  // Sedang bekerja
+          'ON_TIME',      // Hadir tepat waktu
+          'LATE',         // Hadir terlambat
+          'ABSENT',       // Tidak hadir
+          'LEAVE',        // Cuti
+          'HOLIDAY'       // Libur nasional
+        ),
+        allowNull: false,
+        defaultValue: 'ON_PROGRESS'
       },
       createdAt: {
         allowNull: false,

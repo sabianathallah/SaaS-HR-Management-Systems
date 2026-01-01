@@ -9,7 +9,7 @@ const isAdmin = async (req, res, next) => {
         const user = await User.findByPk(userIdFromToken)
         if (!user) throw { name: 'Unauthorized' }
 
-        if (user.role !== 'admin') throw { name: 'Forbidden' }
+        if (user.role !== 'ADMIN') throw { name: 'Forbidden' }
 
         next()
     } catch (err) {

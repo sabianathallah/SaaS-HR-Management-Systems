@@ -5,14 +5,14 @@
     "date": "2025-12-29",
     "clockIn": "2025-12-29T08:02:15+07:00",
     "clockOut": "2025-12-29T17:05:30+07:00",
-    "status": "DONE"
+    "status": "ON_TIME"
   },
   {
     "id": 2,
     "UserId": 2,
     "date": "2025-12-30",
     "clockIn": "2025-12-30T08:10:05+07:00",
-    "clockOut": null,
+    "clockOut": "2025-12-30T17:00:00+07:00",
     "status": "ON_PROGRESS"
   },
   {

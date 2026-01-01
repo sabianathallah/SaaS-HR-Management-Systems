@@ -6,6 +6,8 @@ const { hashPassword } = require('../helpers/bcrypt');
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up (queryInterface, Sequelize) {
+   // Reset sequence ke 1 sebelum insert
+   await queryInterface.sequelize.query('ALTER SEQUENCE "Users_id_seq" RESTART WITH 1;');
 
    const user = JSON.parse(await fs.readFile('./data/users.json', 'utf-8')).map( el => {
     delete el.id

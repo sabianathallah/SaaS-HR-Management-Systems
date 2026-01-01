@@ -13,7 +13,7 @@ router.post('/login', LoginController.login)
 router.post('/register', LoginController.register)
 
 router.use(authentication)
-// router.use('/attandances', attandanceRouter)
+router.use('/attendances', attandanceRouter)
 
 router.use(errorHandler)
 
