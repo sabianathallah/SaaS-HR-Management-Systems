@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 
-const attandanceRouter = require('./attandance')
+const attandanceRouter = require('./attendance')
 
 const authentication = require('../middlewares/authentication')
 const authorization = require('../middlewares/authorization')
