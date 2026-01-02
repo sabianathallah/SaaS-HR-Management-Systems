@@ -23,20 +23,17 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       // Attendance belongs to User
       Attandance.belongsTo(models.User, { 
-        foreignKey: 'UserId',
-        as: 'User'
+        foreignKey: 'UserId'
       });
 
       // Attendance belongs to WorkSchedule
       Attandance.belongsTo(models.WorkSchedule, { 
-        foreignKey: 'WorkScheduleId',
-        as: 'WorkSchedule'
+        foreignKey: 'WorkScheduleId'
       });
 
       // Attendance belongs to Holiday (only when status = HOLIDAY)
       Attandance.belongsTo(models.Holiday, { 
-        foreignKey: 'HolidayId',
-        as: 'Holiday'
+        foreignKey: 'HolidayId'
       });
     }
   }

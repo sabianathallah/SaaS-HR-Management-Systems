@@ -27,6 +27,14 @@ router.get("/work-schedule", AttendanceAdminController.getWorkSchedule);
 // ENDPOINT #4: Admin manage holidays
 router.post("/holiday", AttendanceAdminController.addHoliday);
 router.delete("/holiday/:id", AttendanceAdminController.deleteHoliday);
-router.get("/holidays", AttendanceAdminController.getAllHolidays);
+router.get("/holiday", AttendanceAdminController.getAllHolidays);
+// tambahan endpoint untuk mengupdate holiday
+router.put("/holiday/:id", AttendanceAdminController.updateHoliday);
+
+// ENDPOINT #5: Admin get employee statistics (specific employee)
+router.get("/employee-statistics/:userId", AttendanceAdminController.getEmployeeStatistics);
+
+// ENDPOINT #6: Admin get all employees statistics
+router.get("/all-statistics", AttendanceAdminController.getAllEmployeesStatistics);
 
 module.exports = router;

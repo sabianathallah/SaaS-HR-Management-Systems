@@ -16,8 +16,8 @@ router.post('/login', LoginController.login)
 router.post('/register', authentication, isAdmin, RegisterController.register)
 
 router.use(authentication)
-router.use('/attendances', attandanceRouter)
 router.use('/attendances/admin', isAdmin, attandance_isAdminRouter)
+router.use('/attendances', attandanceRouter)
 
 
 router.use(errorHandler)

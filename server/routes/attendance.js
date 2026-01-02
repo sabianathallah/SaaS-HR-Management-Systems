@@ -16,4 +16,7 @@ router.get("/my-attendance", AttendanceController.getMyAttendance);
 // Employee - Get today's attendance (own record)
 router.get("/today-attendance", AttendanceController.getTodayAttendance);
 
+// Employee - Get my attendance statistics (monthly)
+router.get("/my-statistics", AttendanceController.getMyStatistics);
+
 module.exports = router;

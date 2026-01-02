@@ -3,7 +3,8 @@ const { Op } = require('sequelize');
 const { 
   getTodayRange, 
   calculateWorkDuration, 
-  determineFinalStatus 
+  determineFinalStatus,
+  calculateAttendanceStatistics
 } = require('../helpers/attendance');
 
 class AttendanceController {
@@ -154,6 +155,42 @@ class AttendanceController {
           ...attendance.toJSON(),
           workDurationHours: workDuration
         }
+      });
+
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Get my attendance statistics
+  static async getMyStatistics(req, res, next) {
+    try {
+      const userId = req.user.id;
+      const { month, year } = req.query;
+
+      // Validate month and year
+      const currentDate = new Date();
+      const targetMonth = month ? parseInt(month) : currentDate.getMonth() + 1;
+      const targetYear = year ? parseInt(year) : currentDate.getFullYear();
+
+      if (targetMonth < 1 || targetMonth > 12) {
+        return res.status(400).json({
+          message: "Invalid month. Must be between 1 and 12"
+        });
+      }
+
+      if (targetYear < 2000 || targetYear > 2100) {
+        return res.status(400).json({
+          message: "Invalid year"
+        });
+      }
+
+      // Get statistics
+      const statistics = await calculateAttendanceStatistics(userId, targetMonth, targetYear);
+
+      res.status(200).json({
+        message: "My attendance statistics",
+        data: statistics
       });
 
     } catch (error) {

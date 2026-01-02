@@ -163,10 +163,106 @@ const processAutoSetAbsent = async () => {
   };
 };
 
+/**
+ * Helper function untuk menghitung statistik attendance
+ * @param {Number} userId - ID user yang akan dihitung statistiknya
+ * @param {Number} month - Bulan (1-12)
+ * @param {Number} year - Tahun
+ * @returns {Object} Statistics data
+ */
+const calculateAttendanceStatistics = async (userId, month, year) => {
+  // Set date range untuk bulan tersebut
+  const startDate = new Date(year, month - 1, 1); // month - 1 karena JS month 0-indexed
+  const endDate = new Date(year, month, 0, 23, 59, 59, 999); // Day 0 = hari terakhir bulan sebelumnya
+  
+  // Get all attendance records untuk user di bulan tersebut
+  const attendances = await Attandance.findAll({
+    where: {
+      UserId: userId,
+      date: {
+        [Op.between]: [startDate, endDate]
+      }
+    },
+    order: [['date', 'ASC']]
+  });
+
+  // Initialize counters
+  let onTimeCount = 0;
+  let lateCount = 0;
+  let absentCount = 0;
+  let leaveCount = 0;
+  let holidayCount = 0;
+  let totalWorkHours = 0;
+
+  // Count by status dan hitung total jam kerja
+  attendances.forEach(att => {
+    switch (att.status) {
+      case Attandance.ATTENDANCE_STATUS.ON_TIME:
+        onTimeCount++;
+        if (att.clockIn && att.clockOut) {
+          totalWorkHours += calculateWorkDuration(att.clockIn, att.clockOut);
+        }
+        break;
+      case Attandance.ATTENDANCE_STATUS.LATE:
+        lateCount++;
+        if (att.clockIn && att.clockOut) {
+          totalWorkHours += calculateWorkDuration(att.clockIn, att.clockOut);
+        }
+        break;
+      case Attandance.ATTENDANCE_STATUS.ABSENT:
+        absentCount++;
+        break;
+      case Attandance.ATTENDANCE_STATUS.LEAVE:
+        leaveCount++;
+        break;
+      case Attandance.ATTENDANCE_STATUS.HOLIDAY:
+        holidayCount++;
+        break;
+    }
+  });
+
+  // Hitung total hari kerja (tidak termasuk holiday)
+  const totalPresent = onTimeCount + lateCount;
+  const totalWorkDays = totalPresent + absentCount + leaveCount; // Exclude holidays
+  
+  // Hitung persentase kehadiran (tidak termasuk holiday dan leave)
+  const effectiveWorkDays = totalPresent + absentCount; // Days that should be worked
+  const attendanceRate = effectiveWorkDays > 0 
+    ? ((totalPresent / effectiveWorkDays) * 100).toFixed(2) 
+    : 0;
+
+  return {
+    month,
+    year,
+    summary: {
+      totalRecords: attendances.length,
+      totalPresent: totalPresent, // ON_TIME + LATE
+      onTime: onTimeCount,
+      late: lateCount,
+      absent: absentCount,
+      leave: leaveCount,
+      holiday: holidayCount,
+      totalWorkHours: parseFloat(totalWorkHours.toFixed(2)),
+      attendanceRate: parseFloat(attendanceRate), // Persentase kehadiran (exclude holiday & leave)
+      totalWorkDays: totalWorkDays // Total hari yang seharusnya kerja (exclude holiday)
+    },
+    details: attendances.map(att => ({
+      date: att.date,
+      clockIn: att.clockIn,
+      clockOut: att.clockOut,
+      status: att.status,
+      workHours: (att.clockIn && att.clockOut) 
+        ? calculateWorkDuration(att.clockIn, att.clockOut) 
+        : 0
+    }))
+  };
+};
+
 module.exports = {
   getTodayRange,
   calculateWorkDuration,
   isLateClockIn,
   determineFinalStatus,
-  processAutoSetAbsent
+  processAutoSetAbsent,
+  calculateAttendanceStatistics
 };
