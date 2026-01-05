@@ -14,6 +14,10 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       User.hasMany(models.Attandance, { foreignKey: 'UserId', onDelete: 'CASCADE' });
+      User.hasMany(models.LeaveRequest, { foreignKey: 'UserId', as: 'leaveRequests', onDelete: 'CASCADE' });
+      User.hasMany(models.LeaveRequest, { foreignKey: 'approvedBy', as: 'approvedLeaves', onDelete: 'SET NULL' });
+      User.hasMany(models.Overtime, { foreignKey: 'UserId', as: 'overtimeRequests', onDelete: 'CASCADE' });
+      User.hasMany(models.Overtime, { foreignKey: 'approvedBy', as: 'approvedOvertimes', onDelete: 'SET NULL' });
     }
   }
   User.init({
@@ -56,6 +60,58 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: 'employee',
       notEmpty: {
         msg: 'Role cannot be empty'
+      }
+    },
+    annualLeaveQuota: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 12,
+      validate: {
+        min: {
+          args: [0],
+          msg: 'Annual leave quota cannot be negative'
+        }
+      }
+    },
+    usedLeaveQuota: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      validate: {
+        min: {
+          args: [0],
+          msg: 'Used leave quota cannot be negative'
+        }
+      }
+    },
+    remainingLeaveQuota: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return this.annualLeaveQuota - this.usedLeaveQuota;
+      }
+    },
+    isActive: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true
+    },
+    joinDate: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    leaveDate: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      validate: {
+        isAfterJoinDate(value) {
+          if (value && this.joinDate) {
+            const leaveDateTime = new Date(value).getTime();
+            const joinDateTime = new Date(this.joinDate).getTime();
+            if (leaveDateTime <= joinDateTime) {
+              throw new Error('Leave date must be after join date');
+            }
+          }
+        }
       }
     }
   }, {

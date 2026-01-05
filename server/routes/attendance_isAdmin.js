@@ -37,4 +37,7 @@ router.get("/employee-statistics/:userId", AttendanceAdminController.getEmployee
 // ENDPOINT #6: Admin get all employees statistics
 router.get("/all-statistics", AttendanceAdminController.getAllEmployeesStatistics);
 
+// ENDPOINT #7: Admin get attendance summary with period filter (daily, weekly, monthly, custom)
+router.get("/summary", AttendanceAdminController.getAttendanceSummary);
+
 module.exports = router;

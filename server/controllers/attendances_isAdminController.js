@@ -1,6 +1,11 @@
 const { Attandance, User, WorkSchedule, Holiday } = require('../models');
 const { Op } = require('sequelize');
-const { getTodayRange, processAutoSetAbsent, calculateAttendanceStatistics } = require('../helpers/attendance');
+const { 
+  getTodayRange, 
+  processAutoSetAbsent, 
+  calculateAttendanceStatistics,
+  calculateAttendanceSummaryByPeriod 
+} = require('../helpers/attendance');
 
 class AttendanceAdminController {
 
@@ -543,6 +548,155 @@ class AttendanceAdminController {
         year: targetYear,
         overall: overallStats,
         employees: allStatistics
+      });
+
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get attendance summary with flexible period filter
+   * Admin can see summary for all users or specific user
+   * GET /attendances/admin/summary
+   * Query params: period, userId, month, year, week, startDate, endDate
+   */
+  static async getAttendanceSummary(req, res, next) {
+    try {
+      const { period, userId, month, year, week, startDate, endDate } = req.query;
+
+      // Default to monthly if no period specified
+      const periodType = period || 'monthly';
+
+      // Validate period
+      const validPeriods = ['daily', 'weekly', 'monthly', 'custom'];
+      if (!validPeriods.includes(periodType)) {
+        return res.status(400).json({
+          message: `Invalid period. Must be one of: ${validPeriods.join(', ')}`
+        });
+      }
+
+      // Validate custom period
+      if (periodType === 'custom' && (!startDate || !endDate)) {
+        return res.status(400).json({
+          message: "For custom period, both startDate and endDate are required (format: YYYY-MM-DD)"
+        });
+      }
+
+      // Prepare options
+      const options = {
+        month: month ? parseInt(month) : undefined,
+        year: year ? parseInt(year) : undefined,
+        week: week ? parseInt(week) : undefined,
+        startDate,
+        endDate
+      };
+
+      // Validate month
+      if (options.month && (options.month < 1 || options.month > 12)) {
+        return res.status(400).json({
+          message: "Invalid month. Must be between 1 and 12"
+        });
+      }
+
+      // Validate year
+      if (options.year && (options.year < 2000 || options.year > 2100)) {
+        return res.status(400).json({
+          message: "Invalid year. Must be between 2000 and 2100"
+        });
+      }
+
+      // Validate week
+      if (options.week && (options.week < 1 || options.week > 53)) {
+        return res.status(400).json({
+          message: "Invalid week. Must be between 1 and 53"
+        });
+      }
+
+      // If userId is provided, get summary for that user only
+      if (userId) {
+        const user = await User.findByPk(userId);
+        if (!user) {
+          return res.status(404).json({
+            message: "User not found"
+          });
+        }
+
+        const statistics = await calculateAttendanceSummaryByPeriod(userId, periodType, options);
+
+        return res.status(200).json({
+          message: "Attendance summary for user",
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email
+          },
+          data: statistics
+        });
+      }
+
+      // If no userId, get summary for all users
+      const allUsers = await User.findAll({
+        attributes: ['id', 'name', 'email'],
+        where: {
+          role: 'Employee' // Only get employees
+        }
+      });
+
+      if (allUsers.length === 0) {
+        return res.status(200).json({
+          message: "No employees found",
+          data: {
+            overall: null,
+            employees: []
+          }
+        });
+      }
+
+      // Get summary for all users
+      const allSummaries = await Promise.all(
+        allUsers.map(async (user) => {
+          const summary = await calculateAttendanceSummaryByPeriod(user.id, periodType, options);
+          return {
+            user: {
+              id: user.id,
+              name: user.name,
+              email: user.email
+            },
+            summary: summary.summary
+          };
+        })
+      );
+
+      // Calculate overall statistics
+      const totalEmployees = allSummaries.length;
+      const overallStats = {
+        totalEmployees,
+        totalPresent: allSummaries.reduce((sum, s) => sum + s.summary.totalPresent, 0),
+        totalOnTime: allSummaries.reduce((sum, s) => sum + s.summary.onTime, 0),
+        totalLate: allSummaries.reduce((sum, s) => sum + s.summary.late, 0),
+        totalAbsent: allSummaries.reduce((sum, s) => sum + s.summary.absent, 0),
+        totalLeave: allSummaries.reduce((sum, s) => sum + s.summary.leave, 0),
+        totalSickLeave: allSummaries.reduce((sum, s) => sum + s.summary.sickLeave, 0),
+        totalPermission: allSummaries.reduce((sum, s) => sum + s.summary.permission, 0),
+        totalHoliday: allSummaries.reduce((sum, s) => sum + s.summary.holiday, 0),
+        totalWorkHours: parseFloat(
+          allSummaries.reduce((sum, s) => sum + s.summary.totalWorkHours, 0).toFixed(2)
+        ),
+        averageAttendanceRate: parseFloat(
+          (allSummaries.reduce((sum, s) => sum + parseFloat(s.summary.attendanceRate), 0) / totalEmployees).toFixed(2)
+        )
+      };
+
+      // Get one sample summary for period info
+      const sampleSummary = await calculateAttendanceSummaryByPeriod(allUsers[0].id, periodType, options);
+
+      res.status(200).json({
+        message: "Attendance summary for all employees",
+        period: sampleSummary.period,
+        dateRange: sampleSummary.dateRange,
+        overall: overallStats,
+        employees: allSummaries
       });
 
     } catch (error) {

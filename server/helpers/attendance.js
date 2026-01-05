@@ -191,6 +191,8 @@ const calculateAttendanceStatistics = async (userId, month, year) => {
   let lateCount = 0;
   let absentCount = 0;
   let leaveCount = 0;
+  let sickLeaveCount = 0;
+  let permissionCount = 0;
   let holidayCount = 0;
   let totalWorkHours = 0;
 
@@ -215,6 +217,12 @@ const calculateAttendanceStatistics = async (userId, month, year) => {
       case Attandance.ATTENDANCE_STATUS.LEAVE:
         leaveCount++;
         break;
+      case Attandance.ATTENDANCE_STATUS.SICK_LEAVE:
+        sickLeaveCount++;
+        break;
+      case Attandance.ATTENDANCE_STATUS.PERMISSION:
+        permissionCount++;
+        break;
       case Attandance.ATTENDANCE_STATUS.HOLIDAY:
         holidayCount++;
         break;
@@ -222,10 +230,10 @@ const calculateAttendanceStatistics = async (userId, month, year) => {
   });
 
   // Hitung total hari kerja (tidak termasuk holiday)
-  const totalPresent = onTimeCount + lateCount;
-  const totalWorkDays = totalPresent + absentCount + leaveCount; // Exclude holidays
+  const totalPresent = onTimeCount + lateCount + permissionCount; // Permission count as present
+  const totalWorkDays = totalPresent + absentCount + leaveCount + sickLeaveCount; // Exclude holidays
   
-  // Hitung persentase kehadiran (tidak termasuk holiday dan leave)
+  // Hitung persentase kehadiran (tidak termasuk holiday, leave, dan sick leave)
   const effectiveWorkDays = totalPresent + absentCount; // Days that should be worked
   const attendanceRate = effectiveWorkDays > 0 
     ? ((totalPresent / effectiveWorkDays) * 100).toFixed(2) 
@@ -236,17 +244,239 @@ const calculateAttendanceStatistics = async (userId, month, year) => {
     year,
     summary: {
       totalRecords: attendances.length,
-      totalPresent: totalPresent, // ON_TIME + LATE
+      totalPresent: totalPresent, // ON_TIME + LATE + PERMISSION
       onTime: onTimeCount,
       late: lateCount,
       absent: absentCount,
       leave: leaveCount,
+      sickLeave: sickLeaveCount,
+      permission: permissionCount,
       holiday: holidayCount,
       totalWorkHours: parseFloat(totalWorkHours.toFixed(2)),
-      attendanceRate: parseFloat(attendanceRate), // Persentase kehadiran (exclude holiday & leave)
+      attendanceRate: parseFloat(attendanceRate), // Persentase kehadiran (exclude holiday, leave, sick leave)
       totalWorkDays: totalWorkDays // Total hari yang seharusnya kerja (exclude holiday)
     },
     details: attendances.map(att => ({
+      date: att.date,
+      clockIn: att.clockIn,
+      clockOut: att.clockOut,
+      status: att.status,
+      workHours: (att.clockIn && att.clockOut) 
+        ? calculateWorkDuration(att.clockIn, att.clockOut) 
+        : 0
+    }))
+  };
+};
+
+/**
+ * Get date range for different period types
+ * @param {String} period - 'daily', 'weekly', 'monthly', 'custom'
+ * @param {String} startDate - For custom range (YYYY-MM-DD)
+ * @param {String} endDate - For custom range (YYYY-MM-DD)
+ * @param {Number} month - For monthly (1-12)
+ * @param {Number} year - For monthly and weekly
+ * @param {Number} week - For weekly (1-52)
+ * @returns {Object} { startDate, endDate, periodLabel }
+ */
+const getDateRangeForPeriod = (period, options = {}) => {
+  const { startDate, endDate, month, year, week } = options;
+  const now = new Date();
+  
+  let start, end, periodLabel;
+
+  switch (period) {
+    case 'daily':
+      start = new Date();
+      start.setHours(0, 0, 0, 0);
+      end = new Date();
+      end.setHours(23, 59, 59, 999);
+      periodLabel = `Daily - ${start.toISOString().split('T')[0]}`;
+      break;
+
+    case 'weekly':
+      const targetYear = year || now.getFullYear();
+      const targetWeek = week || getWeekNumber(now);
+      
+      // Get first day of year
+      const firstDayOfYear = new Date(targetYear, 0, 1);
+      const daysOffset = (targetWeek - 1) * 7;
+      
+      start = new Date(firstDayOfYear);
+      start.setDate(firstDayOfYear.getDate() + daysOffset);
+      // Adjust to Monday
+      const dayOfWeek = start.getDay();
+      const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      start.setDate(start.getDate() + diffToMonday);
+      start.setHours(0, 0, 0, 0);
+      
+      end = new Date(start);
+      end.setDate(start.getDate() + 6); // Sunday
+      end.setHours(23, 59, 59, 999);
+      
+      periodLabel = `Week ${targetWeek}, ${targetYear}`;
+      break;
+
+    case 'monthly':
+      const targetMonth = month || (now.getMonth() + 1);
+      const targetMonthYear = year || now.getFullYear();
+      
+      start = new Date(targetMonthYear, targetMonth - 1, 1);
+      start.setHours(0, 0, 0, 0);
+      
+      end = new Date(targetMonthYear, targetMonth, 0); // Last day of month
+      end.setHours(23, 59, 59, 999);
+      
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                         'July', 'August', 'September', 'October', 'November', 'December'];
+      periodLabel = `${monthNames[targetMonth - 1]} ${targetMonthYear}`;
+      break;
+
+    case 'custom':
+      if (!startDate || !endDate) {
+        throw new Error('Start date and end date are required for custom period');
+      }
+      
+      start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      
+      end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      
+      if (start > end) {
+        throw new Error('Start date must be before or equal to end date');
+      }
+      
+      periodLabel = `Custom: ${startDate} to ${endDate}`;
+      break;
+
+    default:
+      throw new Error('Invalid period type. Use: daily, weekly, monthly, or custom');
+  }
+
+  return {
+    startDate: start,
+    endDate: end,
+    periodLabel
+  };
+};
+
+/**
+ * Get week number of the year
+ * @param {Date} date 
+ * @returns {Number} Week number (1-52)
+ */
+const getWeekNumber = (date) => {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+};
+
+/**
+ * Calculate attendance summary for a specific period
+ * @param {Number} userId - User ID (optional, if null calculate for all users)
+ * @param {String} period - 'daily', 'weekly', 'monthly', 'custom'
+ * @param {Object} options - Period options (month, year, week, startDate, endDate)
+ * @returns {Object} Summary statistics
+ */
+const calculateAttendanceSummaryByPeriod = async (userId, period, options = {}) => {
+  const { startDate, endDate, periodLabel } = getDateRangeForPeriod(period, options);
+
+  const whereClause = {
+    date: {
+      [Op.between]: [startDate, endDate]
+    }
+  };
+
+  if (userId) {
+    whereClause.UserId = userId;
+  }
+
+  const attendances = await Attandance.findAll({
+    where: whereClause,
+    include: userId ? [] : [{
+      model: User,
+      attributes: ['id', 'name', 'email']
+    }],
+    order: [['date', 'ASC']]
+  });
+
+  // Initialize counters
+  let onTimeCount = 0;
+  let lateCount = 0;
+  let absentCount = 0;
+  let leaveCount = 0;
+  let sickLeaveCount = 0;
+  let permissionCount = 0;
+  let holidayCount = 0;
+  let totalWorkHours = 0;
+
+  // Count by status
+  attendances.forEach(att => {
+    switch (att.status) {
+      case Attandance.ATTENDANCE_STATUS.ON_TIME:
+        onTimeCount++;
+        if (att.clockIn && att.clockOut) {
+          totalWorkHours += calculateWorkDuration(att.clockIn, att.clockOut);
+        }
+        break;
+      case Attandance.ATTENDANCE_STATUS.LATE:
+        lateCount++;
+        if (att.clockIn && att.clockOut) {
+          totalWorkHours += calculateWorkDuration(att.clockIn, att.clockOut);
+        }
+        break;
+      case Attandance.ATTENDANCE_STATUS.ABSENT:
+        absentCount++;
+        break;
+      case Attandance.ATTENDANCE_STATUS.LEAVE:
+        leaveCount++;
+        break;
+      case Attandance.ATTENDANCE_STATUS.SICK_LEAVE:
+        sickLeaveCount++;
+        break;
+      case Attandance.ATTENDANCE_STATUS.PERMISSION:
+        permissionCount++;
+        break;
+      case Attandance.ATTENDANCE_STATUS.HOLIDAY:
+        holidayCount++;
+        break;
+    }
+  });
+
+  // Calculate totals
+  const totalPresent = onTimeCount + lateCount + permissionCount;
+  const totalWorkDays = totalPresent + absentCount + leaveCount + sickLeaveCount;
+  const effectiveWorkDays = totalPresent + absentCount;
+  const attendanceRate = effectiveWorkDays > 0 
+    ? ((totalPresent / effectiveWorkDays) * 100).toFixed(2) 
+    : 0;
+
+  return {
+    period: periodLabel,
+    dateRange: {
+      start: startDate.toISOString().split('T')[0],
+      end: endDate.toISOString().split('T')[0]
+    },
+    summary: {
+      totalRecords: attendances.length,
+      totalPresent: totalPresent,
+      onTime: onTimeCount,
+      late: lateCount,
+      absent: absentCount,
+      leave: leaveCount,
+      sickLeave: sickLeaveCount,
+      permission: permissionCount,
+      holiday: holidayCount,
+      totalWorkHours: parseFloat(totalWorkHours.toFixed(2)),
+      attendanceRate: parseFloat(attendanceRate),
+      totalWorkDays: totalWorkDays
+    },
+    details: attendances.map(att => ({
+      id: att.id,
+      userId: att.UserId,
+      userName: att.User ? att.User.name : undefined,
       date: att.date,
       clockIn: att.clockIn,
       clockOut: att.clockOut,
@@ -264,5 +494,8 @@ module.exports = {
   isLateClockIn,
   determineFinalStatus,
   processAutoSetAbsent,
-  calculateAttendanceStatistics
+  calculateAttendanceStatistics,
+  getDateRangeForPeriod,
+  getWeekNumber,
+  calculateAttendanceSummaryByPeriod
 };

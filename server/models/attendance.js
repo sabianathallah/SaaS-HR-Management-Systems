@@ -10,6 +10,8 @@ const ATTENDANCE_STATUS = {
   LATE: 'LATE',
   ABSENT: 'ABSENT',
   LEAVE: 'LEAVE',
+  SICK_LEAVE: 'SICK_LEAVE',
+  PERMISSION: 'PERMISSION',
   HOLIDAY: 'HOLIDAY'
 };
 
@@ -34,6 +36,17 @@ module.exports = (sequelize, DataTypes) => {
       // Attendance belongs to Holiday (only when status = HOLIDAY)
       Attandance.belongsTo(models.Holiday, { 
         foreignKey: 'HolidayId'
+      });
+
+      // Attendance belongs to LeaveRequest (only when status = LEAVE/SICK_LEAVE/PERMISSION)
+      Attandance.belongsTo(models.LeaveRequest, { 
+        foreignKey: 'LeaveRequestId'
+      });
+
+      // Attendance has one Overtime
+      Attandance.hasOne(models.Overtime, { 
+        foreignKey: 'AttendanceId',
+        as: 'overtime'
       });
     }
   }
@@ -68,6 +81,16 @@ module.exports = (sequelize, DataTypes) => {
       onUpdate: 'CASCADE',
       onDelete: 'SET NULL'
     },
+    LeaveRequestId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'LeaveRequests',
+        key: 'id'
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL'
+    },
     date: {
       type: DataTypes.DATE,
       allowNull: false
@@ -87,6 +110,8 @@ module.exports = (sequelize, DataTypes) => {
         ATTENDANCE_STATUS.LATE,
         ATTENDANCE_STATUS.ABSENT,
         ATTENDANCE_STATUS.LEAVE,
+        ATTENDANCE_STATUS.SICK_LEAVE,
+        ATTENDANCE_STATUS.PERMISSION,
         ATTENDANCE_STATUS.HOLIDAY
       ),
       allowNull: false,

@@ -4,7 +4,8 @@ const {
   getTodayRange, 
   calculateWorkDuration, 
   determineFinalStatus,
-  calculateAttendanceStatistics
+  calculateAttendanceStatistics,
+  calculateAttendanceSummaryByPeriod
 } = require('../helpers/attendance');
 
 class AttendanceController {
@@ -166,27 +167,58 @@ class AttendanceController {
   static async getMyStatistics(req, res, next) {
     try {
       const userId = req.user.id;
-      const { month, year } = req.query;
+      const { period, month, year, week, startDate, endDate } = req.query;
 
-      // Validate month and year
-      const currentDate = new Date();
-      const targetMonth = month ? parseInt(month) : currentDate.getMonth() + 1;
-      const targetYear = year ? parseInt(year) : currentDate.getFullYear();
+      // Default to monthly if no period specified
+      const periodType = period || 'monthly';
 
-      if (targetMonth < 1 || targetMonth > 12) {
+      // Validate period
+      const validPeriods = ['daily', 'weekly', 'monthly', 'custom'];
+      if (!validPeriods.includes(periodType)) {
+        return res.status(400).json({
+          message: `Invalid period. Must be one of: ${validPeriods.join(', ')}`
+        });
+      }
+
+      // Validate custom period
+      if (periodType === 'custom' && (!startDate || !endDate)) {
+        return res.status(400).json({
+          message: "For custom period, both startDate and endDate are required (format: YYYY-MM-DD)"
+        });
+      }
+
+      // Prepare options
+      const options = {
+        month: month ? parseInt(month) : undefined,
+        year: year ? parseInt(year) : undefined,
+        week: week ? parseInt(week) : undefined,
+        startDate,
+        endDate
+      };
+
+      // Validate month
+      if (options.month && (options.month < 1 || options.month > 12)) {
         return res.status(400).json({
           message: "Invalid month. Must be between 1 and 12"
         });
       }
 
-      if (targetYear < 2000 || targetYear > 2100) {
+      // Validate year
+      if (options.year && (options.year < 2000 || options.year > 2100)) {
         return res.status(400).json({
-          message: "Invalid year"
+          message: "Invalid year. Must be between 2000 and 2100"
+        });
+      }
+
+      // Validate week
+      if (options.week && (options.week < 1 || options.week > 53)) {
+        return res.status(400).json({
+          message: "Invalid week. Must be between 1 and 53"
         });
       }
 
       // Get statistics
-      const statistics = await calculateAttendanceStatistics(userId, targetMonth, targetYear);
+      const statistics = await calculateAttendanceSummaryByPeriod(userId, periodType, options);
 
       res.status(200).json({
         message: "My attendance statistics",
