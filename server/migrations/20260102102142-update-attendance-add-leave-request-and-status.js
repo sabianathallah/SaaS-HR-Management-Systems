@@ -4,7 +4,7 @@
 module.exports = {
   async up (queryInterface, Sequelize) {
     // Add LeaveRequestId column
-    await queryInterface.addColumn('Attandances', 'LeaveRequestId', {
+    await queryInterface.addColumn('Attendances', 'LeaveRequestId', {
       type: Sequelize.INTEGER,
       allowNull: true,
       references: {
@@ -17,7 +17,7 @@ module.exports = {
     });
 
     // Update status ENUM to include PERMISSION and SICK_LEAVE
-    await queryInterface.changeColumn('Attandances', 'status', {
+    await queryInterface.changeColumn('Attendances', 'status', {
       type: Sequelize.ENUM(
         'ON_PROGRESS',
         'ON_TIME',
@@ -35,10 +35,10 @@ module.exports = {
 
   async down (queryInterface, Sequelize) {
     // Remove LeaveRequestId column
-    await queryInterface.removeColumn('Attandances', 'LeaveRequestId');
+    await queryInterface.removeColumn('Attendances', 'LeaveRequestId');
 
     // Revert status ENUM to original
-    await queryInterface.changeColumn('Attandances', 'status', {
+    await queryInterface.changeColumn('Attendances', 'status', {
       type: Sequelize.ENUM(
         'ON_PROGRESS',
         'ON_TIME',

@@ -1,5 +1,12 @@
-const { Attandance, WorkSchedule, User, Holiday } = require('../models');
+const { Attendance, WorkSchedule, User, Holiday, Shift } = require('../models');
 const { Op } = require('sequelize');
+const { 
+  getApplicableShift, 
+  isLateClockInWithShift, 
+  calculateOvertimeWithShift,
+  calculateWorkDurationWithBreak,
+  determineStatusWithShift 
+} = require('./shift');
 
 /**
  * Helper function untuk mendapatkan start dan end of day
@@ -27,9 +34,31 @@ const calculateWorkDuration = (clockIn, clockOut) => {
 /**
  * Helper function untuk cek apakah clock-in terlambat
  * @param {Date} clockInTime - Waktu clock-in
+ * @param {Number} userId - User ID (optional, untuk cek shift user)
+ * @param {Object} shift - Shift object (optional, jika sudah ada)
  * @returns {Boolean} true jika terlambat, false jika tepat waktu
  */
-const isLateClockIn = async (clockInTime) => {
+const isLateClockIn = async (clockInTime, userId = null, shift = null) => {
+  // Jika shift sudah diberikan, gunakan shift helper
+  if (shift) {
+    const { isLate } = isLateClockInWithShift(clockInTime, shift);
+    return isLate;
+  }
+  
+  // Jika ada userId, cari shift user
+  if (userId) {
+    const user = await User.findByPk(userId, {
+      include: [{ model: Shift, as: 'shift' }]
+    });
+    
+    const applicableShift = await getApplicableShift(null, user);
+    if (applicableShift) {
+      const { isLate } = isLateClockInWithShift(clockInTime, applicableShift);
+      return isLate;
+    }
+  }
+  
+  // Fallback ke logic lama (WorkSchedule)
   const clockIn = new Date(clockInTime);
   const workStartTime = new Date(clockIn);
   
@@ -55,13 +84,15 @@ const isLateClockIn = async (clockInTime) => {
 /**
  * Helper function untuk determine final status
  * @param {Date} clockInTime - Waktu clock-in
+ * @param {Number} userId - User ID (optional)
+ * @param {Object} shift - Shift object (optional)
  * @returns {String} Status final (ON_TIME atau LATE)
  */
-const determineFinalStatus = async (clockInTime) => {
-  const isLate = await isLateClockIn(clockInTime);
+const determineFinalStatus = async (clockInTime, userId = null, shift = null) => {
+  const isLate = await isLateClockIn(clockInTime, userId, shift);
   return isLate 
-    ? Attandance.ATTENDANCE_STATUS.LATE 
-    : Attandance.ATTENDANCE_STATUS.ON_TIME;
+    ? Attendance.ATTENDANCE_STATUS.LATE 
+    : Attendance.ATTENDANCE_STATUS.ON_TIME;
 };
 
 /**
@@ -94,7 +125,7 @@ const processAutoSetAbsent = async () => {
   });
   
   // Get users yang sudah clock-in hari ini
-  const attendedUserIds = await Attandance.findAll({
+  const attendedUserIds = await Attendance.findAll({
     where: {
       date: {
         [Op.between]: [startOfDay, endOfDay]
@@ -111,14 +142,14 @@ const processAutoSetAbsent = async () => {
     if (usersWithoutRecord.length > 0) {
       await Promise.all(
         usersWithoutRecord.map(user => 
-          Attandance.create({
+          Attendance.create({
             UserId: user.id,
             WorkScheduleId: workSchedule ? workSchedule.id : null,
             HolidayId: holiday.id, // Save reference to holiday
             date: new Date(),
             clockIn: new Date(),
             clockOut: new Date(),
-            status: Attandance.ATTENDANCE_STATUS.HOLIDAY
+            status: Attendance.ATTENDANCE_STATUS.HOLIDAY
           })
         )
       );
@@ -139,14 +170,14 @@ const processAutoSetAbsent = async () => {
   if (usersWithoutRecord.length > 0) {
     await Promise.all(
       usersWithoutRecord.map(user => 
-        Attandance.create({
+        Attendance.create({
           UserId: user.id,
           WorkScheduleId: workSchedule ? workSchedule.id : null,
           HolidayId: null,
           date: new Date(),
           clockIn: new Date(),
           clockOut: new Date(),
-          status: Attandance.ATTENDANCE_STATUS.ABSENT
+          status: Attendance.ATTENDANCE_STATUS.ABSENT
         })
       )
     );
@@ -176,7 +207,7 @@ const calculateAttendanceStatistics = async (userId, month, year) => {
   const endDate = new Date(year, month, 0, 23, 59, 59, 999); // Day 0 = hari terakhir bulan sebelumnya
   
   // Get all attendance records untuk user di bulan tersebut
-  const attendances = await Attandance.findAll({
+  const attendances = await Attendance.findAll({
     where: {
       UserId: userId,
       date: {
@@ -199,31 +230,31 @@ const calculateAttendanceStatistics = async (userId, month, year) => {
   // Count by status dan hitung total jam kerja
   attendances.forEach(att => {
     switch (att.status) {
-      case Attandance.ATTENDANCE_STATUS.ON_TIME:
+      case Attendance.ATTENDANCE_STATUS.ON_TIME:
         onTimeCount++;
         if (att.clockIn && att.clockOut) {
           totalWorkHours += calculateWorkDuration(att.clockIn, att.clockOut);
         }
         break;
-      case Attandance.ATTENDANCE_STATUS.LATE:
+      case Attendance.ATTENDANCE_STATUS.LATE:
         lateCount++;
         if (att.clockIn && att.clockOut) {
           totalWorkHours += calculateWorkDuration(att.clockIn, att.clockOut);
         }
         break;
-      case Attandance.ATTENDANCE_STATUS.ABSENT:
+      case Attendance.ATTENDANCE_STATUS.ABSENT:
         absentCount++;
         break;
-      case Attandance.ATTENDANCE_STATUS.LEAVE:
+      case Attendance.ATTENDANCE_STATUS.LEAVE:
         leaveCount++;
         break;
-      case Attandance.ATTENDANCE_STATUS.SICK_LEAVE:
+      case Attendance.ATTENDANCE_STATUS.SICK_LEAVE:
         sickLeaveCount++;
         break;
-      case Attandance.ATTENDANCE_STATUS.PERMISSION:
+      case Attendance.ATTENDANCE_STATUS.PERMISSION:
         permissionCount++;
         break;
-      case Attandance.ATTENDANCE_STATUS.HOLIDAY:
+      case Attendance.ATTENDANCE_STATUS.HOLIDAY:
         holidayCount++;
         break;
     }
@@ -393,7 +424,7 @@ const calculateAttendanceSummaryByPeriod = async (userId, period, options = {}) 
     whereClause.UserId = userId;
   }
 
-  const attendances = await Attandance.findAll({
+  const attendances = await Attendance.findAll({
     where: whereClause,
     include: userId ? [] : [{
       model: User,
@@ -415,31 +446,31 @@ const calculateAttendanceSummaryByPeriod = async (userId, period, options = {}) 
   // Count by status
   attendances.forEach(att => {
     switch (att.status) {
-      case Attandance.ATTENDANCE_STATUS.ON_TIME:
+      case Attendance.ATTENDANCE_STATUS.ON_TIME:
         onTimeCount++;
         if (att.clockIn && att.clockOut) {
           totalWorkHours += calculateWorkDuration(att.clockIn, att.clockOut);
         }
         break;
-      case Attandance.ATTENDANCE_STATUS.LATE:
+      case Attendance.ATTENDANCE_STATUS.LATE:
         lateCount++;
         if (att.clockIn && att.clockOut) {
           totalWorkHours += calculateWorkDuration(att.clockIn, att.clockOut);
         }
         break;
-      case Attandance.ATTENDANCE_STATUS.ABSENT:
+      case Attendance.ATTENDANCE_STATUS.ABSENT:
         absentCount++;
         break;
-      case Attandance.ATTENDANCE_STATUS.LEAVE:
+      case Attendance.ATTENDANCE_STATUS.LEAVE:
         leaveCount++;
         break;
-      case Attandance.ATTENDANCE_STATUS.SICK_LEAVE:
+      case Attendance.ATTENDANCE_STATUS.SICK_LEAVE:
         sickLeaveCount++;
         break;
-      case Attandance.ATTENDANCE_STATUS.PERMISSION:
+      case Attendance.ATTENDANCE_STATUS.PERMISSION:
         permissionCount++;
         break;
-      case Attandance.ATTENDANCE_STATUS.HOLIDAY:
+      case Attendance.ATTENDANCE_STATUS.HOLIDAY:
         holidayCount++;
         break;
     }

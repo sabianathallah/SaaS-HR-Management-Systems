@@ -26,7 +26,7 @@ module.exports = (sequelize, DataTypes) => {
       });
       
       // Overtime belongs to Attendance
-      Overtime.belongsTo(models.Attandance, { 
+      Overtime.belongsTo(models.Attendance, { 
         foreignKey: 'AttendanceId',
         as: 'attendance',
         onDelete: 'SET NULL' 

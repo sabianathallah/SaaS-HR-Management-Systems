@@ -16,7 +16,7 @@ const ATTENDANCE_STATUS = {
 };
 
 module.exports = (sequelize, DataTypes) => {
-  class Attandance extends Model {
+  class Attendance extends Model {
     /**
      * Helper method for defining associations.
      * This method is not a part of Sequelize lifecycle.
@@ -24,33 +24,39 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // Attendance belongs to User
-      Attandance.belongsTo(models.User, { 
+      Attendance.belongsTo(models.User, { 
         foreignKey: 'UserId'
       });
 
       // Attendance belongs to WorkSchedule
-      Attandance.belongsTo(models.WorkSchedule, { 
+      Attendance.belongsTo(models.WorkSchedule, { 
         foreignKey: 'WorkScheduleId'
       });
 
       // Attendance belongs to Holiday (only when status = HOLIDAY)
-      Attandance.belongsTo(models.Holiday, { 
+      Attendance.belongsTo(models.Holiday, { 
         foreignKey: 'HolidayId'
       });
 
       // Attendance belongs to LeaveRequest (only when status = LEAVE/SICK_LEAVE/PERMISSION)
-      Attandance.belongsTo(models.LeaveRequest, { 
+      Attendance.belongsTo(models.LeaveRequest, { 
         foreignKey: 'LeaveRequestId'
       });
 
       // Attendance has one Overtime
-      Attandance.hasOne(models.Overtime, { 
+      Attendance.hasOne(models.Overtime, { 
         foreignKey: 'AttendanceId',
         as: 'overtime'
       });
+
+      // Attendance belongs to Shift
+      Attendance.belongsTo(models.Shift, { 
+        foreignKey: 'ShiftId',
+        as: 'shift'
+      });
     }
   }
-  Attandance.init({
+  Attendance.init({
     UserId: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -119,11 +125,11 @@ module.exports = (sequelize, DataTypes) => {
     }
   }, {
     sequelize,
-    modelName: 'Attandance',
+    modelName: 'Attendance',
   });
   
   // Export status constants for use in controllers
-  Attandance.ATTENDANCE_STATUS = ATTENDANCE_STATUS;
+  Attendance.ATTENDANCE_STATUS = ATTENDANCE_STATUS;
   
-  return Attandance;
+  return Attendance;
 };

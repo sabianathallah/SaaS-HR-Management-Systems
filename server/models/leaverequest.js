@@ -38,7 +38,7 @@ module.exports = (sequelize, DataTypes) => {
       });
 
       // LeaveRequest has many Attendances
-      LeaveRequest.hasMany(models.Attandance, { 
+      LeaveRequest.hasMany(models.Attendance, { 
         foreignKey: 'LeaveRequestId',
         as: 'attendances'
       });

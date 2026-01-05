@@ -1,4 +1,4 @@
-const { Attandance, User, WorkSchedule, Holiday } = require('../models');
+const { Attendance, User, WorkSchedule, Holiday } = require('../models');
 const { Op } = require('sequelize');
 const { 
   getTodayRange, 
@@ -12,7 +12,7 @@ class AttendanceAdminController {
   // Get all attendance records (Admin only)
   static async getAllAttendance(req, res, next) {
     try {
-      const attendances = await Attandance.findAll({
+      const attendances = await Attendance.findAll({
         include: [{
           model: User,
           attributes: ['id', 'name', 'email']
@@ -45,7 +45,7 @@ class AttendanceAdminController {
         whereClause.UserId = userId;
       }
       
-      const attendances = await Attandance.findAll({
+      const attendances = await Attendance.findAll({
         where: whereClause,
         include: [{
           model: User,
@@ -119,7 +119,7 @@ class AttendanceAdminController {
       const startOfDay = new Date(dateObj.setHours(0, 0, 0, 0));
       const endOfDay = new Date(dateObj.setHours(23, 59, 59, 999));
 
-      const existingAttendance = await Attandance.findOne({
+      const existingAttendance = await Attendance.findOne({
         where: {
           UserId: userId,
           date: {
@@ -135,7 +135,7 @@ class AttendanceAdminController {
       }
 
       // Validate status
-      const validStatuses = Object.values(Attandance.ATTENDANCE_STATUS);
+      const validStatuses = Object.values(Attendance.ATTENDANCE_STATUS);
       if (!validStatuses.includes(status)) {
         return res.status(400).json({
           message: `Invalid status. Valid statuses: ${validStatuses.join(', ')}`
@@ -158,10 +158,10 @@ class AttendanceAdminController {
       });
 
       // Create manual attendance
-      const manualAttendance = await Attandance.create({
+      const manualAttendance = await Attendance.create({
         UserId: userId,
         WorkScheduleId: workSchedule ? workSchedule.id : null,
-        HolidayId: (status === Attandance.ATTENDANCE_STATUS.HOLIDAY && holiday) ? holiday.id : null,
+        HolidayId: (status === Attendance.ATTENDANCE_STATUS.HOLIDAY && holiday) ? holiday.id : null,
         date: new Date(date),
         clockIn: new Date(clockIn),
         clockOut: new Date(clockOut),
@@ -185,7 +185,7 @@ class AttendanceAdminController {
       const { date, clockIn, clockOut, status } = req.body;
 
       // Find attendance record
-      const attendance = await Attandance.findByPk(id);
+      const attendance = await Attendance.findByPk(id);
       if (!attendance) {
         return res.status(404).json({
           message: "Attendance record not found"
@@ -194,7 +194,7 @@ class AttendanceAdminController {
 
       // Validate status if provided
       if (status) {
-        const validStatuses = Object.values(Attandance.ATTENDANCE_STATUS);
+        const validStatuses = Object.values(Attendance.ATTENDANCE_STATUS);
         if (!validStatuses.includes(status)) {
           return res.status(400).json({
             message: `Invalid status. Valid statuses: ${validStatuses.join(', ')}`

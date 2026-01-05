@@ -1,4 +1,4 @@
-const { LeaveRequest, User, Attandance, WorkSchedule } = require('../models');
+const { LeaveRequest, User, Attendance, WorkSchedule } = require('../models');
 const { Op } = require('sequelize');
 
 class LeaveRequestAdminController {
@@ -115,16 +115,16 @@ class LeaveRequestAdminController {
       let attendanceStatus;
       switch (leaveRequest.leaveType) {
         case LeaveRequest.LEAVE_TYPE.ANNUAL_LEAVE:
-          attendanceStatus = Attandance.ATTENDANCE_STATUS.LEAVE;
+          attendanceStatus = Attendance.ATTENDANCE_STATUS.LEAVE;
           break;
         case LeaveRequest.LEAVE_TYPE.SICK_LEAVE:
-          attendanceStatus = Attandance.ATTENDANCE_STATUS.SICK_LEAVE;
+          attendanceStatus = Attendance.ATTENDANCE_STATUS.SICK_LEAVE;
           break;
         case LeaveRequest.LEAVE_TYPE.PERMISSION:
-          attendanceStatus = Attandance.ATTENDANCE_STATUS.PERMISSION;
+          attendanceStatus = Attendance.ATTENDANCE_STATUS.PERMISSION;
           break;
         default:
-          attendanceStatus = Attandance.ATTENDANCE_STATUS.LEAVE;
+          attendanceStatus = Attendance.ATTENDANCE_STATUS.LEAVE;
       }
 
       // Loop through each day and create attendance
@@ -138,7 +138,7 @@ class LeaveRequestAdminController {
           endOfDay.setHours(23, 59, 59, 999);
           
           // Check if attendance already exists for this date
-          const existingAttendance = await Attandance.findOne({
+          const existingAttendance = await Attendance.findOne({
             where: {
               UserId: leaveRequest.UserId,
               date: {
@@ -148,7 +148,7 @@ class LeaveRequestAdminController {
           });
 
           if (!existingAttendance) {
-            await Attandance.create({
+            await Attendance.create({
               UserId: leaveRequest.UserId,
               WorkScheduleId: workSchedule ? workSchedule.id : null,
               HolidayId: null,

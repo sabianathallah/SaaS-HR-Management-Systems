@@ -1,4 +1,4 @@
-const { LeaveRequest, User, Attandance, WorkSchedule } = require('../models');
+const { LeaveRequest, User, Attendance, WorkSchedule } = require('../models');
 const { Op } = require('sequelize');
 
 class LeaveRequestController {

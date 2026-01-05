@@ -1,4 +1,4 @@
-const { Overtime, User, Attandance } = require('../models');
+const { Overtime, User, Attendance } = require('../models');
 const { Op } = require('sequelize');
 const { getDateRangeForPeriod } = require('../helpers/attendance');
 
@@ -53,7 +53,7 @@ class OvertimeAdminController {
             attributes: ['id', 'name', 'email']
           },
           {
-            model: Attandance,
+            model: Attendance,
             as: 'attendance',
             attributes: ['id', 'date', 'clockIn', 'clockOut', 'status']
           }

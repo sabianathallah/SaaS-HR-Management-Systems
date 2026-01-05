@@ -13,11 +13,17 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
-      User.hasMany(models.Attandance, { foreignKey: 'UserId', onDelete: 'CASCADE' });
+      User.hasMany(models.Attendance, { foreignKey: 'UserId', onDelete: 'CASCADE' });
       User.hasMany(models.LeaveRequest, { foreignKey: 'UserId', as: 'leaveRequests', onDelete: 'CASCADE' });
       User.hasMany(models.LeaveRequest, { foreignKey: 'approvedBy', as: 'approvedLeaves', onDelete: 'SET NULL' });
       User.hasMany(models.Overtime, { foreignKey: 'UserId', as: 'overtimeRequests', onDelete: 'CASCADE' });
       User.hasMany(models.Overtime, { foreignKey: 'approvedBy', as: 'approvedOvertimes', onDelete: 'SET NULL' });
+      
+      // User belongs to Shift (default shift)
+      User.belongsTo(models.Shift, { 
+        foreignKey: 'ShiftId',
+        as: 'shift'
+      });
     }
   }
   User.init({

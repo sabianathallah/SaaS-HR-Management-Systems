@@ -1,4 +1,4 @@
-const { Attandance, User, WorkSchedule } = require('../models');
+const { Attendance, User, WorkSchedule } = require('../models');
 const { Op } = require('sequelize');
 const { 
   getTodayRange, 
@@ -17,7 +17,7 @@ class AttendanceController {
       const { startOfDay, endOfDay } = getTodayRange();
       
       // Cek apakah user sudah clock-in hari ini
-      const existingAttendance = await Attandance.findOne({
+      const existingAttendance = await Attendance.findOne({
         where: {
           UserId: userId,
           date: {
@@ -40,14 +40,14 @@ class AttendanceController {
       
       // Jika belum, buat attendance baru
       const now = new Date();
-      const newAttendance = await Attandance.create({
+      const newAttendance = await Attendance.create({
         UserId: userId,
         WorkScheduleId: workSchedule ? workSchedule.id : null, // Save reference to work schedule
         HolidayId: null, // Not a holiday
         date: now,
         clockIn: now,
         clockOut: now, // Default value, akan diupdate saat clock-out
-        status: Attandance.ATTENDANCE_STATUS.ON_PROGRESS // Sedang bekerja
+        status: Attendance.ATTENDANCE_STATUS.ON_PROGRESS // Sedang bekerja
       });
       
       res.status(201).json({ 
@@ -66,7 +66,7 @@ class AttendanceController {
       const { startOfDay, endOfDay } = getTodayRange();
       
       // Cari attendance hari ini
-      const attendance = await Attandance.findOne({
+      const attendance = await Attendance.findOne({
         where: {
           UserId: userId,
           date: {
@@ -108,7 +108,7 @@ class AttendanceController {
     try {
       const userId = req.user.id;
       
-      const attendances = await Attandance.findAll({
+      const attendances = await Attendance.findAll({
         where: { UserId: userId },
         order: [['date', 'DESC']]
       });
@@ -128,7 +128,7 @@ class AttendanceController {
       const userId = req.user.id;
       const { startOfDay, endOfDay } = getTodayRange();
       
-      const attendance = await Attandance.findOne({
+      const attendance = await Attendance.findOne({
         where: {
           UserId: userId,
           date: {
@@ -146,7 +146,7 @@ class AttendanceController {
 
       // Hitung durasi jika sudah clock-out
       let workDuration = null;
-      if (attendance.status !== Attandance.ATTENDANCE_STATUS.ON_PROGRESS) {
+      if (attendance.status !== Attendance.ATTENDANCE_STATUS.ON_PROGRESS) {
         workDuration = calculateWorkDuration(attendance.clockIn, attendance.clockOut);
       }
       

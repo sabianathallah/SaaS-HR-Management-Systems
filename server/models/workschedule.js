@@ -11,7 +11,7 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // WorkSchedule has many Attendances
-      WorkSchedule.hasMany(models.Attandance, { 
+      WorkSchedule.hasMany(models.Attendance, { 
         foreignKey: 'WorkScheduleId',
         as: 'Attendances'
       });

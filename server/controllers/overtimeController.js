@@ -1,4 +1,4 @@
-const { Overtime, User, Attandance } = require('../models');
+const { Overtime, User, Attendance } = require('../models');
 const { Op } = require('sequelize');
 
 class OvertimeController {
@@ -29,7 +29,7 @@ class OvertimeController {
       // Check if attendance exists (optional, for validation)
       let attendance = null;
       if (attendanceId) {
-        attendance = await Attandance.findOne({
+        attendance = await Attendance.findOne({
           where: {
             id: attendanceId,
             UserId: userId
@@ -126,7 +126,7 @@ class OvertimeController {
             attributes: ['id', 'name', 'email']
           },
           {
-            model: Attandance,
+            model: Attendance,
             as: 'attendance',
             attributes: ['id', 'date', 'clockIn', 'clockOut', 'status']
           }
