@@ -1,8 +1,7 @@
 const { Attendance, User, WorkSchedule } = require('../models');
 const { Op } = require('sequelize');
+const { getTodayRange, calculateWorkDuration } = require('../helpers/utils');
 const { 
-  getTodayRange, 
-  calculateWorkDuration, 
   determineFinalStatus,
   calculateAttendanceStatistics,
   calculateAttendanceSummaryByPeriod

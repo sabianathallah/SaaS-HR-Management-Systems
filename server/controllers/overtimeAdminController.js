@@ -1,6 +1,6 @@
 const { Overtime, User, Attendance } = require('../models');
 const { Op } = require('sequelize');
-const { getDateRangeForPeriod } = require('../helpers/attendance');
+const { getDateRangeForPeriod } = require('../helpers/utils');
 
 class OvertimeAdminController {
 

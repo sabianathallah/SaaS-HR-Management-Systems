@@ -1,7 +1,7 @@
 const { Attendance, User, WorkSchedule, Holiday } = require('../models');
 const { Op } = require('sequelize');
+const { getTodayRange } = require('../helpers/utils');
 const { 
-  getTodayRange, 
   processAutoSetAbsent, 
   calculateAttendanceStatistics,
   calculateAttendanceSummaryByPeriod 
