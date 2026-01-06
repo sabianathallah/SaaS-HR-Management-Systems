@@ -1,6 +1,6 @@
 const errorHandler = (err, req, res, next) => {
-    let status = 500
-    let message = 'Internal Server Error'
+    let status = err.statusCode || 500
+    let message = err.message || 'Internal Server Error'
 
     // Log error for debugging (skip in test environment to reduce noise)
     if (process.env.NODE_ENV !== 'test') {
@@ -87,9 +87,41 @@ const errorHandler = (err, req, res, next) => {
         message = 'Invalid or expired Google token'
     }
 
-    // Handle errors with custom statusCode property
-    if (err.statusCode && !status) {
-        status = err.statusCode
+    // Handle generic Error objects from models/helpers (only if not already handled)
+    if (err instanceof Error && status === 500 && !err.name.includes('Sequelize') && !err.statusCode) {
+        const errorMessage = err.message.toLowerCase();
+        
+        // Map common error messages to appropriate status codes
+        if (errorMessage.includes('not found')) {
+            status = 404;
+            message = err.message;
+        } else if (
+            errorMessage.includes('required') ||
+            errorMessage.includes('invalid') ||
+            errorMessage.includes('must be') ||
+            errorMessage.includes('cannot') ||
+            errorMessage.includes('should')
+        ) {
+            status = 400;
+            message = err.message;
+        } else if (
+            errorMessage.includes('unauthorized') ||
+            errorMessage.includes('unauthenticated')
+        ) {
+            status = 401;
+            message = err.message;
+        } else if (
+            errorMessage.includes('forbidden') ||
+            errorMessage.includes('access denied')
+        ) {
+            status = 403;
+            message = err.message;
+        } else {
+            // Keep as 500 for truly unknown errors
+            message = process.env.NODE_ENV === 'production' 
+                ? 'Internal Server Error' 
+                : err.message;
+        }
     }
 
     // Handle errors with custom message
