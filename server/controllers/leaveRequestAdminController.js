@@ -1,5 +1,6 @@
-const { LeaveRequest, User, Attendance, WorkSchedule } = require('../models');
+const { LeaveRequest, User, Attendance, WorkSchedule, Notification } = require('../models');
 const { Op } = require('sequelize');
+const notificationHelper = require('../helpers/notificationHelper');
 
 class LeaveRequestAdminController {
 
@@ -182,6 +183,23 @@ class LeaveRequestAdminController {
         attendanceRecordsCreated: createdCount
       };
 
+      // Send notification to employee
+      await notificationHelper.sendNotification(
+        leaveRequest.UserId,
+        Notification.NOTIFICATION_TYPE.LEAVE_APPROVED,
+        '✅ Leave Request Approved',
+        `Your ${leaveRequest.leaveType.replace('_', ' ').toLowerCase()} request from ${leaveRequest.startDate} to ${leaveRequest.endDate} has been approved.`,
+        {
+          leaveRequestId: leaveRequest.id,
+          leaveType: leaveRequest.leaveType,
+          startDate: leaveRequest.startDate,
+          endDate: leaveRequest.endDate,
+          totalDays: leaveRequest.totalDays,
+          approvalNote: leaveRequest.approvalNote
+        },
+        true // Send email
+      );
+
       res.status(200).json({
         message: "Leave request approved successfully. Attendance records created.",
         data: responseData
@@ -220,6 +238,23 @@ class LeaveRequestAdminController {
       leaveRequest.approvalNote = approvalNote || 'Request rejected by admin';
       leaveRequest.approvalDate = new Date();
       await leaveRequest.save();
+
+      // Send notification to employee
+      await notificationHelper.sendNotification(
+        leaveRequest.UserId,
+        Notification.NOTIFICATION_TYPE.LEAVE_REJECTED,
+        '❌ Leave Request Rejected',
+        `Your ${leaveRequest.leaveType.replace('_', ' ').toLowerCase()} request from ${leaveRequest.startDate} to ${leaveRequest.endDate} has been rejected.`,
+        {
+          leaveRequestId: leaveRequest.id,
+          leaveType: leaveRequest.leaveType,
+          startDate: leaveRequest.startDate,
+          endDate: leaveRequest.endDate,
+          totalDays: leaveRequest.totalDays,
+          approvalNote: leaveRequest.approvalNote
+        },
+        true // Send email
+      );
 
       res.status(200).json({
         message: "Leave request rejected successfully",
@@ -271,6 +306,21 @@ class LeaveRequestAdminController {
       }
 
       await user.save();
+
+      // Send notification to employee
+      await notificationHelper.sendNotification(
+        userId,
+        Notification.NOTIFICATION_TYPE.LEAVE_QUOTA_ADJUSTMENT,
+        '📊 Leave Quota Adjusted',
+        `Your annual leave quota has been adjusted. You now have ${user.remainingLeaveQuota} days remaining.`,
+        {
+          annualLeaveQuota: user.annualLeaveQuota,
+          usedLeaveQuota: user.usedLeaveQuota,
+          remainingLeaveQuota: user.remainingLeaveQuota,
+          reason: reason || "Manual adjustment by admin"
+        },
+        true // Send email
+      );
 
       res.status(200).json({
         message: "Leave quota adjusted successfully",

@@ -1,4 +1,4 @@
-const { Attendance, User, WorkSchedule, Holiday } = require('../models');
+const { Attendance, User, WorkSchedule, Holiday, Notification } = require('../models');
 const { Op } = require('sequelize');
 const { getTodayRange } = require('../helpers/utils');
 const { 
@@ -6,6 +6,7 @@ const {
   calculateAttendanceStatistics,
   calculateAttendanceSummaryByPeriod 
 } = require('../helpers/attendance');
+const notificationHelper = require('../helpers/notificationHelper');
 
 class AttendanceAdminController {
 
@@ -168,6 +169,25 @@ class AttendanceAdminController {
         status: status
       });
 
+      // Send notification to employee
+      if (user) {
+        await notificationHelper.sendNotification(
+          userId,
+          Notification.NOTIFICATION_TYPE.ATTENDANCE_CORRECTION,
+          '📝 Attendance Record Created',
+          `An attendance record has been created for you by the administrator for ${new Date(date).toLocaleDateString()}.`,
+          {
+            attendanceId: manualAttendance.id,
+            action: 'created',
+            date: new Date(date).toLocaleDateString(),
+            clockIn: new Date(clockIn).toLocaleTimeString(),
+            clockOut: new Date(clockOut).toLocaleTimeString(),
+            status: status
+          },
+          true // Send email
+        );
+      }
+
       res.status(201).json({
         message: "Manual attendance created successfully",
         data: manualAttendance
@@ -209,6 +229,23 @@ class AttendanceAdminController {
       if (status) attendance.status = status;
 
       await attendance.save();
+
+      // Send notification to employee
+      await notificationHelper.sendNotification(
+        attendance.UserId,
+        Notification.NOTIFICATION_TYPE.ATTENDANCE_CORRECTION,
+        '📝 Attendance Record Updated',
+        `Your attendance record for ${attendance.date.toLocaleDateString()} has been updated by the administrator.`,
+        {
+          attendanceId: attendance.id,
+          action: 'updated',
+          date: attendance.date.toLocaleDateString(),
+          clockIn: attendance.clockIn.toLocaleTimeString(),
+          clockOut: attendance.clockOut.toLocaleTimeString(),
+          status: attendance.status
+        },
+        true // Send email
+      );
 
       res.status(200).json({
         message: "Attendance record updated successfully",
@@ -261,11 +298,28 @@ class AttendanceAdminController {
         });
       } else {
         // Update existing schedule
+        const hasChanges = workStartTime || workEndTime || autoAbsentTime;
+        
         if (workStartTime) workSchedule.workStartTime = workStartTime;
         if (workEndTime) workSchedule.workEndTime = workEndTime;
         if (autoAbsentTime) workSchedule.autoAbsentTime = autoAbsentTime;
         
         await workSchedule.save();
+
+        // Send notification to all users if schedule was changed
+        if (hasChanges) {
+          await notificationHelper.sendToAllUsers(
+            Notification.NOTIFICATION_TYPE.WORK_SCHEDULE_CHANGE,
+            '📅 Work Schedule Updated',
+            `The work schedule has been updated. New times: ${workSchedule.workStartTime} - ${workSchedule.workEndTime}`,
+            {
+              workStartTime: workSchedule.workStartTime,
+              workEndTime: workSchedule.workEndTime,
+              autoAbsentTime: workSchedule.autoAbsentTime
+            },
+            true // Send email
+          );
+        }
       }
 
       res.status(200).json({
@@ -330,6 +384,20 @@ class AttendanceAdminController {
         description: description,
         isActive: true
       });
+
+      // Send notification to all users
+      await notificationHelper.sendToAllUsers(
+        Notification.NOTIFICATION_TYPE.HOLIDAY_ANNOUNCEMENT,
+        '🎉 Holiday Announcement',
+        `New holiday added: ${description} on ${new Date(date).toLocaleDateString()}`,
+        {
+          holidayId: holiday.id,
+          name: description,
+          date: new Date(date).toLocaleDateString(),
+          description: description
+        },
+        true // Send email
+      );
 
       res.status(201).json({
         message: "Holiday added successfully",

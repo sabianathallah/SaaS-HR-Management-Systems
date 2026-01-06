@@ -1,6 +1,7 @@
-const { Overtime, User, Attendance } = require('../models');
+const { Overtime, User, Attendance, Notification } = require('../models');
 const { Op } = require('sequelize');
 const { getDateRangeForPeriod } = require('../helpers/utils');
+const notificationHelper = require('../helpers/notificationHelper');
 
 class OvertimeAdminController {
 
@@ -150,6 +151,21 @@ class OvertimeAdminController {
       overtime.approvedAt = new Date();
       await overtime.save();
 
+      // Send notification to employee
+      await notificationHelper.sendNotification(
+        overtime.UserId,
+        Notification.NOTIFICATION_TYPE.OVERTIME_APPROVED,
+        '✅ Overtime Request Approved',
+        `Your overtime request for ${overtime.overtimeDate} has been approved. Approved hours: ${overtime.actualHours} hours.`,
+        {
+          overtimeId: overtime.id,
+          overtimeDate: overtime.overtimeDate,
+          requestedHours: overtime.requestedHours,
+          actualHours: overtime.actualHours
+        },
+        true // Send email
+      );
+
       res.status(200).json({
         message: "Overtime approved successfully",
         data: {
@@ -216,6 +232,21 @@ class OvertimeAdminController {
       overtime.approvedBy = adminId;
       overtime.approvedAt = new Date();
       await overtime.save();
+
+      // Send notification to employee
+      await notificationHelper.sendNotification(
+        overtime.UserId,
+        Notification.NOTIFICATION_TYPE.OVERTIME_REJECTED,
+        '❌ Overtime Request Rejected',
+        `Your overtime request for ${overtime.overtimeDate} has been rejected. Reason: ${rejectionReason}`,
+        {
+          overtimeId: overtime.id,
+          overtimeDate: overtime.overtimeDate,
+          requestedHours: overtime.requestedHours,
+          rejectionReason: overtime.rejectionReason
+        },
+        true // Send email
+      );
 
       res.status(200).json({
         message: "Overtime rejected successfully",
