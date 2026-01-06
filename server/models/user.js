@@ -24,6 +24,13 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'ShiftId',
         as: 'shift'
       });
+
+      // User has many AuditLogs (activities performed by this user)
+      User.hasMany(models.AuditLog, {
+        foreignKey: 'userId',
+        as: 'auditLogs',
+        onDelete: 'SET NULL'
+      });
     }
   }
   User.init({

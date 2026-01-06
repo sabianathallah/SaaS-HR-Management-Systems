@@ -4,6 +4,10 @@ const port = 3000
 const router = require('./routes')
 const { setupCronJobs } = require('./scheduler/cronJobs') // Uncomment to enable auto set absent
 
+// Trust proxy - untuk mendapatkan IP address asli dari behind proxy/load balancer
+// Ini penting untuk audit log agar req.ip bisa mendapatkan client IP yang benar
+app.set('trust proxy', true)
+
 app.use(express.json())
 app.use(express.urlencoded({extended : false}))
 

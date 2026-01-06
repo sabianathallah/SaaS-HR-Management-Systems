@@ -1,6 +1,7 @@
 const { User } = require('../models')
 const { compare } = require('../helpers/bcrypt')
 const { signToken } = require('../helpers/jwt')
+const AuditLogger = require('../helpers/auditLogger')
 
 class LoginController {
     static async login(req, res, next) {
@@ -21,6 +22,13 @@ class LoginController {
             }
 
             const access_token = signToken(payload)
+
+            // 📌 Log login activity
+            await AuditLogger.logLogin({
+                userId: user.id,
+                req,
+                description: `User ${user.name} (${user.email}) logged in successfully`
+            });
 
             res.status(200).json({ access_token })
         } catch (error) {
