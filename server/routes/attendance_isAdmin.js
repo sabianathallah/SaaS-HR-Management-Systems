@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const AttendanceAdminController = require("../controllers/attendances_isAdminController");
+const { uploadPhotoOptional } = require("../middlewares/uploadPhoto");
 
 // Note: isAdmin middleware already applied at parent route level
 // All routes here are admin-only
@@ -14,11 +15,11 @@ router.post("/auto-set-absent", AttendanceAdminController.autoSetAbsent);
 // Admin - Get today's attendance (all users or specific user)
 router.get("/today-attendance", AttendanceAdminController.getTodayAttendance);
 
-// ENDPOINT #1: Admin manually create attendance for employee
-router.post("/manual-attendance", AttendanceAdminController.createManualAttendance);
+// ENDPOINT #1: Admin manually create attendance for employee (foto OPSIONAL)
+router.post("/manual-attendance", uploadPhotoOptional, AttendanceAdminController.createManualAttendance);
 
-// ENDPOINT #2: Admin edit manual attendance
-router.put("/manual-attendance/:id", AttendanceAdminController.updateManualAttendance);
+// ENDPOINT #2: Admin edit manual attendance (foto OPSIONAL)
+router.put("/manual-attendance/:id", uploadPhotoOptional, AttendanceAdminController.updateManualAttendance);
 
 // ENDPOINT #3: Admin update work schedule (operational hours)
 router.put("/work-schedule", AttendanceAdminController.updateWorkSchedule);

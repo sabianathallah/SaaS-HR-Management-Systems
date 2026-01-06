@@ -7,6 +7,7 @@ const {
   calculateAttendanceSummaryByPeriod 
 } = require('../helpers/attendance');
 const notificationHelper = require('../helpers/notificationHelper');
+const { cleanupOldPhotos } = require('../helpers/photoHelper');
 
 class AttendanceAdminController {
 
@@ -158,6 +159,10 @@ class AttendanceAdminController {
         }
       });
 
+      // Get photo paths from req.photoInfo (opsional untuk admin)
+      const photoCheckIn = req.photoInfo?.photoCheckIn || null;
+      const photoCheckOut = req.photoInfo?.photoCheckOut || null;
+
       // Create manual attendance
       const manualAttendance = await Attendance.create({
         UserId: userId,
@@ -166,7 +171,9 @@ class AttendanceAdminController {
         date: new Date(date),
         clockIn: new Date(clockIn),
         clockOut: new Date(clockOut),
-        status: status
+        status: status,
+        photoCheckIn: photoCheckIn,
+        photoCheckOut: photoCheckOut
       });
 
       // Send notification to employee
@@ -222,12 +229,28 @@ class AttendanceAdminController {
         }
       }
 
-      // Update fields if provided
-      if (date) attendance.date = new Date(date);
-      if (clockIn) attendance.clockIn = new Date(clockIn);
-      if (clockOut) attendance.clockOut = new Date(clockOut);
-      if (status) attendance.status = status;
+      // Prepare update data
+      const updateData = {};
+      if (date) updateData.date = new Date(date);
+      if (clockIn) updateData.clockIn = new Date(clockIn);
+      if (clockOut) updateData.clockOut = new Date(clockOut);
+      if (status) updateData.status = status;
 
+      // Handle photo updates (opsional untuk admin)
+      if (req.photoInfo) {
+        if (req.photoInfo.photoCheckIn) {
+          updateData.photoCheckIn = req.photoInfo.photoCheckIn;
+        }
+        if (req.photoInfo.photoCheckOut) {
+          updateData.photoCheckOut = req.photoInfo.photoCheckOut;
+        }
+        
+        // Cleanup old photos jika ada yang baru
+        await cleanupOldPhotos(attendance, updateData);
+      }
+
+      // Update fields
+      Object.assign(attendance, updateData);
       await attendance.save();
 
       // Send notification to employee

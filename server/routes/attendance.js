@@ -1,14 +1,15 @@
 const express = require("express");
 const router = express.Router();
 const AttendanceController = require("../controllers/attendanceController");
+const { uploadPhotoCheckIn, uploadPhotoCheckOut } = require("../middlewares/uploadPhoto");
 
 // ===== AUTHENTICATED USER ROUTES (EMPLOYEES) =====
 
-// Employee - Clock in
-router.post("/clock-in", AttendanceController.clockIn);
+// Employee - Clock in (WAJIB dengan foto)
+router.post("/clock-in", uploadPhotoCheckIn, AttendanceController.clockIn);
 
-// Employee - Clock out
-router.post("/clock-out", AttendanceController.clockOut);
+// Employee - Clock out (WAJIB dengan foto)
+router.post("/clock-out", uploadPhotoCheckOut, AttendanceController.clockOut);
 
 // Employee - Get my attendance records
 router.get("/my-attendance", AttendanceController.getMyAttendance);

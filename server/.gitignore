@@ -13,3 +13,8 @@ npm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Uploaded files (attendance photos)
+# Keep folder structure but ignore actual photos
+uploads/attendance-photos/*
+!uploads/attendance-photos/.gitkeep

@@ -32,12 +32,20 @@ class AttendanceController {
         });
       }
       
+      // Validasi foto (sudah dihandle di middleware, tapi double check)
+      if (!req.photoInfo || !req.photoInfo.relativePath) {
+        return res.status(400).json({
+          message: "Photo is required for clock-in",
+          error: "PHOTO_REQUIRED"
+        });
+      }
+      
       // Get active work schedule
       const workSchedule = await WorkSchedule.findOne({
         where: { isActive: true }
       });
       
-      // Jika belum, buat attendance baru
+      // Jika belum, buat attendance baru dengan foto
       const now = new Date();
       const newAttendance = await Attendance.create({
         UserId: userId,
@@ -46,12 +54,18 @@ class AttendanceController {
         date: now,
         clockIn: now,
         clockOut: now, // Default value, akan diupdate saat clock-out
-        status: Attendance.ATTENDANCE_STATUS.ON_PROGRESS // Sedang bekerja
+        status: Attendance.ATTENDANCE_STATUS.ON_PROGRESS, // Sedang bekerja
+        photoCheckIn: req.photoInfo.relativePath // Save foto path
       });
       
       res.status(201).json({ 
         message: "Clock-in successful",
-        data: newAttendance
+        data: newAttendance,
+        photoInfo: {
+          uploaded: true,
+          path: req.photoInfo.relativePath,
+          size: `${Math.round(req.photoInfo.size / 1024)} KB`
+        }
       });
 
     } catch (error) {
@@ -81,10 +95,26 @@ class AttendanceController {
         });
       }
       
-      // Update record dengan clock-out time dan status final
+      // Jika sudah clock-out, return error
+      if (attendance.status !== Attendance.ATTENDANCE_STATUS.ON_PROGRESS) {
+        return res.status(400).json({
+          message: "Already clocked out today"
+        });
+      }
+      
+      // Validasi foto (sudah dihandle di middleware, tapi double check)
+      if (!req.photoInfo || !req.photoInfo.relativePath) {
+        return res.status(400).json({
+          message: "Photo is required for clock-out",
+          error: "PHOTO_REQUIRED"
+        });
+      }
+      
+      // Update record dengan clock-out time, status final, dan foto
       const clockOutTime = new Date();
       attendance.clockOut = clockOutTime;
       attendance.status = await determineFinalStatus(attendance.clockIn);
+      attendance.photoCheckOut = req.photoInfo.relativePath; // Save foto path
       await attendance.save();
       
       // Hitung durasi kerja
@@ -95,6 +125,11 @@ class AttendanceController {
         data: {
           ...attendance.toJSON(),
           workDurationHours: workDuration
+        },
+        photoInfo: {
+          uploaded: true,
+          path: req.photoInfo.relativePath,
+          size: `${Math.round(req.photoInfo.size / 1024)} KB`
         }
       });
 

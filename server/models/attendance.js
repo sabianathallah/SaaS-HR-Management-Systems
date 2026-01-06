@@ -122,6 +122,16 @@ module.exports = (sequelize, DataTypes) => {
       ),
       allowNull: false,
       defaultValue: ATTENDANCE_STATUS.ON_PROGRESS
+    },
+    photoCheckIn: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Path/URL foto selfie saat check-in'
+    },
+    photoCheckOut: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Path/URL foto selfie saat check-out'
     }
   }, {
     sequelize,
