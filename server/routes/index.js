@@ -10,6 +10,7 @@ const overtimeRouter = require('./overtime')
 const overtime_isAdminRouter = require('./overtime_isAdmin')
 const shift_isAdminRouter = require('./shift_isAdmin')
 const auditLogRouter = require('./auditLog')
+const report_isAdminRouter = require('./report_isAdmin')
 
 const isAdmin = require("../middlewares/authorization");
 const authentication = require('../middlewares/authentication')
@@ -53,6 +54,7 @@ router.use('/overtimes/admin', isAdmin, overtime_isAdminRouter)
 router.use('/overtimes', overtimeRouter)
 router.use('/shifts/admin', isAdmin, shift_isAdminRouter)
 router.use('/audit-logs', isAdmin, auditLogRouter)
+router.use('/reports', isAdmin, report_isAdminRouter)
 
 
 router.use(errorHandler)
