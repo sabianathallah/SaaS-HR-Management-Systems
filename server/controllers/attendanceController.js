@@ -1,4 +1,4 @@
-const { Attendance, User, WorkSchedule } = require('../models');
+const { Attendance, User, WorkSchedule, Shift, OfficeLocation } = require('../models');
 const { Op } = require('sequelize');
 const { getTodayRange, calculateWorkDuration } = require('../helpers/utils');
 const { 
@@ -6,6 +6,7 @@ const {
   calculateAttendanceStatistics,
   calculateAttendanceSummaryByPeriod
 } = require('../helpers/attendance');
+const { validateAttendanceLocation } = require('../helpers/geolocation');
 
 class AttendanceController {
   // Controllers for regular users (employees)
@@ -39,28 +40,111 @@ class AttendanceController {
           error: "PHOTO_REQUIRED"
         });
       }
+
+      // Get GPS coordinates from request body
+      const { latitude, longitude } = req.body;
+
+      // Get user's shift information
+      const user = await User.findByPk(userId, {
+        include: [{
+          model: Shift,
+          as: 'shift'
+        }]
+      });
+
+      // Default values for location validation
+      let locationValidation = {
+        status: 'not_checked',
+        distance: null,
+        officeLocationId: null
+      };
+
+      // GPS Validation - hanya untuk shift NON-FLEXIBLE
+      const isFlexibleShift = user?.shift?.name?.toLowerCase() === 'flexible';
+      
+      if (!isFlexibleShift) {
+        // Validasi GPS required untuk shift non-flexible
+        if (!latitude || !longitude) {
+          return res.status(400).json({
+            message: "GPS location is required for office attendance",
+            error: "GPS_REQUIRED",
+            hint: "Please enable location access on your device"
+          });
+        }
+
+        // Get all active office locations
+        const officeLocations = await OfficeLocation.findAll({
+          where: { is_active: true }
+        });
+
+        if (officeLocations.length === 0) {
+          return res.status(400).json({
+            message: "No active office location configured. Please contact admin.",
+            error: "NO_OFFICE_LOCATION"
+          });
+        }
+
+        // Validate location with geo-fencing
+        locationValidation = validateAttendanceLocation(
+          latitude,
+          longitude,
+          officeLocations
+        );
+
+        // SOFT VALIDATION: Jangan reject, tapi tandai untuk review admin
+        // Bisa di-reject jika mau strict validation
+        if (!locationValidation.isValid) {
+          // Log untuk admin review (optional)
+          console.log('⚠️ Clock-in outside radius:', {
+            userId,
+            status: locationValidation.status,
+            distance: locationValidation.distance,
+            message: locationValidation.message
+          });
+        }
+      }
       
       // Get active work schedule
       const workSchedule = await WorkSchedule.findOne({
         where: { isActive: true }
       });
       
-      // Jika belum, buat attendance baru dengan foto
+      // Jika belum, buat attendance baru dengan foto + GPS data
       const now = new Date();
       const newAttendance = await Attendance.create({
         UserId: userId,
-        WorkScheduleId: workSchedule ? workSchedule.id : null, // Save reference to work schedule
-        HolidayId: null, // Not a holiday
+        WorkScheduleId: workSchedule ? workSchedule.id : null,
+        ShiftId: user?.shift?.id || null,
+        HolidayId: null,
         date: now,
         clockIn: now,
         clockOut: now, // Default value, akan diupdate saat clock-out
-        status: Attendance.ATTENDANCE_STATUS.ON_PROGRESS, // Sedang bekerja
-        photoCheckIn: req.photoInfo.relativePath // Save foto path
+        status: Attendance.ATTENDANCE_STATUS.ON_PROGRESS,
+        photoCheckIn: req.photoInfo.relativePath,
+        // GPS data
+        clockInLatitude: latitude || null,
+        clockInLongitude: longitude || null,
+        officeLocationId: locationValidation.officeLocationId,
+        locationValidationStatus: locationValidation.status,
+        distanceFromOffice: locationValidation.distance
       });
+
+      // Include office location info in response
+      const responseData = {
+        ...newAttendance.toJSON(),
+        locationInfo: isFlexibleShift ? {
+          message: 'WFH/Flexible shift - location not required'
+        } : {
+          validationStatus: locationValidation.status,
+          message: locationValidation.message,
+          distance: locationValidation.distance ? `${Math.round(locationValidation.distance)}m` : null,
+          officeName: locationValidation.nearestOffice?.name
+        }
+      };
       
       res.status(201).json({ 
         message: "Clock-in successful",
-        data: newAttendance,
+        data: responseData,
         photoInfo: {
           uploaded: true,
           path: req.photoInfo.relativePath,
@@ -85,7 +169,11 @@ class AttendanceController {
           date: {
             [Op.between]: [startOfDay, endOfDay]
           }
-        }
+        },
+        include: [{
+          model: Shift,
+          as: 'shift'
+        }]
       });
       
       // Jika tidak ada record clock-in hari ini, return error
@@ -109,12 +197,26 @@ class AttendanceController {
           error: "PHOTO_REQUIRED"
         });
       }
+
+      // Get GPS coordinates from request body
+      const { latitude, longitude } = req.body;
+
+      // GPS Validation untuk clock-out (optional, bisa di-skip)
+      // Biasanya clock-out tidak se-strict clock-in
+      const isFlexibleShift = attendance.shift?.name?.toLowerCase() === 'flexible';
       
       // Update record dengan clock-out time, status final, dan foto
       const clockOutTime = new Date();
       attendance.clockOut = clockOutTime;
       attendance.status = await determineFinalStatus(attendance.clockIn);
-      attendance.photoCheckOut = req.photoInfo.relativePath; // Save foto path
+      attendance.photoCheckOut = req.photoInfo.relativePath;
+      
+      // Save GPS data for clock-out (if provided)
+      if (latitude && longitude) {
+        attendance.clockOutLatitude = latitude;
+        attendance.clockOutLongitude = longitude;
+      }
+      
       await attendance.save();
       
       // Hitung durasi kerja

@@ -54,6 +54,12 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'ShiftId',
         as: 'shift'
       });
+
+      // Attendance belongs to OfficeLocation
+      Attendance.belongsTo(models.OfficeLocation, { 
+        foreignKey: 'office_location_id',
+        as: 'office_location'
+      });
     }
   }
   Attendance.init({
@@ -132,6 +138,54 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: true,
       comment: 'Path/URL foto selfie saat check-out'
+    },
+    clockInLatitude: {
+      type: DataTypes.DECIMAL(10, 8),
+      allowNull: true,
+      field: 'clock_in_latitude',
+      comment: 'Latitude saat clock-in'
+    },
+    clockInLongitude: {
+      type: DataTypes.DECIMAL(11, 8),
+      allowNull: true,
+      field: 'clock_in_longitude',
+      comment: 'Longitude saat clock-in'
+    },
+    clockOutLatitude: {
+      type: DataTypes.DECIMAL(10, 8),
+      allowNull: true,
+      field: 'clock_out_latitude',
+      comment: 'Latitude saat clock-out'
+    },
+    clockOutLongitude: {
+      type: DataTypes.DECIMAL(11, 8),
+      allowNull: true,
+      field: 'clock_out_longitude',
+      comment: 'Longitude saat clock-out'
+    },
+    officeLocationId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'office_location_id',
+      references: {
+        model: 'office_locations',
+        key: 'id'
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL'
+    },
+    locationValidationStatus: {
+      type: DataTypes.ENUM('valid', 'outside_radius', 'gps_error', 'not_checked'),
+      allowNull: false,
+      defaultValue: 'not_checked',
+      field: 'location_validation_status',
+      comment: 'Status validasi lokasi'
+    },
+    distanceFromOffice: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      field: 'distance_from_office',
+      comment: 'Jarak dari kantor dalam meter'
     }
   }, {
     sequelize,
