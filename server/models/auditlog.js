@@ -53,7 +53,8 @@ module.exports = (sequelize, DataTypes) => {
         'LOGIN': 'login',
         'LOGOUT': 'logout',
         'APPROVE': 'disetujui',
-        'REJECT': 'ditolak'
+        'REJECT': 'ditolak',
+        'EXPORT': 'diekspor'
       };
       return actionMap[this.action] || this.action;
     }
@@ -66,7 +67,7 @@ module.exports = (sequelize, DataTypes) => {
       comment: 'User yang melakukan aksi (null untuk system action)'
     },
     action: {
-      type: DataTypes.ENUM('CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT', 'APPROVE', 'REJECT'),
+      type: DataTypes.ENUM('CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT', 'APPROVE', 'REJECT', 'EXPORT'),
       allowNull: false,
       validate: {
         notEmpty: {

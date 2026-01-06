@@ -4,9 +4,7 @@
   "description": "SaaS HR Management System Server",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon app.js",
-    "start": "node app.js"
+    "test": "jest --detectOpenHandles --forceExit"
   },
   "keywords": [
     "hr",
@@ -31,7 +29,11 @@
     "sharp": "^0.34.5"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "cross-env": "^10.1.0",
+    "jest": "^30.2.0",
     "nodemon": "^3.0.2",
-    "sequelize-cli": "^6.6.2"
+    "sequelize-cli": "^6.6.2",
+    "supertest": "^7.2.2"
   }
 }

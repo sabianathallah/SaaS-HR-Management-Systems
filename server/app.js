@@ -21,6 +21,8 @@ app.use(router)
 // Uncomment the line below to enable automatic absent marking
 setupCronJobs()
 
-app.listen(port, () => {
-  console.log(`running on port http://localhost:${port}`)
-})
+// app.listen(port, () => {
+//   console.log(`running on port http://localhost:${port}`)
+// })
+
+module.exports = app

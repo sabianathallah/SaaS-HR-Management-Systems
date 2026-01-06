@@ -2,8 +2,10 @@ const errorHandler = (err, req, res, next) => {
     let status = 500
     let message = 'Internal Server Error'
 
-    // Log error for debugging (optional, can be removed in production)
-    console.error('Error:', err.name, err.message);
+    // Log error for debugging (skip in test environment to reduce noise)
+    if (process.env.NODE_ENV !== 'test') {
+        console.error('Error:', err.name, err.message);
+    }
 
     // Sequelize Validation Errors
     if (err.name == 'SequelizeValidationError') {
