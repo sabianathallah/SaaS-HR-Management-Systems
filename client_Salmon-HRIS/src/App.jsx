@@ -1,14 +1,25 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router'
+
+import Login from './views/login.jsx'
+
 
 export default function App() {
-  const [count, setCount] = useState(0)
 
   return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
+
+
+export function AppOld() {
+  return (  
     <>
-      
+      <Login />   
     </>
   )
 }
