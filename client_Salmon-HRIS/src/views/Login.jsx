@@ -4,6 +4,7 @@ import baseUrl from "../constant/url.js"
 import { useNavigate } from "react-router"
 import { toast } from 'react-toastify';
 import logoNavbar from '../assets/logo-navbar.png'
+import backgroundImage from '../assets/background.png'
 import Button from '../components/button-reusable.jsx'
 
 export default function Login() {
@@ -29,7 +30,16 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
+    <div 
+      className="min-h-screen flex flex-col"
+      style={{
+        backgroundImage: `url(${backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed'
+      }}
+    >
 
       <div className="relative z-10">
         <nav className="sticky top-0 z-50 bg-gradient-to-r from-amber-900 via-yellow-800 to-amber-900 backdrop-blur-sm px-6 py-4 flex items-center justify-between shadow-lg">
