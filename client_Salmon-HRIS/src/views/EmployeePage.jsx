@@ -39,6 +39,7 @@ export default function EmployeePage() {
   const [leaveRequests, setLeaveRequests] = useState([])
   const [leaveBalance, setLeaveBalance] = useState(null)
   const [showLeaveForm, setShowLeaveForm] = useState(false)
+  const [showLeaveHistory, setShowLeaveHistory] = useState(false)
   const [leaveForm, setLeaveForm] = useState({
     leaveType: 'ANNUAL_LEAVE',
     startDate: '',
@@ -48,7 +49,9 @@ export default function EmployeePage() {
   
   // Overtime State
   const [overtimeRequests, setOvertimeRequests] = useState([])
+  const [overtimeHistory, setOvertimeHistory] = useState([])
   const [showOvertimeForm, setShowOvertimeForm] = useState(false)
+  const [showOvertimeHistory, setShowOvertimeHistory] = useState(false)
   const [overtimeForm, setOvertimeForm] = useState({
     overtimeDate: '',
     requestedHours: '',
@@ -73,6 +76,35 @@ export default function EmployeePage() {
     newPassword: '',
     confirmPassword: ''
   })
+
+  // ==================== ERROR HANDLING HELPER ====================
+  const handleApiError = (error, defaultMessage = 'Terjadi kesalahan') => {
+    console.error('API Error:', error)
+    console.error('Error response:', error.response?.data)
+    
+    let errorMessage = defaultMessage
+    
+    if (error.response?.data) {
+      // Try to get message from different possible structures
+      if (typeof error.response.data === 'string') {
+        errorMessage = error.response.data
+      } else if (error.response.data.message) {
+        errorMessage = error.response.data.message
+      } else if (error.response.data.error) {
+        errorMessage = error.response.data.error
+      } else if (error.response.data.errors) {
+        // Handle validation errors array
+        errorMessage = Array.isArray(error.response.data.errors) 
+          ? error.response.data.errors.join(', ')
+          : error.response.data.errors
+      }
+    } else if (error.message) {
+      errorMessage = error.message
+    }
+    
+    toast.error(errorMessage)
+    return errorMessage
+  }
 
   // Fetch data when component mounts or tab changes
   useEffect(() => {
@@ -114,8 +146,7 @@ export default function EmployeePage() {
       setNotifications(notifRes.data.data || [])
       setUnreadCount(countRes.data.data.unreadCount || 0)
     } catch (error) {
-      console.error('Error fetching dashboard:', error)
-      toast.error('Gagal memuat data dashboard')
+      handleApiError(error, 'Gagal memuat data dashboard')
     } finally {
       setLoading(false)
     }
@@ -197,19 +228,11 @@ export default function EmployeePage() {
       // Refresh dashboard data
       fetchDashboardData()
     } catch (error) {
-      console.error('❌ Error clock-in:', error)
-      console.error('❌ Error response:', error.response?.data)
-      
-      // User-friendly error messages
+      handleApiError(error, 'Gagal clock-in')
+      // Special handling for specific errors
       const errorMsg = error.response?.data?.message
       if (errorMsg === 'Already clocked in today') {
-        toast.error('Anda sudah clock-in hari ini!')
-        // Refresh data untuk update UI
-        fetchDashboardData()
-      } else if (errorMsg?.includes('Photo')) {
-        toast.error('Foto diperlukan untuk clock-in')
-      } else {
-        toast.error(errorMsg || 'Gagal clock-in')
+        fetchDashboardData() // Refresh data untuk update UI
       }
     } finally {
       setLoading(false)
@@ -265,19 +288,11 @@ export default function EmployeePage() {
       // Refresh dashboard data
       fetchDashboardData()
     } catch (error) {
-      console.error('❌ Error clock-out:', error)
-      console.error('❌ Error response:', error.response?.data)
-      
-      // User-friendly error messages
+      handleApiError(error, 'Gagal clock-out')
+      // Special handling for specific errors
       const errorMsg = error.response?.data?.message
       if (errorMsg?.includes('No clock-in')) {
-        toast.error('Anda belum clock-in hari ini!')
-        // Refresh data untuk update UI
-        fetchDashboardData()
-      } else if (errorMsg?.includes('Photo')) {
-        toast.error('Foto diperlukan untuk clock-out')
-      } else {
-        toast.error(errorMsg || 'Gagal clock-out')
+        fetchDashboardData() // Refresh data untuk update UI
       }
     } finally {
       setLoading(false)
@@ -301,7 +316,7 @@ export default function EmployeePage() {
       
       fetchDashboardData()
     } catch (error) {
-      console.error('Error marking notification:', error)
+      handleApiError(error, 'Gagal menandai notifikasi')
     }
   }
 
@@ -316,8 +331,7 @@ export default function EmployeePage() {
       
       setAttendanceHistory(data.data || [])
     } catch (error) {
-      console.error('Error fetching attendance:', error)
-      toast.error('Gagal memuat riwayat attendance')
+      handleApiError(error, 'Gagal memuat riwayat attendance')
     } finally {
       setLoading(false)
     }
@@ -346,8 +360,7 @@ export default function EmployeePage() {
       
       setAttendanceStatistics(data.data || null)
     } catch (error) {
-      console.error('Error fetching statistics:', error)
-      toast.error('Gagal memuat statistik attendance')
+      handleApiError(error, 'Gagal memuat statistik attendance')
     } finally {
       setLoading(false)
     }
@@ -375,8 +388,7 @@ export default function EmployeePage() {
       setLeaveRequests(requestsRes.data.data || [])
       setLeaveBalance(balanceRes.data.data)
     } catch (error) {
-      console.error('Error fetching leave data:', error)
-      toast.error('Gagal memuat data cuti')
+      handleApiError(error, 'Gagal memuat data cuti')
     } finally {
       setLoading(false)
     }
@@ -401,6 +413,12 @@ export default function EmployeePage() {
       return
     }
     
+    // Validate minimum length for reason
+    if (leaveForm.reason.trim().length < 10) {
+      toast.error('Alasan harus minimal 10 karakter')
+      return
+    }
+    
     // Validate end date is not before start date
     if (new Date(leaveForm.endDate) < new Date(leaveForm.startDate)) {
       toast.error('Tanggal selesai tidak boleh lebih awal dari tanggal mulai')
@@ -410,9 +428,18 @@ export default function EmployeePage() {
     setLoading(true)
     try {
       const token = localStorage.getItem('access_token')
-      console.log('Submitting leave request:', leaveForm)
       
-      await axios.post(`${baseUrl}/leave-requests`, leaveForm, {
+      // Prepare payload with trimmed reason
+      const payload = {
+        leaveType: leaveForm.leaveType,
+        startDate: leaveForm.startDate,
+        endDate: leaveForm.endDate,
+        reason: leaveForm.reason.trim()
+      }
+      
+      console.log('Submitting leave request:', payload)
+      
+      await axios.post(`${baseUrl}/leave-requests`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       })
       
@@ -426,10 +453,7 @@ export default function EmployeePage() {
       })
       fetchLeaveData()
     } catch (error) {
-      console.error('Error submitting leave:', error)
-      console.error('Error response:', error.response?.data)
-      const errorMessage = error.response?.data?.message || 'Gagal mengajukan cuti'
-      toast.error(errorMessage)
+      handleApiError(error, 'Gagal mengajukan cuti')
     } finally {
       setLoading(false)
     }
@@ -447,8 +471,7 @@ export default function EmployeePage() {
       toast.success('Pengajuan berhasil dibatalkan')
       fetchLeaveData()
     } catch (error) {
-      console.error('Error cancelling leave:', error)
-      toast.error(error.response?.data?.message || 'Gagal membatalkan pengajuan')
+      handleApiError(error, 'Gagal membatalkan pengajuan')
     }
   }
 
@@ -463,8 +486,23 @@ export default function EmployeePage() {
       
       setOvertimeRequests(data.data || [])
     } catch (error) {
-      console.error('Error fetching overtime:', error)
-      toast.error('Gagal memuat data overtime')
+      handleApiError(error, 'Gagal memuat data overtime')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchOvertimeHistory = async () => {
+    setLoading(true)
+    try {
+      const token = localStorage.getItem('access_token')
+      const { data } = await axios.get(`${baseUrl}/overtimes/my-history`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      setOvertimeHistory(data.data || [])
+    } catch (error) {
+      handleApiError(error, 'Gagal memuat riwayat overtime')
     } finally {
       setLoading(false)
     }
@@ -472,10 +510,49 @@ export default function EmployeePage() {
 
   const handleOvertimeSubmit = async (e) => {
     e.preventDefault()
+    
+    // Validasi client-side
+    if (!overtimeForm.overtimeDate) {
+      toast.error('Tanggal overtime harus diisi!')
+      return
+    }
+    
+    if (!overtimeForm.requestedHours) {
+      toast.error('Jam overtime yang diminta harus diisi!')
+      return
+    }
+    
+    const hours = parseFloat(overtimeForm.requestedHours)
+    if (isNaN(hours) || hours < 0.5 || hours > 12) {
+      toast.error('Jam overtime harus antara 0.5 - 12 jam!')
+      return
+    }
+    
+    if (!overtimeForm.reason || overtimeForm.reason.trim() === '') {
+      toast.error('Alasan overtime harus diisi!')
+      return
+    }
+    
+    // Validate minimum length for reason
+    if (overtimeForm.reason.trim().length < 10) {
+      toast.error('Alasan overtime harus minimal 10 karakter!')
+      return
+    }
+    
     setLoading(true)
     try {
       const token = localStorage.getItem('access_token')
-      await axios.post(`${baseUrl}/overtimes/request`, overtimeForm, {
+      
+      // Convert requestedHours to number before sending
+      const payload = {
+        overtimeDate: overtimeForm.overtimeDate,
+        requestedHours: parseFloat(overtimeForm.requestedHours),
+        reason: overtimeForm.reason.trim()
+      }
+      
+      console.log('Submitting overtime request:', payload)
+      
+      await axios.post(`${baseUrl}/overtimes/request`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       })
       
@@ -488,10 +565,25 @@ export default function EmployeePage() {
       })
       fetchOvertimeData()
     } catch (error) {
-      console.error('Error submitting overtime:', error)
-      toast.error(error.response?.data?.message || 'Gagal mengajukan overtime')
+      handleApiError(error, 'Gagal mengajukan overtime')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleCancelOvertime = async (overtimeId) => {
+    if (!window.confirm('Yakin ingin membatalkan pengajuan overtime ini?')) return
+    
+    try {
+      const token = localStorage.getItem('access_token')
+      await axios.delete(`${baseUrl}/overtimes/${overtimeId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      toast.success('Pengajuan overtime berhasil dibatalkan')
+      fetchOvertimeData()
+    } catch (error) {
+      handleApiError(error, 'Gagal membatalkan pengajuan overtime')
     }
   }
 
@@ -507,7 +599,7 @@ export default function EmployeePage() {
       setProfile(data.data || profile)
       setProfileForm({ name: data.data?.name || '' })
     } catch (error) {
-      console.error('Error fetching profile:', error)
+      handleApiError(error, 'Gagal memuat profile')
       // Set default profile from localStorage if available
       const userEmail = localStorage.getItem('user_email') || 'employee@example.com'
       setProfile({ ...profile, email: userEmail })
@@ -538,8 +630,7 @@ export default function EmployeePage() {
       setShowEditProfileForm(false)
       fetchProfile()
     } catch (error) {
-      console.error('Error updating profile:', error)
-      toast.error(error.response?.data?.message || 'Gagal memperbarui profile')
+      handleApiError(error, 'Gagal memperbarui profile')
     } finally {
       setLoading(false)
     }
@@ -581,8 +672,7 @@ export default function EmployeePage() {
         confirmPassword: ''
       })
     } catch (error) {
-      console.error('Error changing password:', error)
-      toast.error(error.response?.data?.message || 'Gagal mengubah password')
+      handleApiError(error, 'Gagal mengubah password')
     } finally {
       setLoading(false)
     }
@@ -1125,16 +1215,20 @@ export default function EmployeePage() {
 
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">
-                  Alasan
+                  Alasan (Minimal 10 karakter)
                 </label>
                 <textarea
                   value={leaveForm.reason}
                   onChange={(e) => setLeaveForm({...leaveForm, reason: e.target.value})}
                   className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none"
                   rows="3"
-                  placeholder="Jelaskan alasan pengajuan..."
+                  placeholder="Jelaskan alasan pengajuan (minimal 10 karakter)..."
                   required
+                  minLength={10}
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  {leaveForm.reason.trim().length}/10 karakter minimum
+                </p>
               </div>
 
               <div className="flex gap-4">
@@ -1155,75 +1249,91 @@ export default function EmployeePage() {
           </form>
         )}
 
-        {/* Leave History */}
-        <h3 className="text-lg font-semibold text-gray-700 mt-8 mb-4">Riwayat Pengajuan</h3>
-        
-        {loading ? (
-          <p className="text-center text-gray-500">Loading...</p>
-        ) : leaveRequests.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Jenis
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tanggal
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Durasi
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Aksi
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {leaveRequests.map((leave) => (
-                  <tr key={leave.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {leave.leaveType === 'ANNUAL_LEAVE' ? 'Cuti Tahunan' :
-                       leave.leaveType === 'SICK_LEAVE' ? 'Sakit' : 'Izin'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(leave.startDate).toLocaleDateString('id-ID')} - {' '}
-                      {new Date(leave.endDate).toLocaleDateString('id-ID')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {leave.totalDays} hari
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        leave.status === 'APPROVED' ? 'bg-green-200 text-green-800' :
-                        leave.status === 'REJECTED' ? 'bg-red-200 text-red-800' :
-                        leave.status === 'CANCELLED' ? 'bg-gray-200 text-gray-800' :
-                        'bg-yellow-200 text-yellow-800'
-                      }`}>
-                        {leave.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {leave.status === 'PENDING' && (
-                        <button
-                          onClick={() => handleCancelLeave(leave.id)}
-                          className="text-red-600 hover:text-red-800 font-semibold"
-                        >
-                          Batalkan
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-center text-gray-500">Belum ada riwayat pengajuan</p>
-        )}
+        {/* Leave History Toggle Button */}
+        <div className="mt-6">
+          <Button 
+            nameProp={showLeaveHistory ? "📋 Sembunyikan Riwayat Pengajuan Cuti/Izin" : "📋 Lihat Riwayat Pengajuan Cuti/Izin"}
+            onClick={() => {
+              setShowLeaveHistory(!showLeaveHistory)
+              if (!showLeaveHistory && leaveRequests.length === 0) fetchLeaveData()
+            }}
+            variant="secondary"
+          />
+
+          {/* Leave History */}
+          {showLeaveHistory && (
+            <div className="mt-4 bg-blue-50 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">Riwayat Pengajuan Cuti/Izin</h3>
+              
+              {loading ? (
+                <p className="text-center text-gray-500">Loading...</p>
+              ) : leaveRequests.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Jenis
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Tanggal
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Durasi
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Aksi
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {leaveRequests.map((leave) => (
+                        <tr key={leave.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {leave.leaveType === 'ANNUAL_LEAVE' ? 'Cuti Tahunan' :
+                             leave.leaveType === 'SICK_LEAVE' ? 'Sakit' : 'Izin'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {new Date(leave.startDate).toLocaleDateString('id-ID')} - {' '}
+                            {new Date(leave.endDate).toLocaleDateString('id-ID')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {leave.totalDays} hari
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                              leave.status === 'APPROVED' ? 'bg-green-200 text-green-800' :
+                              leave.status === 'REJECTED' ? 'bg-red-200 text-red-800' :
+                              leave.status === 'CANCELLED' ? 'bg-gray-200 text-gray-800' :
+                              'bg-yellow-200 text-yellow-800'
+                            }`}>
+                              {leave.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            {leave.status === 'PENDING' && (
+                              <button
+                                onClick={() => handleCancelLeave(leave.id)}
+                                className="text-red-600 hover:text-red-800 font-semibold"
+                              >
+                                Batalkan
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-center text-gray-500">Belum ada riwayat pengajuan cuti/izin</p>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Overtime Section */}
         <div className="mt-8 pt-8 border-t border-gray-200">
@@ -1275,16 +1385,20 @@ export default function EmployeePage() {
 
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">
-                    Alasan Overtime
+                    Alasan Overtime (Minimal 10 karakter)
                   </label>
                   <textarea
                     value={overtimeForm.reason}
                     onChange={(e) => setOvertimeForm({...overtimeForm, reason: e.target.value})}
                     className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 focus:border-purple-500 focus:outline-none"
                     rows="3"
-                    placeholder="Minimal 10 karakter..."
+                    placeholder="Jelaskan alasan overtime (minimal 10 karakter)..."
                     required
+                    minLength={10}
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {overtimeForm.reason.trim().length}/10 karakter minimum
+                  </p>
                 </div>
 
                 <div className="flex gap-4">
@@ -1308,7 +1422,7 @@ export default function EmployeePage() {
           {/* Overtime History */}
           {overtimeRequests.length > 0 && (
             <div className="mt-6">
-              <h4 className="font-semibold text-gray-700 mb-3">Riwayat Overtime</h4>
+              <h4 className="font-semibold text-gray-700 mb-3">Pengajuan Overtime</h4>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
@@ -1324,6 +1438,9 @@ export default function EmployeePage() {
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Aksi
                       </th>
                     </tr>
                   </thead>
@@ -1343,10 +1460,21 @@ export default function EmployeePage() {
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                             ot.status === 'approved' ? 'bg-green-200 text-green-800' :
                             ot.status === 'rejected' ? 'bg-red-200 text-red-800' :
+                            ot.status === 'cancelled' ? 'bg-gray-200 text-gray-800' :
                             'bg-yellow-200 text-yellow-800'
                           }`}>
                             {ot.status}
                           </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          {ot.status === 'pending' && (
+                            <button
+                              onClick={() => handleCancelOvertime(ot.id)}
+                              className="text-red-600 hover:text-red-800 font-semibold"
+                            >
+                              Batalkan
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1355,6 +1483,75 @@ export default function EmployeePage() {
               </div>
             </div>
           )}
+
+          {/* Overtime Approved History */}
+          <div className="mt-6">
+            <Button 
+              nameProp={showOvertimeHistory ? "📋 Sembunyikan Riwayat Overtime yang Disetujui" : "📋 Lihat Riwayat Overtime yang Disetujui"}
+              onClick={() => {
+                setShowOvertimeHistory(!showOvertimeHistory)
+                if (!showOvertimeHistory) fetchOvertimeHistory()
+              }}
+              variant="secondary"
+            />
+
+            {showOvertimeHistory && (
+              <div className="mt-4 bg-green-50 rounded-lg p-6">
+                <h4 className="font-semibold text-gray-700 mb-3">Riwayat Overtime yang Disetujui</h4>
+                
+                {loading ? (
+                  <p className="text-center text-gray-500">Loading...</p>
+                ) : overtimeHistory.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Tanggal
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Jam Request
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Jam Approved
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Alasan
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Catatan Admin
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {overtimeHistory.map((ot) => (
+                          <tr key={ot.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {new Date(ot.overtimeDate).toLocaleDateString('id-ID')}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {ot.requestedHours} jam
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {ot.actualHours || ot.requestedHours} jam
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900">
+                              {ot.reason}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {ot.adminNotes || '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500">Belum ada overtime yang disetujui</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
