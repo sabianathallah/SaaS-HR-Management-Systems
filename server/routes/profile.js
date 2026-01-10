@@ -6,7 +6,7 @@ const ProfileController = require('../controllers/profileController')
 router.get('/', ProfileController.getProfile)
 
 // Update profile
-router.put('/', ProfileController.updateProfile)
+router.put('/', ProfileController.updateProfile) // update name only
 
 // Change password
 router.put('/change-password', ProfileController.changePassword)

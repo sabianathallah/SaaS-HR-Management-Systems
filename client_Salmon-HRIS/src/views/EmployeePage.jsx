@@ -59,6 +59,10 @@ export default function EmployeePage() {
     position: ''
   })
   const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const [showEditProfileForm, setShowEditProfileForm] = useState(false)
+  const [profileForm, setProfileForm] = useState({
+    name: ''
+  })
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: '',
     newPassword: '',
@@ -461,12 +465,12 @@ export default function EmployeePage() {
     setLoading(true)
     try {
       const token = localStorage.getItem('access_token')
-      // Assuming there's a profile endpoint, adjust if different
       const { data } = await axios.get(`${baseUrl}/profile`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       
       setProfile(data.data || profile)
+      setProfileForm({ name: data.data?.name || '' })
     } catch (error) {
       console.error('Error fetching profile:', error)
       // Set default profile from localStorage if available
@@ -477,8 +481,47 @@ export default function EmployeePage() {
     }
   }
 
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault()
+    
+    if (!profileForm.name || !profileForm.name.trim()) {
+      toast.error('Nama tidak boleh kosong')
+      return
+    }
+    
+    setLoading(true)
+    try {
+      const token = localStorage.getItem('access_token')
+      const { data } = await axios.put(`${baseUrl}/profile`, {
+        name: profileForm.name
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      toast.success('Profile berhasil diperbarui!')
+      setProfile({ ...profile, name: data.data.name })
+      setShowEditProfileForm(false)
+      fetchProfile()
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      toast.error(error.response?.data?.message || 'Gagal memperbarui profile')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleChangePassword = async (e) => {
     e.preventDefault()
+    
+    if (!passwordForm.oldPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      toast.error('Semua field password harus diisi')
+      return
+    }
+    
+    if (passwordForm.newPassword.length < 6) {
+      toast.error('Password baru minimal 6 karakter')
+      return
+    }
     
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       toast.error('Password baru tidak cocok!')
@@ -488,7 +531,7 @@ export default function EmployeePage() {
     setLoading(true)
     try {
       const token = localStorage.getItem('access_token')
-      await axios.put(`${baseUrl}/change-password`, {
+      await axios.put(`${baseUrl}/profile/change-password`, {
         oldPassword: passwordForm.oldPassword,
         newPassword: passwordForm.newPassword
       }, {
@@ -1138,13 +1181,64 @@ export default function EmployeePage() {
           </div>
         </div>
 
-        {/* Change Password */}
-        <Button 
-          nameProp={showPasswordForm ? "Sembunyikan Form" : "Ubah Password"}
-          onClick={() => setShowPasswordForm(!showPasswordForm)}
-          variant="primary"
-        />
+        {/* Edit Profile Button */}
+        <div className="flex gap-4 mb-4">
+          <Button 
+            nameProp={showEditProfileForm ? "Sembunyikan Form" : "Edit Profile"}
+            onClick={() => {
+              setShowEditProfileForm(!showEditProfileForm)
+              if (!showEditProfileForm) {
+                setProfileForm({ name: profile.name })
+              }
+            }}
+            variant="primary"
+          />
+          <Button 
+            nameProp={showPasswordForm ? "Sembunyikan Form" : "Ubah Password"}
+            onClick={() => setShowPasswordForm(!showPasswordForm)}
+            variant="primary"
+          />
+        </div>
 
+        {/* Edit Profile Form */}
+        {showEditProfileForm && (
+          <form onSubmit={handleUpdateProfile} className="bg-blue-50 rounded-lg p-6 mb-4">
+            <h3 className="text-lg font-semibold text-gray-700 mb-4">Edit Profile</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">
+                  Nama Lengkap
+                </label>
+                <input
+                  type="text"
+                  value={profileForm.name}
+                  onChange={(e) => setProfileForm({...profileForm, name: e.target.value})}
+                  className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none"
+                  placeholder="Masukkan nama lengkap"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-4">
+                <Button 
+                  nameProp={loading ? "Menyimpan..." : "Simpan Perubahan"}
+                  type="submit"
+                  variant="primary"
+                  disabled={loading}
+                />
+                <Button 
+                  nameProp="Batal"
+                  type="button"
+                  onClick={() => setShowEditProfileForm(false)}
+                  variant="secondary"
+                />
+              </div>
+            </div>
+          </form>
+        )}
+
+        {/* Change Password Form */}
         {showPasswordForm && (
           <form onSubmit={handleChangePassword} className="bg-gray-50 rounded-lg p-6 mt-4">
             <h3 className="text-lg font-semibold text-gray-700 mb-4">Ubah Password</h3>
@@ -1210,7 +1304,7 @@ export default function EmployeePage() {
         {/* Logout Button */}
         <div className="mt-8 pt-8 border-t border-gray-200">
           <Button 
-            nameProp="🚪 Logout"
+            nameProp="Logout"
             onClick={handleLogout}
             variant="danger"
           />

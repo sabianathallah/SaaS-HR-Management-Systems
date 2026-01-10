@@ -30,7 +30,7 @@ class ProfileController {
     static async updateProfile(req, res, next) {
         try {
             const userId = req.user.id
-            const { name, department, position } = req.body
+            const { name } = req.body
 
             const user = await User.findByPk(userId)
             if (!user) {
@@ -39,8 +39,6 @@ class ProfileController {
 
             // Update fields if provided
             if (name) user.name = name
-            if (department) user.department = department
-            if (position) user.position = position
 
             await user.save()
 
@@ -49,10 +47,7 @@ class ProfileController {
                 data: {
                     id: user.id,
                     name: user.name,
-                    email: user.email,
-                    role: user.role,
-                    department: user.department,
-                    position: user.position
+                    email: user.email
                 }
             })
         } catch (error) {
