@@ -4,6 +4,7 @@ import baseUrl from '../constant/url.js'
 import { useNavigate } from 'react-router'
 import { toast } from 'react-toastify'
 import logoNavbar from '../assets/logo-navbar.png'
+import backgroundImage from '../assets/background.png'
 import Button from '../components/button-reusable.jsx'
 import CameraCapture from '../components/CameraCapture.jsx'
 import GPSLocation from '../components/GPSLocation.jsx'
@@ -24,6 +25,10 @@ export default function EmployeePage() {
   const [todayAttendance, setTodayAttendance] = useState(null)
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
+  
+  // Notifications/Inbox State
+  const [allNotifications, setAllNotifications] = useState([])
+  const [notificationFilter, setNotificationFilter] = useState('all') // 'all', 'unread', 'read'
   
   // Attendance State
   const [attendanceHistory, setAttendanceHistory] = useState([])
@@ -120,6 +125,8 @@ export default function EmployeePage() {
       fetchAttendanceHistory()
     } else if (activeTab === 'leave') {
       fetchLeaveData()
+    } else if (activeTab === 'notifications') {
+      fetchAllNotifications()
     } else if (activeTab === 'profile') {
       fetchProfile()
     }
@@ -315,8 +322,103 @@ export default function EmployeePage() {
       })
       
       fetchDashboardData()
+      // Also update allNotifications if in notifications tab
+      if (activeTab === 'notifications') {
+        fetchAllNotifications()
+      }
     } catch (error) {
       handleApiError(error, 'Gagal menandai notifikasi')
+    }
+  }
+
+  // ==================== NOTIFICATION/INBOX FUNCTIONS ====================
+  const fetchAllNotifications = async () => {
+    setLoading(true)
+    try {
+      const token = localStorage.getItem('access_token')
+      const [notifRes, countRes] = await Promise.all([
+        axios.get(`${baseUrl}/notifications?limit=100`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        axios.get(`${baseUrl}/notifications/unread-count`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ])
+      
+      setAllNotifications(notifRes.data.data || [])
+      setUnreadCount(countRes.data.data.unreadCount || 0)
+    } catch (error) {
+      handleApiError(error, 'Gagal memuat notifikasi')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const markAllAsRead = async () => {
+    if (unreadCount === 0) {
+      toast.info('Semua notifikasi sudah dibaca')
+      return
+    }
+    
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('access_token')
+      const { data } = await axios.patch(`${baseUrl}/notifications/read-all`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      toast.success(`${data.data.updatedCount} notifikasi ditandai sudah dibaca`)
+      fetchAllNotifications()
+      fetchDashboardData() // Update dashboard badge
+    } catch (error) {
+      handleApiError(error, 'Gagal menandai semua notifikasi')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const clearReadNotifications = async () => {
+    const readCount = allNotifications.filter(n => n.isRead).length
+    
+    if (readCount === 0) {
+      toast.info('Tidak ada notifikasi yang sudah dibaca untuk dihapus')
+      return
+    }
+    
+    if (!window.confirm(`Hapus ${readCount} notifikasi yang sudah dibaca?`)) return
+    
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('access_token')
+      const { data } = await axios.delete(`${baseUrl}/notifications/clear-read`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      toast.success(`${data.data.deletedCount} notifikasi dihapus`)
+      fetchAllNotifications()
+    } catch (error) {
+      handleApiError(error, 'Gagal menghapus notifikasi')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const deleteNotification = async (notifId) => {
+    if (!window.confirm('Hapus notifikasi ini?')) return
+    
+    try {
+      const token = localStorage.getItem('access_token')
+      await axios.delete(`${baseUrl}/notifications/${notifId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      toast.success('Notifikasi dihapus')
+      fetchAllNotifications()
+      if (activeTab === 'dashboard') {
+        fetchDashboardData()
+      }
+    } catch (error) {
+      handleApiError(error, 'Gagal menghapus notifikasi')
     }
   }
 
@@ -1557,6 +1659,163 @@ export default function EmployeePage() {
     </div>
   )
 
+  // ==================== NOTIFICATIONS/INBOX TAB ====================
+  const renderNotifications = () => {
+    // Filter notifications based on selected filter
+    const filteredNotifications = allNotifications.filter(notif => {
+      if (notificationFilter === 'unread') return !notif.isRead
+      if (notificationFilter === 'read') return notif.isRead
+      return true // 'all'
+    })
+
+    const readCount = allNotifications.filter(n => n.isRead).length
+    const unreadCountLocal = allNotifications.filter(n => !n.isRead).length
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-800">
+              📬 Inbox Notifikasi
+              {unreadCountLocal > 0 && (
+                <span className="ml-3 bg-red-500 text-white px-3 py-1 rounded-full text-sm">
+                  {unreadCountLocal} Baru
+                </span>
+              )}
+            </h2>
+          </div>
+
+          {/* Filter Tabs */}
+          <div className="flex gap-4 mb-6 border-b pb-2">
+            <button
+              className={`pb-2 px-4 font-semibold transition-all ${
+                notificationFilter === 'all'
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+              onClick={() => setNotificationFilter('all')}
+            >
+              Semua ({allNotifications.length})
+            </button>
+            <button
+              className={`pb-2 px-4 font-semibold transition-all ${
+                notificationFilter === 'unread'
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+              onClick={() => setNotificationFilter('unread')}
+            >
+              Belum Dibaca ({unreadCountLocal})
+            </button>
+            <button
+              className={`pb-2 px-4 font-semibold transition-all ${
+                notificationFilter === 'read'
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+              onClick={() => setNotificationFilter('read')}
+            >
+              Sudah Dibaca ({readCount})
+            </button>
+          </div>
+
+          {/* Bulk Actions */}
+          <div className="flex gap-4 mb-6">
+            <Button
+              nameProp="✓ Tandai Semua Sudah Dibaca"
+              onClick={markAllAsRead}
+              variant="primary"
+              disabled={unreadCountLocal === 0 || loading}
+            />
+            <Button
+              nameProp="🗑️ Hapus yang Sudah Dibaca"
+              onClick={clearReadNotifications}
+              variant="danger"
+              disabled={readCount === 0 || loading}
+            />
+          </div>
+
+          {/* Notifications List */}
+          {loading ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">Memuat notifikasi...</p>
+            </div>
+          ) : filteredNotifications.length > 0 ? (
+            <div className="space-y-3">
+              {filteredNotifications.map((notif) => (
+                <div
+                  key={notif.id}
+                  className={`p-4 rounded-lg transition-all ${
+                    notif.isRead
+                      ? 'bg-white border border-gray-200 hover:bg-gray-50'
+                      : 'bg-blue-50 border-l-4 border-blue-500 hover:bg-blue-100'
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div
+                      className="flex-1 cursor-pointer"
+                      onClick={() => !notif.isRead && markNotificationAsRead(notif.id)}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className={`font-semibold ${notif.isRead ? 'text-gray-700' : 'text-gray-900'}`}>
+                          {notif.title}
+                        </p>
+                        {!notif.isRead && (
+                          <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                        )}
+                      </div>
+                      <p className={`text-sm ${notif.isRead ? 'text-gray-500' : 'text-gray-700'} mt-1`}>
+                        {notif.message}
+                      </p>
+                      <div className="flex items-center gap-4 mt-2">
+                        <p className="text-xs text-gray-400">
+                          {new Date(notif.createdAt).toLocaleString('id-ID')}
+                        </p>
+                        {notif.type && (
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            notif.type === 'SUCCESS' ? 'bg-green-100 text-green-700' :
+                            notif.type === 'ERROR' ? 'bg-red-100 text-red-700' :
+                            notif.type === 'WARNING' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-blue-100 text-blue-700'
+                          }`}>
+                            {notif.type}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deleteNotification(notif.id)}
+                      className="ml-4 text-red-500 hover:text-red-700 transition-colors"
+                      title="Hapus notifikasi"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <p className="text-gray-500 text-lg">
+                {notificationFilter === 'unread' && 'Tidak ada notifikasi belum dibaca'}
+                {notificationFilter === 'read' && 'Tidak ada notifikasi yang sudah dibaca'}
+                {notificationFilter === 'all' && 'Tidak ada notifikasi'}
+              </p>
+            </div>
+          )}
+
+          {/* Info */}
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+            <p className="text-sm text-gray-600">
+              💡 <strong>Tips:</strong> Klik notifikasi belum dibaca untuk menandai sudah dibaca.
+              Gunakan tombol "Hapus yang Sudah Dibaca" untuk membersihkan inbox.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const renderProfile = () => (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -1721,9 +1980,18 @@ export default function EmployeePage() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div 
+      className="min-h-screen"
+      style={{
+        backgroundImage: `url(${backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed'
+      }}
+    >
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-white backdrop-blur-sm px-6 py-4 shadow-md">
+      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md px-6 py-4 shadow-lg border-b border-gray-200">
         <div className="flex items-center justify-between">
             
             {/* LEFT */}
@@ -1757,11 +2025,12 @@ export default function EmployeePage() {
         </div>
         </nav>
 
-
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
+      {/* Background Overlay untuk membuat konten lebih terbaca */}
+      <div className="min-h-screen" style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>
+        {/* Main Content */}
+        <div className="container mx-auto px-4 py-8">
         {/* Tabs */}
-        <div className="bg-white rounded-lg shadow-md mb-6">
+        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl mb-6 border border-gray-200">
           <div className="flex flex-wrap border-b border-gray-200">
             <button
               onClick={() => setActiveTab('dashboard')}
@@ -1794,6 +2063,21 @@ export default function EmployeePage() {
               🏖️ Cuti & Izin
             </button>
             <button
+              onClick={() => setActiveTab('notifications')}
+              className={`px-6 py-3 font-semibold transition-colors relative ${
+                activeTab === 'notifications'
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-600 hover:text-blue-600'
+              }`}
+            >
+              📬 Notifikasi
+              {unreadCount > 0 && (
+                <span className="ml-1 bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => setActiveTab('profile')}
               className={`px-6 py-3 font-semibold transition-colors ${
                 activeTab === 'profile'
@@ -1811,6 +2095,7 @@ export default function EmployeePage() {
           {activeTab === 'dashboard' && renderDashboard()}
           {activeTab === 'attendance' && renderAttendance()}
           {activeTab === 'leave' && renderLeave()}
+          {activeTab === 'notifications' && renderNotifications()}
           {activeTab === 'profile' && renderProfile()}
         </div>
       </div>
@@ -1872,6 +2157,7 @@ export default function EmployeePage() {
           </div>
         </Modal>
       )}
+      </div>
     </div>
   )
 }
