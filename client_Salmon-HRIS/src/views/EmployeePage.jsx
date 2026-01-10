@@ -345,9 +345,34 @@ export default function EmployeePage() {
 
   const handleLeaveSubmit = async (e) => {
     e.preventDefault()
+    
+    // Validate form fields
+    if (!leaveForm.startDate) {
+      toast.error('Tanggal mulai harus diisi')
+      return
+    }
+    
+    if (!leaveForm.endDate) {
+      toast.error('Tanggal selesai harus diisi')
+      return
+    }
+    
+    if (!leaveForm.reason || !leaveForm.reason.trim()) {
+      toast.error('Alasan harus diisi')
+      return
+    }
+    
+    // Validate end date is not before start date
+    if (new Date(leaveForm.endDate) < new Date(leaveForm.startDate)) {
+      toast.error('Tanggal selesai tidak boleh lebih awal dari tanggal mulai')
+      return
+    }
+    
     setLoading(true)
     try {
       const token = localStorage.getItem('access_token')
+      console.log('Submitting leave request:', leaveForm)
+      
       await axios.post(`${baseUrl}/leave-requests`, leaveForm, {
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -363,7 +388,9 @@ export default function EmployeePage() {
       fetchLeaveData()
     } catch (error) {
       console.error('Error submitting leave:', error)
-      toast.error(error.response?.data?.message || 'Gagal mengajukan cuti')
+      console.error('Error response:', error.response?.data)
+      const errorMessage = error.response?.data?.message || 'Gagal mengajukan cuti'
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
