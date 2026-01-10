@@ -30,7 +30,15 @@ class LoginController {
                 description: `User ${user.name} (${user.email}) logged in successfully`
             });
 
-            res.status(200).json({ access_token })
+            res.status(200).json({ 
+                access_token,
+                user: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role
+                }
+            })
         } catch (error) {
             next(error)
         }

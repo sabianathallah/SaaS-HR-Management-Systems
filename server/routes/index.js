@@ -13,6 +13,7 @@ const auditLogRouter = require('./auditLog')
 const report_isAdminRouter = require('./report_isAdmin')
 const notificationRouter = require('./notification')
 const officeLocationAdminRouter = require('./officeLocationAdmin')
+const profileRouter = require('./profile')
 
 const isAdmin = require("../middlewares/authorization");
 const authentication = require('../middlewares/authentication')
@@ -47,6 +48,7 @@ router.get('/test-ip', (req, res) => {
 })
 
 router.use(authentication)
+router.use('/profile', profileRouter)
 router.use('/users/admin', isAdmin, user_isAdminRouter)
 router.use('/attendances/admin', isAdmin, attendance_isAdminRouter)
 router.use('/attendances', attendanceRouter)

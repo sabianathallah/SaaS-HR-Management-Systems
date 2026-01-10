@@ -5,11 +5,11 @@ const { uploadPhotoCheckIn, uploadPhotoCheckOut } = require("../middlewares/uplo
 
 // ===== AUTHENTICATED USER ROUTES (EMPLOYEES) =====
 
-// Employee - Clock in (WAJIB dengan foto)
+// Employee - Clock in (WAJIB dengan foto) - CREATE new record
 router.post("/clock-in", uploadPhotoCheckIn, AttendanceController.clockIn);
 
-// Employee - Clock out (WAJIB dengan foto)
-router.post("/clock-out", uploadPhotoCheckOut, AttendanceController.clockOut);
+// Employee - Clock out (WAJIB dengan foto) - UPDATE existing record
+router.put("/clock-out", uploadPhotoCheckOut, AttendanceController.clockOut);
 
 // Employee - Get my attendance records
 router.get("/my-attendance", AttendanceController.getMyAttendance);

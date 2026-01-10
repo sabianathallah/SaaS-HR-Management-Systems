@@ -118,7 +118,7 @@ class AttendanceController {
         HolidayId: null,
         date: now,
         clockIn: now,
-        clockOut: now, // Default value, akan diupdate saat clock-out
+        clockOut: null, // NULL - akan diisi saat clock-out
         status: Attendance.ATTENDANCE_STATUS.ON_PROGRESS,
         photoCheckIn: req.photoInfo.relativePath,
         // GPS data

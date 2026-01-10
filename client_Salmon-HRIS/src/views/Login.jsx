@@ -20,9 +20,21 @@ export default function Login() {
         email,
         password
       })
+      
+      // Simpan token dan user data
       localStorage.setItem("access_token", data.access_token)
-      toast.success("Login berhasil! Selamat datang.")
-      navigate("/articles")
+      localStorage.setItem("user_role", data.user.role)
+      localStorage.setItem("user_name", data.user.name)
+      localStorage.setItem("user_email", data.user.email)
+      
+      toast.success(`Login berhasil! Selamat datang, ${data.user.name}`)
+      
+      // Redirect berdasarkan role
+      if (data.user.role === "ADMIN") {
+        navigate("/admin")
+      } else {
+        navigate("/employee")
+      }
     } catch (error) {
       console.error("Login failed:", error)
       toast.error(error.response?.data?.message || "Login gagal. Periksa email dan password Anda.")

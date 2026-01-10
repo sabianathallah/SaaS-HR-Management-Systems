@@ -1,4 +1,5 @@
 const express = require('express')
+const cors = require('cors')
 const app = express()
 const port = 3000
 const router = require('./routes')
@@ -8,6 +9,12 @@ const path = require('path')
 // Trust proxy - untuk mendapatkan IP address asli dari behind proxy/load balancer
 // Ini penting untuk audit log agar req.ip bisa mendapatkan client IP yang benar
 app.set('trust proxy', true)
+
+// CORS Configuration
+app.use(cors({
+  origin: true,
+  credentials: true
+}))
 
 app.use(express.json())
 app.use(express.urlencoded({extended : false}))
@@ -21,8 +28,5 @@ app.use(router)
 // Uncomment the line below to enable automatic absent marking
 setupCronJobs()
 
-// app.listen(port, () => {
-//   console.log(`running on port http://localhost:${port}`)
-// })
 
 module.exports = app
