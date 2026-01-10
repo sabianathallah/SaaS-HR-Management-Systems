@@ -29,6 +29,11 @@ export default function EmployeePage() {
   const [attendanceHistory, setAttendanceHistory] = useState([])
   const [selectedAttendance, setSelectedAttendance] = useState(null)
   const [showAttendanceModal, setShowAttendanceModal] = useState(false)
+  const [attendanceStatistics, setAttendanceStatistics] = useState(null)
+  const [statisticsPeriod, setStatisticsPeriod] = useState('monthly')
+  const [statisticsMonth, setStatisticsMonth] = useState(new Date().getMonth() + 1)
+  const [statisticsYear, setStatisticsYear] = useState(new Date().getFullYear())
+  const [showStatistics, setShowStatistics] = useState(false)
   
   // Leave State
   const [leaveRequests, setLeaveRequests] = useState([])
@@ -313,6 +318,36 @@ export default function EmployeePage() {
     } catch (error) {
       console.error('Error fetching attendance:', error)
       toast.error('Gagal memuat riwayat attendance')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchAttendanceStatistics = async () => {
+    setLoading(true)
+    try {
+      const token = localStorage.getItem('access_token')
+      
+      // Build query parameters based on period
+      let queryParams = `period=${statisticsPeriod}`
+      
+      if (statisticsPeriod === 'monthly') {
+        queryParams += `&month=${statisticsMonth}&year=${statisticsYear}`
+      } else if (statisticsPeriod === 'weekly') {
+        // For weekly, we can add week number if needed
+        queryParams += `&year=${statisticsYear}`
+      } else if (statisticsPeriod === 'daily') {
+        // For daily, just use current date range
+      }
+      
+      const { data } = await axios.get(`${baseUrl}/attendances/my-statistics?${queryParams}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      setAttendanceStatistics(data.data || null)
+    } catch (error) {
+      console.error('Error fetching statistics:', error)
+      toast.error('Gagal memuat statistik attendance')
     } finally {
       setLoading(false)
     }
@@ -691,6 +726,181 @@ export default function EmployeePage() {
             variant="danger"
             disabled={!todayAttendance || !todayAttendance.clockIn || todayAttendance.clockOut}
           />
+        </div>
+
+        {/* Statistics Section */}
+        <div className="mb-6 border-t pt-4">
+          <Button 
+            nameProp={showStatistics ? "📊 Sembunyikan Statistik" : "📊 Lihat Statistik Attendance"}
+            onClick={() => {
+              setShowStatistics(!showStatistics)
+              if (!showStatistics && !attendanceStatistics) {
+                fetchAttendanceStatistics()
+              }
+            }}
+            variant="primary"
+          />
+
+          {showStatistics && (
+            <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">Statistik Attendance</h3>
+              
+              {/* Period Selector */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Periode
+                  </label>
+                  <select
+                    value={statisticsPeriod}
+                    onChange={(e) => setStatisticsPeriod(e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="daily">Harian</option>
+                    <option value="weekly">Mingguan</option>
+                    <option value="monthly">Bulanan</option>
+                  </select>
+                </div>
+
+                {statisticsPeriod === 'monthly' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Bulan
+                      </label>
+                      <select
+                        value={statisticsMonth}
+                        onChange={(e) => setStatisticsMonth(parseInt(e.target.value))}
+                        className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none"
+                      >
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                          <option key={month} value={month}>
+                            {new Date(2000, month - 1).toLocaleString('id-ID', { month: 'long' })}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Tahun
+                      </label>
+                      <select
+                        value={statisticsYear}
+                        onChange={(e) => setStatisticsYear(parseInt(e.target.value))}
+                        className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none"
+                      >
+                        {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                          <option key={year} value={year}>{year}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <Button 
+                nameProp={loading ? "Memuat..." : "Refresh Statistik"}
+                onClick={fetchAttendanceStatistics}
+                variant="primary"
+                disabled={loading}
+              />
+
+              {/* Statistics Display */}
+              {attendanceStatistics ? (
+                <div className="mt-6">
+                  <div className="bg-white rounded-lg p-4 mb-4">
+                    <h4 className="font-semibold text-gray-700 mb-2">
+                      Periode: {attendanceStatistics.period}
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      {new Date(attendanceStatistics.dateRange.start).toLocaleDateString('id-ID')} - {' '}
+                      {new Date(attendanceStatistics.dateRange.end).toLocaleDateString('id-ID')}
+                    </p>
+                  </div>
+
+                  {/* Statistics Cards */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <div className="bg-green-100 rounded-lg p-4 text-center">
+                      <p className="text-sm text-gray-600 mb-1">Tepat Waktu</p>
+                      <p className="text-2xl font-bold text-green-700">
+                        {attendanceStatistics.summary.onTime}
+                      </p>
+                    </div>
+                    <div className="bg-red-100 rounded-lg p-4 text-center">
+                      <p className="text-sm text-gray-600 mb-1">Terlambat</p>
+                      <p className="text-2xl font-bold text-red-700">
+                        {attendanceStatistics.summary.late}
+                      </p>
+                    </div>
+                    <div className="bg-gray-100 rounded-lg p-4 text-center">
+                      <p className="text-sm text-gray-600 mb-1">Absent</p>
+                      <p className="text-2xl font-bold text-gray-700">
+                        {attendanceStatistics.summary.absent}
+                      </p>
+                    </div>
+                    <div className="bg-blue-100 rounded-lg p-4 text-center">
+                      <p className="text-sm text-gray-600 mb-1">Total Hadir</p>
+                      <p className="text-2xl font-bold text-blue-700">
+                        {attendanceStatistics.summary.totalPresent}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Additional Stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white rounded-lg p-4">
+                      <p className="text-sm text-gray-600 mb-1">Jam Kerja Total</p>
+                      <p className="text-xl font-bold text-gray-800">
+                        {attendanceStatistics.summary.totalWorkHours} jam
+                      </p>
+                    </div>
+                    <div className="bg-white rounded-lg p-4">
+                      <p className="text-sm text-gray-600 mb-1">Tingkat Kehadiran</p>
+                      <p className="text-xl font-bold text-gray-800">
+                        {attendanceStatistics.summary.attendanceRate}%
+                      </p>
+                    </div>
+                    <div className="bg-white rounded-lg p-4">
+                      <p className="text-sm text-gray-600 mb-1">Total Hari Kerja</p>
+                      <p className="text-xl font-bold text-gray-800">
+                        {attendanceStatistics.summary.totalWorkDays} hari
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Leave & Permission Stats */}
+                  {(attendanceStatistics.summary.leave > 0 || 
+                    attendanceStatistics.summary.sickLeave > 0 || 
+                    attendanceStatistics.summary.permission > 0) && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                      <div className="bg-yellow-100 rounded-lg p-4 text-center">
+                        <p className="text-sm text-gray-600 mb-1">Cuti</p>
+                        <p className="text-xl font-bold text-yellow-700">
+                          {attendanceStatistics.summary.leave}
+                        </p>
+                      </div>
+                      <div className="bg-orange-100 rounded-lg p-4 text-center">
+                        <p className="text-sm text-gray-600 mb-1">Sakit</p>
+                        <p className="text-xl font-bold text-orange-700">
+                          {attendanceStatistics.summary.sickLeave}
+                        </p>
+                      </div>
+                      <div className="bg-purple-100 rounded-lg p-4 text-center">
+                        <p className="text-sm text-gray-600 mb-1">Izin</p>
+                        <p className="text-xl font-bold text-purple-700">
+                          {attendanceStatistics.summary.permission}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 mt-4">
+                  Klik "Refresh Statistik" untuk memuat data
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Attendance History */}
