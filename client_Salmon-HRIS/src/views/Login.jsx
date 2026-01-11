@@ -21,16 +21,14 @@ export default function Login() {
         password
       })
       
-      // Simpan token dan user data
+      // Simpan token dan user data sebagai JSON object
       localStorage.setItem("access_token", data.access_token)
-      localStorage.setItem("user_role", data.user.role)
-      localStorage.setItem("user_name", data.user.name)
-      localStorage.setItem("user_email", data.user.email)
+      localStorage.setItem("user", JSON.stringify(data.user)) // Simpan sebagai JSON object
       
       toast.success(`Login berhasil! Selamat datang, ${data.user.name}`)
       
       // Redirect berdasarkan role
-      if (data.user.role === "ADMIN") {
+      if (data.user.role === "ADMIN" || data.user.role === "SUPER_ADMIN") {
         navigate("/admin")
       } else {
         navigate("/employee")
