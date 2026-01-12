@@ -6,16 +6,16 @@ import ProtectedRoute from './components/ProtectedRoute.jsx'
 
 // Admin Layout & Pages
 import AdminLayout from './layouts/AdminLayout.jsx'
-import DashboardPage from './pages/admin/DashboardPage.jsx'
-import EmployeesPage from './pages/admin/EmployeesPage.jsx'
-import AttendancePage from './pages/admin/AttendancePage.jsx'
-import LeavePage from './pages/admin/LeavePage.jsx'
-import ShiftPage from './pages/admin/ShiftPage.jsx'
-import OvertimePage from './pages/admin/OvertimePage.jsx'
-import OrganizationPage from './pages/admin/OrganizationPage.jsx'
-import ReportsPage from './pages/admin/ReportsPage.jsx'
-import NotificationsPage from './pages/admin/NotificationsPage.jsx'
-import SettingsPage from './pages/admin/SettingsPage.jsx'
+import DashboardPage from './views/admin/DashboardPage.jsx'
+import EmployeesPage from './views/admin/EmployeesPage.jsx'
+import AttendancePage from './views/admin/AttendancePage.jsx'
+import LeavePage from './views/admin/LeavePage.jsx'
+import ShiftPage from './views/admin/ShiftPage.jsx'
+import OvertimePage from './views/admin/OvertimePage.jsx'
+import OrganizationPage from './views/admin/OrganizationPage.jsx'
+import ReportsPage from './views/admin/ReportsPage.jsx'
+import NotificationsPage from './views/admin/NotificationsPage.jsx'
+import SettingsPage from './views/admin/SettingsPage.jsx'
 
 
 export default function App() {
