@@ -2,8 +2,20 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router'
 
 import Login from './views/Login.jsx'
 import EmployeePage from './views/EmployeePage.jsx'
-import AdminPage from './views/AdminPage.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
+
+// Admin Layout & Pages
+import AdminLayout from './layouts/AdminLayout.jsx'
+import DashboardPage from './pages/admin/DashboardPage.jsx'
+import EmployeesPage from './pages/admin/EmployeesPage.jsx'
+import AttendancePage from './pages/admin/AttendancePage.jsx'
+import LeavePage from './pages/admin/LeavePage.jsx'
+import ShiftPage from './pages/admin/ShiftPage.jsx'
+import OvertimePage from './pages/admin/OvertimePage.jsx'
+import OrganizationPage from './pages/admin/OrganizationPage.jsx'
+import ReportsPage from './pages/admin/ReportsPage.jsx'
+import NotificationsPage from './pages/admin/NotificationsPage.jsx'
+import SettingsPage from './pages/admin/SettingsPage.jsx'
 
 
 export default function App() {
@@ -14,7 +26,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/login" />} />
         <Route path="/login" element={<Login />} />
         
-        {/* Protected Routes - hanya bisa diakses dengan role tertentu */}
+        {/* Employee Protected Route */}
         <Route 
           path='/employee' 
           element={
@@ -24,14 +36,28 @@ export default function App() {
           } 
         />
         
+        {/* Admin Protected Routes with Nested Layout */}
         <Route 
           path='/admin' 
           element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
-              <AdminPage />
+              <AdminLayout />
             </ProtectedRoute>
-          } 
-        />
+          }
+        >
+          {/* Nested Admin Routes */}
+          <Route index element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="employees" element={<EmployeesPage />} />
+          <Route path="attendance" element={<AttendancePage />} />
+          <Route path="leave" element={<LeavePage />} />
+          <Route path="shift" element={<ShiftPage />} />
+          <Route path="overtime" element={<OvertimePage />} />
+          <Route path="organization" element={<OrganizationPage />} />
+          <Route path="reports" element={<ReportsPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+        </Route>
         
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
