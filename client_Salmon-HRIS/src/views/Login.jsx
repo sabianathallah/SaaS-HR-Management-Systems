@@ -28,7 +28,7 @@ export default function Login() {
       toast.success(`Login berhasil! Selamat datang, ${data.user.name}`)
       
       // Redirect berdasarkan role
-      if (data.user.role === "ADMIN" || data.user.role === "SUPER_ADMIN") {
+      if (data.user.role === "ADMIN") {
         navigate("/admin")
       } else {
         navigate("/employee")

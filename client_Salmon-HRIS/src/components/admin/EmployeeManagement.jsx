@@ -305,7 +305,7 @@ const EmployeeManagement = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full
-                        ${employee.role === 'ADMIN' || employee.role === 'SUPER_ADMIN' 
+                        ${employee.role === 'ADMIN' 
                           ? 'bg-purple-100 text-purple-800' 
                           : 'bg-blue-100 text-blue-800'
                         }`}>

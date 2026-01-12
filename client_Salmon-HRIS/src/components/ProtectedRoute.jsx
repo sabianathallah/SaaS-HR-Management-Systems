@@ -13,7 +13,7 @@ export default function ProtectedRoute({ children, allowedRoles = [] }) {
   // Jika ada role restriction, cek apakah user role diperbolehkan
   if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
     // Redirect ke page yang sesuai dengan role user
-    if (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') {
+    if (userRole === 'ADMIN') {
       return <Navigate to="/admin" replace />
     } else {
       return <Navigate to="/employee" replace />
