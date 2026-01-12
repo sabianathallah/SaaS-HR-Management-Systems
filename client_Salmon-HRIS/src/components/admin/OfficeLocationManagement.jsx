@@ -13,7 +13,7 @@ const OfficeLocationManagement = () => {
     try {
       const token = localStorage.getItem('access_token');
       const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/office-location/admin`,
+        `${import.meta.env.VITE_BASE_URL}/office-locations/admin`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setLocations(response.data.data || []);

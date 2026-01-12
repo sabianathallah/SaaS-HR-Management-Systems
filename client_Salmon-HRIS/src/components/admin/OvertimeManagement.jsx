@@ -14,7 +14,7 @@ const OvertimeManagement = () => {
     try {
       const token = localStorage.getItem('access_token');
       const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/overtime/admin/all`,
+        `${import.meta.env.VITE_BASE_URL}/overtimes/admin/requests`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setOvertimeRequests(response.data.data || []);
@@ -30,8 +30,8 @@ const OvertimeManagement = () => {
 
     try {
       const token = localStorage.getItem('access_token');
-      await axios.put(
-        `${import.meta.env.VITE_BASE_URL}/overtime/admin/${id}/approve`,
+      await axios.patch(
+        `${import.meta.env.VITE_BASE_URL}/overtimes/admin/${id}/approve`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -49,8 +49,8 @@ const OvertimeManagement = () => {
 
     try {
       const token = localStorage.getItem('access_token');
-      await axios.put(
-        `${import.meta.env.VITE_BASE_URL}/overtime/admin/${id}/reject`,
+      await axios.patch(
+        `${import.meta.env.VITE_BASE_URL}/overtimes/admin/${id}/reject`,
         { reason },
         { headers: { Authorization: `Bearer ${token}` } }
       );

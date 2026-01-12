@@ -31,10 +31,10 @@ const AdminDashboard = () => {
 
       // Fetch multiple data in parallel
       const [employeesRes, todayAttendanceRes, leaveRequestsRes, overtimeRes] = await Promise.all([
-        axios.get(`${import.meta.env.VITE_BASE_URL}/user/admin`, config),
-        axios.get(`${import.meta.env.VITE_BASE_URL}/attendance/admin/today-attendance`, config),
-        axios.get(`${import.meta.env.VITE_BASE_URL}/leave-request/admin/all`, config),
-        axios.get(`${import.meta.env.VITE_BASE_URL}/overtime/admin/all`, config),
+        axios.get(`${import.meta.env.VITE_BASE_URL}/users/admin`, config),
+        axios.get(`${import.meta.env.VITE_BASE_URL}/attendances/admin/today-attendance`, config),
+        axios.get(`${import.meta.env.VITE_BASE_URL}/leave-requests/admin/all`, config),
+        axios.get(`${import.meta.env.VITE_BASE_URL}/overtimes/admin/requests`, config),
       ]);
 
       // Calculate stats

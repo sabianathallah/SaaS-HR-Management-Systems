@@ -168,11 +168,14 @@ class UserAdminController {
 
             res.status(200).json({
                 message: "Success fetch all users",
-                users: users.map(user => ({
+                data: users.map(user => ({
                     id: user.id,
                     name: user.name,
                     email: user.email,
                     role: user.role,
+                    phoneNumber: user.phoneNumber,
+                    position: user.position,
+                    department: user.department,
                     isActive: user.isActive,
                     joinDate: user.joinDate,
                     leaveDate: user.leaveDate,
@@ -208,11 +211,14 @@ class UserAdminController {
 
             res.status(200).json({
                 message: "Success fetch user detail",
-                user: {
+                data: {
                     id: user.id,
                     name: user.name,
                     email: user.email,
                     role: user.role,
+                    phoneNumber: user.phoneNumber,
+                    position: user.position,
+                    department: user.department,
                     isActive: user.isActive,
                     joinDate: user.joinDate,
                     leaveDate: user.leaveDate,

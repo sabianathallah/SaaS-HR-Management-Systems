@@ -32,8 +32,8 @@ const ShiftScheduleManagement = () => {
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
       const [shiftsRes, employeesRes] = await Promise.all([
-        axios.get(`${import.meta.env.VITE_BASE_URL}/shift/admin/shifts`, config),
-        axios.get(`${import.meta.env.VITE_BASE_URL}/user/admin`, config),
+        axios.get(`${import.meta.env.VITE_BASE_URL}/shifts/admin/shifts`, config),
+        axios.get(`${import.meta.env.VITE_BASE_URL}/users/admin`, config),
       ]);
 
       setShifts(shiftsRes.data.data || []);
@@ -53,14 +53,14 @@ const ShiftScheduleManagement = () => {
 
       if (editingShift) {
         await axios.put(
-          `${import.meta.env.VITE_BASE_URL}/shift/admin/shifts/${editingShift.id}`,
+          `${import.meta.env.VITE_BASE_URL}/shifts/admin/shifts/${editingShift.id}`,
           shiftForm,
           config
         );
         alert('Shift updated successfully!');
       } else {
         await axios.post(
-          `${import.meta.env.VITE_BASE_URL}/shift/admin/shifts`,
+          `${import.meta.env.VITE_BASE_URL}/shifts/admin/shifts`,
           shiftForm,
           config
         );
@@ -82,7 +82,7 @@ const ShiftScheduleManagement = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.delete(
-        `${import.meta.env.VITE_BASE_URL}/shift/admin/shifts/${shiftId}`,
+        `${import.meta.env.VITE_BASE_URL}/shifts/admin/shifts/${shiftId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       alert('Shift deleted successfully!');
@@ -98,7 +98,7 @@ const ShiftScheduleManagement = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.put(
-        `${import.meta.env.VITE_BASE_URL}/shift/admin/users/${assignForm.userId}/shift`,
+        `${import.meta.env.VITE_BASE_URL}/shifts/admin/users/${assignForm.userId}/shift`,
         { shiftId: assignForm.shiftId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -118,7 +118,7 @@ const ShiftScheduleManagement = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.delete(
-        `${import.meta.env.VITE_BASE_URL}/shift/admin/users/${userId}/shift`,
+        `${import.meta.env.VITE_BASE_URL}/shifts/admin/users/${userId}/shift`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       alert('Shift removed successfully!');

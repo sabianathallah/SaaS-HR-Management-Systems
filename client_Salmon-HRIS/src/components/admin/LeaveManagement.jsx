@@ -31,8 +31,8 @@ const LeaveManagement = () => {
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
       const [leaveRes, employeeRes] = await Promise.all([
-        axios.get(`${import.meta.env.VITE_BASE_URL}/leave-request/admin/all`, config),
-        axios.get(`${import.meta.env.VITE_BASE_URL}/user/admin`, config),
+        axios.get(`${import.meta.env.VITE_BASE_URL}/leave-requests/admin/all`, config),
+        axios.get(`${import.meta.env.VITE_BASE_URL}/users/admin`, config),
       ]);
 
       setLeaveRequests(leaveRes.data.data || []);
@@ -50,7 +50,7 @@ const LeaveManagement = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.put(
-        `${import.meta.env.VITE_BASE_URL}/leave-request/admin/${requestId}/approve`,
+        `${import.meta.env.VITE_BASE_URL}/leave-requests/admin/${requestId}/approve`,
         { approvalNote },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -71,7 +71,7 @@ const LeaveManagement = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.put(
-        `${import.meta.env.VITE_BASE_URL}/leave-request/admin/${requestId}/reject`,
+        `${import.meta.env.VITE_BASE_URL}/leave-requests/admin/${requestId}/reject`,
         { approvalNote: note },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -89,7 +89,7 @@ const LeaveManagement = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.put(
-        `${import.meta.env.VITE_BASE_URL}/leave-request/admin/adjust-quota/${quotaAdjustment.userId}`,
+        `${import.meta.env.VITE_BASE_URL}/leave-requests/admin/adjust-quota/${quotaAdjustment.userId}`,
         {
           annualLeave: parseInt(quotaAdjustment.annualLeave),
           sickLeave: parseInt(quotaAdjustment.sickLeave),

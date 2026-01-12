@@ -19,7 +19,7 @@ const AuditLogViewer = () => {
     try {
       const token = localStorage.getItem('access_token');
       const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/audit-log`,
+        `${import.meta.env.VITE_BASE_URL}/audit-logs`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setLogs(response.data.data || []);

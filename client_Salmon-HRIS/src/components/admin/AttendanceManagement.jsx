@@ -44,8 +44,8 @@ const AttendanceManagement = () => {
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
       const [attendanceRes, employeeRes] = await Promise.all([
-        axios.get(`${import.meta.env.VITE_BASE_URL}/attendance/admin/all-attendance`, config),
-        axios.get(`${import.meta.env.VITE_BASE_URL}/user/admin`, config),
+        axios.get(`${import.meta.env.VITE_BASE_URL}/attendances/admin/all-attendance`, config),
+        axios.get(`${import.meta.env.VITE_BASE_URL}/users/admin`, config),
       ]);
 
       setAttendances(attendanceRes.data.data || []);
@@ -86,7 +86,7 @@ const AttendanceManagement = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.post(
-        `${import.meta.env.VITE_BASE_URL}/attendance/admin/manual-attendance`,
+        `${import.meta.env.VITE_BASE_URL}/attendances/admin/manual-attendance`,
         formData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -105,7 +105,7 @@ const AttendanceManagement = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.put(
-        `${import.meta.env.VITE_BASE_URL}/attendance/admin/manual-attendance/${editingAttendance.id}`,
+        `${import.meta.env.VITE_BASE_URL}/attendances/admin/manual-attendance/${editingAttendance.id}`,
         formData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -151,7 +151,7 @@ const AttendanceManagement = () => {
       if (selectedEmployee !== 'all') params.append('userId', selectedEmployee);
 
       const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/report/admin/export/excel?${params.toString()}`,
+        `${import.meta.env.VITE_BASE_URL}/reports/export/excel?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` },
           responseType: 'blob',

@@ -19,7 +19,7 @@ const ReportAnalytics = () => {
       if (filters.userId) params.append('userId', filters.userId);
 
       const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/report/admin/export/excel?${params.toString()}`,
+        `${import.meta.env.VITE_BASE_URL}/reports/export/excel?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` },
           responseType: 'blob',
@@ -51,7 +51,7 @@ const ReportAnalytics = () => {
       if (filters.userId) params.append('userId', filters.userId);
 
       const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/report/admin/export/csv?${params.toString()}`,
+        `${import.meta.env.VITE_BASE_URL}/reports/export/csv?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` },
           responseType: 'blob',

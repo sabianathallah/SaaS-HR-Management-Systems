@@ -37,7 +37,7 @@ const EmployeeManagement = () => {
     try {
       const token = localStorage.getItem('access_token');
       const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/user/admin`,
+        `${import.meta.env.VITE_BASE_URL}/users/admin`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -97,7 +97,7 @@ const EmployeeManagement = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.put(
-        `${import.meta.env.VITE_BASE_URL}/user/admin/${selectedEmployee.id}`,
+        `${import.meta.env.VITE_BASE_URL}/users/admin/${selectedEmployee.id}`,
         formData,
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -121,8 +121,8 @@ const EmployeeManagement = () => {
     try {
       const token = localStorage.getItem('access_token');
       await axios.patch(
-        `${import.meta.env.VITE_BASE_URL}/user/admin/${employeeId}/status`,
-        {},
+        `${import.meta.env.VITE_BASE_URL}/users/admin/${employeeId}/status`,
+        { isActive: !currentStatus },
         {
           headers: { Authorization: `Bearer ${token}` }
         }
