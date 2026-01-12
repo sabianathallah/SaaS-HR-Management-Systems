@@ -67,13 +67,25 @@ module.exports = (sequelize, DataTypes) => {
         }
       }
     },
+    phoneNumber: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
     role: {
       type: DataTypes.STRING,
       allowNull: false,
-      defaultValue: 'employee',
+      defaultValue: 'EMPLOYEE',
       notEmpty: {
         msg: 'Role cannot be empty'
       }
+    },
+    position: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    department: {
+      type: DataTypes.STRING,
+      allowNull: true
     },
     annualLeaveQuota: {
       type: DataTypes.INTEGER,

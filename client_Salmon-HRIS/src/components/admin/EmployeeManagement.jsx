@@ -200,8 +200,11 @@ const EmployeeManagement = () => {
           <p className="text-gray-600">Manage your organization's employees</p>
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+          onClick={() => {
+            console.log('Add Employee button clicked!');
+            setShowAddModal(true);
+          }}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 cursor-pointer"
         >
           <span>➕</span>
           <span>Add Employee</span>
@@ -349,11 +352,15 @@ const EmployeeManagement = () => {
       </div>
 
       {/* Add Employee Modal */}
-      {showAddModal && (
-        <Modal onClose={() => { setShowAddModal(false); resetForm(); }}>
-          <form onSubmit={handleAddEmployee} className="space-y-4">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Add New Employee</h3>
-            
+      <Modal 
+        isOpen={showAddModal}
+        onClose={() => { setShowAddModal(false); resetForm(); }}
+        title="Add New Employee"
+        size="xl"
+      >
+        <form onSubmit={handleAddEmployee} className="space-y-6">
+          {/* Row 1: Name & Email */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormInput
               label="Full Name"
               type="text"
@@ -369,7 +376,10 @@ const EmployeeManagement = () => {
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               required
             />
-            
+          </div>
+
+          {/* Row 2: Password & Phone */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormInput
               label="Password"
               type="password"
@@ -384,7 +394,10 @@ const EmployeeManagement = () => {
               value={formData.phoneNumber}
               onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
             />
-            
+          </div>
+
+          {/* Row 3: Position & Department */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormInput
               label="Position"
               type="text"
@@ -398,7 +411,10 @@ const EmployeeManagement = () => {
               value={formData.department}
               onChange={(e) => setFormData({ ...formData, department: e.target.value })}
             />
-            
+          </div>
+
+          {/* Row 4: Role & Join Date */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormSelect
               label="Role"
               value={formData.role}
@@ -406,6 +422,7 @@ const EmployeeManagement = () => {
               options={[
                 { value: 'EMPLOYEE', label: 'Employee' },
                 { value: 'ADMIN', label: 'Admin' },
+                { value: 'EMPLOYEE', label: 'Employee' },
               ]}
             />
             
@@ -415,32 +432,36 @@ const EmployeeManagement = () => {
               value={formData.joinDate}
               onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
             />
-            
-            <div className="flex space-x-4">
-              <button
-                type="submit"
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Add Employee
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowAddModal(false); resetForm(); }}
-                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
+          </div>
+          {/* Buttons */}
+          <div className="flex space-x-4 pt-4 border-t border-gray-200">
+            <button
+              type="submit"
+              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              Add Employee
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowAddModal(false); resetForm(); }}
+              className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Edit Employee Modal */}
-      {showEditModal && (
-        <Modal onClose={() => { setShowEditModal(false); resetForm(); }}>
-          <form onSubmit={handleEditEmployee} className="space-y-4">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Edit Employee</h3>
-            
+      <Modal 
+        isOpen={showEditModal}
+        onClose={() => { setShowEditModal(false); resetForm(); }}
+        title="Edit Employee"
+        size="xl"
+      >
+        <form onSubmit={handleEditEmployee} className="space-y-6">
+          {/* Row 1: Name & Email */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormInput
               label="Full Name"
               type="text"
@@ -456,7 +477,10 @@ const EmployeeManagement = () => {
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               required
             />
-            
+          </div>
+
+          {/* Row 2: Password & Phone */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormInput
               label="New Password (leave empty to keep current)"
               type="password"
@@ -470,7 +494,10 @@ const EmployeeManagement = () => {
               value={formData.phoneNumber}
               onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
             />
-            
+          </div>
+
+          {/* Row 3: Position & Department */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormInput
               label="Position"
               type="text"
@@ -484,7 +511,10 @@ const EmployeeManagement = () => {
               value={formData.department}
               onChange={(e) => setFormData({ ...formData, department: e.target.value })}
             />
-            
+          </div>
+
+          {/* Row 4: Role & Join Date */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormSelect
               label="Role"
               value={formData.role}
@@ -501,25 +531,25 @@ const EmployeeManagement = () => {
               value={formData.joinDate}
               onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
             />
-            
-            <div className="flex space-x-4">
-              <button
-                type="submit"
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Update Employee
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowEditModal(false); resetForm(); }}
-                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
+          </div>
+          {/* Buttons */}
+          <div className="flex space-x-4 pt-4 border-t border-gray-200">
+            <button
+              type="submit"
+              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              Update Employee
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowEditModal(false); resetForm(); }}
+              className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
