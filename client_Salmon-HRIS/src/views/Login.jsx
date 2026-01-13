@@ -25,7 +25,14 @@ export default function Login() {
       localStorage.setItem("access_token", data.access_token)
       localStorage.setItem("user", JSON.stringify(data.user)) // Simpan sebagai JSON object
       
-      toast.success(`Login berhasil! Selamat datang, ${data.user.name}`)
+      toast.success(`✅ Login berhasil! Selamat datang, ${data.user.name}`, {
+        autoClose: 2000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        theme: "colored"
+      })
       
       // Redirect berdasarkan role
       if (data.user.role === "ADMIN") {
@@ -35,7 +42,36 @@ export default function Login() {
       }
     } catch (error) {
       console.error("Login failed:", error)
-      toast.error(error.response?.data?.message || "Login gagal. Periksa email dan password Anda.")
+      
+      // Extract error message
+      let errorMessage = "Login gagal. Terjadi kesalahan yang tidak terduga."
+      
+      if (error.response) {
+        // Server responded with error
+        if (error.response.status === 400) {
+          errorMessage = error.response.data?.message || "Email atau password salah!"
+        } else if (error.response.status === 401) {
+          errorMessage = "Email atau password tidak valid!"
+        } else if (error.response.status === 404) {
+          errorMessage = "Akun tidak ditemukan!"
+        } else if (error.response.status === 500) {
+          errorMessage = "Server error. Silakan coba lagi nanti."
+        } else {
+          errorMessage = error.response.data?.message || "Terjadi kesalahan pada server."
+        }
+      } else if (error.request) {
+        // Request was made but no response
+        errorMessage = "Tidak dapat terhubung ke server. Periksa koneksi internet Anda."
+      }
+      
+      toast.error(errorMessage, {
+        autoClose: 2000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        theme: "colored"
+      })
     } 
   }
 
