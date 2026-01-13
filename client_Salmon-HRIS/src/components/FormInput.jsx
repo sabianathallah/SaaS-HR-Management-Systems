@@ -9,7 +9,11 @@ export default function FormInput({
   error = null,
   helpText = null,
   name,
-  className = ''
+  className = '',
+  min,
+  max,
+  step,
+  ...props
 }) {
   const inputClasses = `w-full px-4 py-2 rounded-lg border-2 transition-all
     ${error 
@@ -37,7 +41,11 @@ export default function FormInput({
         placeholder={placeholder}
         required={required}
         disabled={disabled}
+        min={min}
+        max={max}
+        step={step}
         className={inputClasses}
+        {...props}
       />
       
       {error && (

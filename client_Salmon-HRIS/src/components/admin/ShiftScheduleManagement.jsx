@@ -15,7 +15,12 @@ const ShiftScheduleManagement = () => {
     name: '',
     startTime: '',
     endTime: '',
-    workDays: [],
+    breakDuration: 60,
+    lateTolerance: 15,
+    overtimeThreshold: 15,
+    isFlexible: false,
+    description: '',
+    isActive: true,
   });
   const [assignForm, setAssignForm] = useState({
     userId: '',
@@ -36,11 +41,22 @@ const ShiftScheduleManagement = () => {
         axios.get(`${import.meta.env.VITE_BASE_URL}/users/admin`, config),
       ]);
 
-      setShifts(shiftsRes.data.data || []);
-      setEmployees(employeesRes.data.data || []);
+      console.log('Shifts Response:', shiftsRes.data);
+      console.log('Employees Response:', employeesRes.data);
+
+      const shiftsData = shiftsRes.data.data || [];
+      const employeesData = employeesRes.data.data || [];
+
+      // Debug: Check ShiftId format
+      console.log('First employee ShiftId:', employeesData[0]?.ShiftId, typeof employeesData[0]?.ShiftId);
+      console.log('First shift id:', shiftsData[0]?.id, typeof shiftsData[0]?.id);
+
+      setShifts(shiftsData);
+      setEmployees(employeesData);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching data:', error);
+      alert('Failed to fetch data: ' + (error.response?.data?.message || error.message));
       setLoading(false);
     }
   };
@@ -69,7 +85,7 @@ const ShiftScheduleManagement = () => {
       
       setShowShiftModal(false);
       resetShiftForm();
-      fetchData();
+      await fetchData();
     } catch (error) {
       console.error('Error saving shift:', error);
       alert(error.response?.data?.message || 'Failed to save shift');
@@ -86,7 +102,7 @@ const ShiftScheduleManagement = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       alert('Shift deleted successfully!');
-      fetchData();
+      await fetchData();
     } catch (error) {
       console.error('Error deleting shift:', error);
       alert(error.response?.data?.message || 'Failed to delete shift');
@@ -97,15 +113,16 @@ const ShiftScheduleManagement = () => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('access_token');
-      await axios.put(
+      const response = await axios.put(
         `${import.meta.env.VITE_BASE_URL}/shifts/admin/users/${assignForm.userId}/shift`,
-        { shiftId: assignForm.shiftId },
+        { shiftId: parseInt(assignForm.shiftId) },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      console.log('Assign response:', response.data);
       alert('Shift assigned successfully!');
       setShowAssignModal(false);
       resetAssignForm();
-      fetchData();
+      await fetchData(); // Ensure data is refreshed
     } catch (error) {
       console.error('Error assigning shift:', error);
       alert(error.response?.data?.message || 'Failed to assign shift');
@@ -117,12 +134,13 @@ const ShiftScheduleManagement = () => {
 
     try {
       const token = localStorage.getItem('access_token');
-      await axios.delete(
+      const response = await axios.delete(
         `${import.meta.env.VITE_BASE_URL}/shifts/admin/users/${userId}/shift`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      console.log('Remove response:', response.data);
       alert('Shift removed successfully!');
-      fetchData();
+      await fetchData(); // Ensure data is refreshed
     } catch (error) {
       console.error('Error removing shift:', error);
       alert(error.response?.data?.message || 'Failed to remove shift');
@@ -135,13 +153,28 @@ const ShiftScheduleManagement = () => {
       name: shift.name,
       startTime: shift.startTime,
       endTime: shift.endTime,
-      workDays: shift.workDays || [],
+      breakDuration: shift.breakDuration || 60,
+      lateTolerance: shift.lateTolerance || 15,
+      overtimeThreshold: shift.overtimeThreshold || 15,
+      isFlexible: shift.isFlexible || false,
+      description: shift.description || '',
+      isActive: shift.isActive !== undefined ? shift.isActive : true,
     });
     setShowShiftModal(true);
   };
 
   const resetShiftForm = () => {
-    setShiftForm({ name: '', startTime: '', endTime: '', workDays: [] });
+    setShiftForm({ 
+      name: '', 
+      startTime: '', 
+      endTime: '', 
+      breakDuration: 60,
+      lateTolerance: 15,
+      overtimeThreshold: 15,
+      isFlexible: false,
+      description: '',
+      isActive: true,
+    });
     setEditingShift(null);
   };
 
@@ -189,40 +222,66 @@ const ShiftScheduleManagement = () => {
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
-            {shifts.map((shift) => (
-              <div key={shift.id} className="px-6 py-4 hover:bg-gray-50">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-900">{shift.name}</h4>
-                    <p className="text-sm text-gray-600 mt-1">
-                      ⏰ {shift.startTime} - {shift.endTime}
-                    </p>
-                    {shift.workDays && shift.workDays.length > 0 && (
-                      <p className="text-sm text-gray-600 mt-1">
-                        📅 Work Days: {shift.workDays.join(', ')}
-                      </p>
-                    )}
-                    <p className="text-sm text-blue-600 mt-2">
-                      {employees.filter(e => e.ShiftId === shift.id).length} employees assigned
-                    </p>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => openEditShiftModal(shift)}
-                      className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-                    >
-                      ✏️ Edit
-                    </button>
-                    <button
-                      onClick={() => handleDeleteShift(shift.id)}
-                      className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200"
-                    >
-                      🗑️ Delete
-                    </button>
+            {shifts.map((shift) => {
+              const assignedEmployeesCount = employees.filter(e => parseInt(e.ShiftId) === parseInt(shift.id)).length;
+              return (
+                <div key={shift.id} className="px-6 py-4 hover:bg-gray-50">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3">
+                        <h4 className="text-lg font-semibold text-gray-900">{shift.name}</h4>
+                        {shift.isActive === false && (
+                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                            Inactive
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        <p className="text-sm text-gray-600">
+                          ⏰ Working Hours: <span className="font-medium">{shift.startTime} - {shift.endTime}</span>
+                        </p>
+                        {shift.breakDuration && (
+                          <p className="text-sm text-gray-600">
+                            ☕ Break Duration: <span className="font-medium">{shift.breakDuration} minutes</span>
+                          </p>
+                        )}
+                        {shift.lateTolerance && (
+                          <p className="text-sm text-gray-600">
+                            ⏱️ Late Tolerance: <span className="font-medium">{shift.lateTolerance} minutes</span>
+                          </p>
+                        )}
+                        {shift.description && (
+                          <p className="text-sm text-gray-600">
+                            📝 {shift.description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="mt-3">
+                        <span className={`text-sm font-medium ${assignedEmployeesCount > 0 ? 'text-blue-600' : 'text-gray-500'}`}>
+                          👥 {assignedEmployeesCount} {assignedEmployeesCount === 1 ? 'employee' : 'employees'} assigned
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex space-x-2 ml-4">
+                      <button
+                        onClick={() => openEditShiftModal(shift)}
+                        className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                        title="Edit Shift"
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteShift(shift.id)}
+                        className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                        title="Delete Shift"
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -231,79 +290,143 @@ const ShiftScheduleManagement = () => {
       <div className="bg-white border rounded-lg overflow-hidden">
         <div className="px-6 py-4 bg-gray-50 border-b">
           <h3 className="text-lg font-bold text-gray-900">Employee Shift Assignments</h3>
+          <p className="text-sm text-gray-600 mt-1">View and manage shift assignments for all employees</p>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned Shift</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Working Hours</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned Shift</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Working Hours</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {employees.map((employee) => {
-                const assignedShift = shifts.find(s => s.id === employee.ShiftId);
-                return (
-                  <tr key={employee.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{employee.name}</div>
-                      <div className="text-sm text-gray-500">{employee.email}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {employee.position || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {assignedShift ? (
-                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                          {assignedShift.name}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-gray-500">Not assigned</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {assignedShift ? `${assignedShift.startTime} - ${assignedShift.endTime}` : '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      {assignedShift && (
-                        <button
-                          onClick={() => handleRemoveShift(employee.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          🗑️ Remove
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+              {employees.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
+                    <div className="text-4xl mb-2">👥</div>
+                    <p>No employees found</p>
+                  </td>
+                </tr>
+              ) : (
+                employees.map((employee) => {
+                  const assignedShift = shifts.find(s => parseInt(s.id) === parseInt(employee.ShiftId));
+                  
+                  // Debug log
+                  if (employee.ShiftId) {
+                    console.log(`Employee ${employee.name}: ShiftId=${employee.ShiftId} (${typeof employee.ShiftId}), Found shift:`, assignedShift?.name);
+                  }
+                  
+                  return (
+                    <tr key={employee.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{employee.name}</div>
+                            <div className="text-sm text-gray-500">{employee.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{employee.position || '-'}</div>
+                        <div className="text-xs text-gray-500">{employee.department || ''}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {assignedShift ? (
+                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                            {assignedShift.name}
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-600">
+                            No Shift
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {assignedShift ? (
+                            <>
+                              <div className="font-medium">{assignedShift.startTime} - {assignedShift.endTime}</div>
+                              {assignedShift.breakDuration && (
+                                <div className="text-xs text-gray-500">Break: {assignedShift.breakDuration} min</div>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
+                          {assignedShift ? (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setAssignForm({ 
+                                    userId: String(employee.id), 
+                                    shiftId: String(employee.ShiftId) 
+                                  });
+                                  setShowAssignModal(true);
+                                }}
+                                className="text-blue-600 hover:text-blue-900"
+                                title="Change Shift"
+                              >
+                                ✏️ Change
+                              </button>
+                              <button
+                                onClick={() => handleRemoveShift(employee.id)}
+                                className="text-red-600 hover:text-red-900"
+                                title="Remove Shift"
+                              >
+                                🗑️ Remove
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setAssignForm({ userId: String(employee.id), shiftId: '' });
+                                setShowAssignModal(true);
+                              }}
+                              className="text-green-600 hover:text-green-900"
+                              title="Assign Shift"
+                            >
+                              ➕ Assign
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
       {/* Create/Edit Shift Modal */}
-      {showShiftModal && (
-        <Modal onClose={() => { setShowShiftModal(false); resetShiftForm(); }}>
-          <form onSubmit={handleSaveShift} className="space-y-4">
-            <h3 className="text-xl font-bold text-gray-900">
-              {editingShift ? 'Edit Shift' : 'Create New Shift'}
-            </h3>
-            
+      <Modal 
+        isOpen={showShiftModal}
+        onClose={() => { setShowShiftModal(false); resetShiftForm(); }}
+        title={editingShift ? 'Edit Shift' : 'Create New Shift'}
+        size="lg"
+      >
+        <form onSubmit={handleSaveShift} className="space-y-4">
+          <FormInput
+            label="Shift Name *"
+            type="text"
+            value={shiftForm.name}
+            onChange={(e) => setShiftForm({ ...shiftForm, name: e.target.value })}
+            placeholder="e.g., Morning Shift, Night Shift"
+            required
+          />
+          
+          <div className="grid grid-cols-2 gap-4">
             <FormInput
-              label="Shift Name"
-              type="text"
-              value={shiftForm.name}
-              onChange={(e) => setShiftForm({ ...shiftForm, name: e.target.value })}
-              placeholder="e.g., Morning Shift, Night Shift"
-              required
-            />
-            
-            <FormInput
-              label="Start Time"
+              label="Start Time *"
               type="time"
               value={shiftForm.startTime}
               onChange={(e) => setShiftForm({ ...shiftForm, startTime: e.target.value })}
@@ -311,78 +434,168 @@ const ShiftScheduleManagement = () => {
             />
             
             <FormInput
-              label="End Time"
+              label="End Time *"
               type="time"
               value={shiftForm.endTime}
               onChange={(e) => setShiftForm({ ...shiftForm, endTime: e.target.value })}
               required
             />
-            
-            <div className="flex space-x-4">
-              <button
-                type="submit"
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                {editingShift ? 'Update Shift' : 'Create Shift'}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowShiftModal(false); resetShiftForm(); }}
-                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <FormInput
+              label="Break Duration (min)"
+              type="number"
+              value={shiftForm.breakDuration}
+              onChange={(e) => setShiftForm({ ...shiftForm, breakDuration: parseInt(e.target.value) || 0 })}
+              placeholder="60"
+              min="0"
+            />
+
+            <FormInput
+              label="Late Tolerance (min)"
+              type="number"
+              value={shiftForm.lateTolerance}
+              onChange={(e) => setShiftForm({ ...shiftForm, lateTolerance: parseInt(e.target.value) || 0 })}
+              placeholder="15"
+              min="0"
+            />
+
+            <FormInput
+              label="OT Threshold (min)"
+              type="number"
+              value={shiftForm.overtimeThreshold}
+              onChange={(e) => setShiftForm({ ...shiftForm, overtimeThreshold: parseInt(e.target.value) || 0 })}
+              placeholder="15"
+              min="0"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Description
+            </label>
+            <textarea
+              value={shiftForm.description}
+              onChange={(e) => setShiftForm({ ...shiftForm, description: e.target.value })}
+              placeholder="Optional shift description..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              rows="3"
+            />
+          </div>
+
+          <div className="flex items-center space-x-4">
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={shiftForm.isFlexible}
+                onChange={(e) => setShiftForm({ ...shiftForm, isFlexible: e.target.checked })}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">Flexible Shift</span>
+            </label>
+
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={shiftForm.isActive}
+                onChange={(e) => setShiftForm({ ...shiftForm, isActive: e.target.checked })}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">Active</span>
+            </label>
+          </div>
+          
+          <div className="flex space-x-4 pt-4 border-t">
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              {editingShift ? '✓ Update Shift' : '✓ Create Shift'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowShiftModal(false); resetShiftForm(); }}
+              className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+            >
+              ✕ Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Assign Shift Modal */}
-      {showAssignModal && (
-        <Modal onClose={() => { setShowAssignModal(false); resetAssignForm(); }}>
-          <form onSubmit={handleAssignShift} className="space-y-4">
-            <h3 className="text-xl font-bold text-gray-900">Assign Shift to Employee</h3>
-            
-            <FormSelect
-              label="Select Employee"
-              value={assignForm.userId}
-              onChange={(e) => setAssignForm({ ...assignForm, userId: e.target.value })}
-              options={[
-                { value: '', label: 'Select Employee' },
-                ...employees.map(emp => ({ value: emp.id, label: `${emp.name} - ${emp.position || 'No Position'}` }))
-              ]}
-              required
-            />
-            
-            <FormSelect
-              label="Select Shift"
-              value={assignForm.shiftId}
-              onChange={(e) => setAssignForm({ ...assignForm, shiftId: e.target.value })}
-              options={[
-                { value: '', label: 'Select Shift' },
-                ...shifts.map(shift => ({ value: shift.id, label: `${shift.name} (${shift.startTime} - ${shift.endTime})` }))
-              ]}
-              required
-            />
-            
-            <div className="flex space-x-4">
-              <button
-                type="submit"
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                Assign Shift
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowAssignModal(false); resetAssignForm(); }}
-                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
+      <Modal 
+        isOpen={showAssignModal}
+        onClose={() => { setShowAssignModal(false); resetAssignForm(); }}
+        title={assignForm.userId && employees.find(e => e.id === parseInt(assignForm.userId)) 
+          ? 'Change Employee Shift' 
+          : 'Assign Shift to Employee'}
+        size="md"
+      >
+        <form onSubmit={handleAssignShift} className="space-y-4">
+          <FormSelect
+            label="Select Employee *"
+            value={assignForm.userId}
+            onChange={(e) => setAssignForm({ ...assignForm, userId: e.target.value })}
+            options={[
+              { value: '', label: '-- Select Employee --' },
+              ...employees.map(emp => ({ 
+                value: emp.id, 
+                label: `${emp.name} ${emp.position ? `- ${emp.position}` : ''} ${emp.ShiftId ? '(Has Shift)' : '(No Shift)'}` 
+              }))
+            ]}
+            required
+          />
+          
+          <FormSelect
+            label="Select Shift *"
+            value={assignForm.shiftId}
+            onChange={(e) => setAssignForm({ ...assignForm, shiftId: e.target.value })}
+            options={[
+              { value: '', label: '-- Select Shift --' },
+              ...shifts
+                .filter(shift => shift.isActive !== false)
+                .map(shift => ({ 
+                  value: shift.id, 
+                  label: `${shift.name} (${shift.startTime} - ${shift.endTime})` 
+                }))
+            ]}
+            required
+          />
+
+          {assignForm.shiftId && (() => {
+            const selectedShift = shifts.find(s => s.id === parseInt(assignForm.shiftId));
+            return selectedShift ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-semibold text-blue-900 mb-2">Shift Details:</h4>
+                <div className="text-sm text-blue-800 space-y-1">
+                  <p>⏰ Hours: {selectedShift.startTime} - {selectedShift.endTime}</p>
+                  {selectedShift.breakDuration && <p>☕ Break: {selectedShift.breakDuration} min</p>}
+                  {selectedShift.lateTolerance && <p>⏱️ Late Tolerance: {selectedShift.lateTolerance} min</p>}
+                  {selectedShift.description && <p>📝 {selectedShift.description}</p>}
+                </div>
+              </div>
+            ) : null;
+          })()}
+          
+          <div className="flex space-x-4 pt-4 border-t">
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              ✓ Assign Shift
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowAssignModal(false); resetAssignForm(); }}
+              className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+            >
+              ✕ Cancel
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
