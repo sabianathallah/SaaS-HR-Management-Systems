@@ -99,7 +99,7 @@ class AttendanceAdminController {
   // ENDPOINT #1: Admin manually create attendance for employee
   static async createManualAttendance(req, res, next) {
     try {
-      const { userId, date, clockIn, clockOut, status } = req.body;
+      const { userId, date, clockIn, clockOut, status, locationValidationStatus } = req.body;
 
       // Validate required fields
       if (!userId || !date || !clockIn || !clockOut || !status) {
@@ -172,6 +172,7 @@ class AttendanceAdminController {
         clockIn: new Date(clockIn),
         clockOut: new Date(clockOut),
         status: status,
+        locationValidationStatus: locationValidationStatus || 'not_checked',
         photoCheckIn: photoCheckIn,
         photoCheckOut: photoCheckOut
       });
@@ -209,7 +210,7 @@ class AttendanceAdminController {
   static async updateManualAttendance(req, res, next) {
     try {
       const { id } = req.params;
-      const { date, clockIn, clockOut, status } = req.body;
+      const { date, clockIn, clockOut, status, locationValidationStatus } = req.body;
 
       // Find attendance record
       const attendance = await Attendance.findByPk(id);
@@ -235,6 +236,7 @@ class AttendanceAdminController {
       if (clockIn) updateData.clockIn = new Date(clockIn);
       if (clockOut) updateData.clockOut = new Date(clockOut);
       if (status) updateData.status = status;
+      if (locationValidationStatus) updateData.locationValidationStatus = locationValidationStatus;
 
       // Handle photo updates (opsional untuk admin)
       if (req.photoInfo) {

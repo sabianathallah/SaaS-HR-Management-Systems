@@ -311,54 +311,78 @@ class OfficeLocationAdminController {
         });
       }
 
-      // Get attendance statistics
-      const totalAttendances = await Attendance.count({
-        where: { officeLocationId: id }
+      // Debug: Check total attendances in system
+      const totalAttendancesInSystem = await Attendance.count();
+      
+      // Get attendance statistics using correct column name
+      const totalCheckIns = await Attendance.count({
+        where: { office_location_id: id }
       });
 
-      const validAttendances = await Attendance.count({
+      const validCheckIns = await Attendance.count({
         where: {
-          officeLocationId: id,
+          office_location_id: id,
           locationValidationStatus: 'valid'
         }
       });
 
-      const outsideRadiusCount = await Attendance.count({
+      const outsideRadius = await Attendance.count({
         where: {
-          officeLocationId: id,
+          office_location_id: id,
           locationValidationStatus: 'outside_radius'
         }
       });
 
+      // Get unique users count using DISTINCT
+      const uniqueUsers = await Attendance.count({
+        where: { office_location_id: id },
+        distinct: true,
+        col: 'UserId'
+      });
+
       // Get recent attendances
       const recentAttendances = await Attendance.findAll({
-        where: { officeLocationId: id },
+        where: { office_location_id: id },
         limit: 10,
         order: [['date', 'DESC']],
         attributes: ['id', 'date', 'clockIn', 'status', 'distanceFromOffice', 'locationValidationStatus']
       });
 
+      console.log('📊 Stats Debug:');
+      console.log('   - Total Attendances in System:', totalAttendancesInSystem);
+      console.log('   - Location ID:', id);
+      console.log('   - Total Check-ins for this location:', totalCheckIns);
+      console.log('   - Valid Check-ins:', validCheckIns);
+      console.log('   - Outside Radius:', outsideRadius);
+      console.log('   - Unique Users:', uniqueUsers);
+
       res.status(200).json({
         message: 'Office location statistics retrieved successfully',
         data: {
+          totalCheckIns,
+          validCheckIns,
+          outsideRadius,
+          uniqueUsers,
+          validPercentage: totalCheckIns > 0 
+            ? ((validCheckIns / totalCheckIns) * 100).toFixed(2) 
+            : 0,
           location: {
             ...location.toJSON(),
             coordinatesFormatted: formatGPSCoordinates(location.latitude, location.longitude),
             mapsLink: generateMapsLink(location.latitude, location.longitude)
           },
-          statistics: {
-            totalAttendances,
-            validAttendances,
-            outsideRadiusCount,
-            validPercentage: totalAttendances > 0 
-              ? ((validAttendances / totalAttendances) * 100).toFixed(2) 
-              : 0
-          },
-          recentAttendances
+          recentAttendances,
+          debug: {
+            totalAttendancesInSystem,
+            note: totalCheckIns === 0 
+              ? 'No attendance records linked to this office location yet. Employees need to clock-in with GPS or admin needs to assign location to existing attendance records.'
+              : null
+          }
         }
       });
 
     } catch (error) {
+      console.error('Error in getLocationStats:', error);
       next(error);
     }
   }

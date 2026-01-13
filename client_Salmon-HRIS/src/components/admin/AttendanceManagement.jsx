@@ -28,6 +28,7 @@ const AttendanceManagement = () => {
     clockIn: '',
     clockOut: '',
     status: 'ON_TIME',
+    locationValidationStatus: 'not_checked',
   });
 
   useEffect(() => {
@@ -127,6 +128,7 @@ const AttendanceManagement = () => {
       clockIn: attendance.clockIn ? new Date(attendance.clockIn).toISOString().slice(0, 16) : '',
       clockOut: attendance.clockOut ? new Date(attendance.clockOut).toISOString().slice(0, 16) : '',
       status: attendance.status,
+      locationValidationStatus: attendance.locationValidationStatus || 'not_checked',
     });
     setShowEditModal(true);
   };
@@ -138,6 +140,7 @@ const AttendanceManagement = () => {
       clockIn: '',
       clockOut: '',
       status: 'ON_TIME',
+      locationValidationStatus: 'not_checked',
     });
     setEditingAttendance(null);
   };
@@ -335,8 +338,9 @@ const AttendanceManagement = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {attendance.locationValidationStatus === 'VALID' ? '✅ Valid' : 
-                       attendance.locationValidationStatus === 'INVALID' ? '❌ Invalid' : 
+                      {attendance.locationValidationStatus === 'valid' ? '✅ Valid' : 
+                       attendance.locationValidationStatus === 'outside_radius' ? '❌ Outside Radius' : 
+                       attendance.locationValidationStatus === 'gps_error' ? '⚠️ GPS Error' : 
                        '⚠️ Not Checked'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -356,10 +360,13 @@ const AttendanceManagement = () => {
       </div>
 
       {/* Manual Attendance Modal */}
-      {showManualModal && (
-        <Modal onClose={() => { setShowManualModal(false); resetForm(); }}>
-          <form onSubmit={handleManualAttendance} className="space-y-4">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Create Manual Attendance</h3>
+      <Modal 
+        isOpen={showManualModal}
+        onClose={() => { setShowManualModal(false); resetForm(); }}
+        title="Create Manual Attendance"
+        size="lg"
+      >
+        <form onSubmit={handleManualAttendance} className="space-y-4">
             
             <FormSelect
               label="Employee"
@@ -409,6 +416,18 @@ const AttendanceManagement = () => {
               ]}
             />
             
+            <FormSelect
+              label="Location Validation"
+              value={formData.locationValidationStatus}
+              onChange={(e) => setFormData({ ...formData, locationValidationStatus: e.target.value })}
+              options={[
+                { value: 'not_checked', label: '⚠️ Not Checked' },
+                { value: 'valid', label: '✅ Valid (Inside Radius)' },
+                { value: 'outside_radius', label: '❌ Outside Radius' },
+                { value: 'gps_error', label: '⚠️ GPS Error' },
+              ]}
+            />
+            
             <div className="flex space-x-4">
               <button
                 type="submit"
@@ -426,13 +445,15 @@ const AttendanceManagement = () => {
             </div>
           </form>
         </Modal>
-      )}
 
       {/* Edit Attendance Modal */}
-      {showEditModal && (
-        <Modal onClose={() => { setShowEditModal(false); resetForm(); }}>
-          <form onSubmit={handleEditAttendance} className="space-y-4">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Edit Attendance</h3>
+      <Modal 
+        isOpen={showEditModal}
+        onClose={() => { setShowEditModal(false); resetForm(); }}
+        title="Edit Attendance"
+        size="lg"
+      >
+        <form onSubmit={handleEditAttendance} className="space-y-4">
             
             <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4">
               <p className="text-sm text-blue-800">
@@ -475,6 +496,18 @@ const AttendanceManagement = () => {
               ]}
             />
             
+            <FormSelect
+              label="Location Validation"
+              value={formData.locationValidationStatus}
+              onChange={(e) => setFormData({ ...formData, locationValidationStatus: e.target.value })}
+              options={[
+                { value: 'not_checked', label: '⚠️ Not Checked' },
+                { value: 'valid', label: '✅ Valid (Inside Radius)' },
+                { value: 'outside_radius', label: '❌ Outside Radius' },
+                { value: 'gps_error', label: '⚠️ GPS Error' },
+              ]}
+            />
+            
             <div className="flex space-x-4">
               <button
                 type="submit"
@@ -492,7 +525,6 @@ const AttendanceManagement = () => {
             </div>
           </form>
         </Modal>
-      )}
     </div>
   );
 };
