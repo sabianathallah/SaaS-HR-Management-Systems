@@ -148,6 +148,26 @@ module.exports = (sequelize, DataTypes) => {
     approvalDate: {
       type: DataTypes.DATE,
       allowNull: true
+    },
+    attachmentPath: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Path to uploaded document (e.g., sick letter, supporting document)'
+    },
+    attachmentOriginalName: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Original filename of uploaded document'
+    },
+    attachmentMimeType: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'MIME type of uploaded document'
+    },
+    attachmentSize: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: 'File size in bytes'
     }
   }, {
     sequelize,

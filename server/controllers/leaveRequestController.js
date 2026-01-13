@@ -1,16 +1,28 @@
 const { LeaveRequest, User, Attendance, WorkSchedule } = require('../models');
 const { Op } = require('sequelize');
+const { deleteFile } = require('../helpers/fileUploadHelper');
 
 class LeaveRequestController {
   
-  // Employee submit leave/permission request
+  // Employee submit leave/permission request (with optional file attachment)
   static async submitRequest(req, res, next) {
     try {
       const userId = req.user.id;
       const { leaveType, startDate, endDate, reason } = req.body;
+      const file = req.file; // Optional file from multer
+
+      console.log('📝 Leave Request Submission Started');
+      console.log('User ID:', userId);
+      console.log('Body:', { leaveType, startDate, endDate, reason: reason?.substring(0, 50) });
+      console.log('File:', file ? { name: file.originalname, size: file.size, type: file.mimetype } : 'No file');
 
       // Validate required fields
       if (!leaveType || !startDate || !endDate || !reason) {
+        console.log('❌ Validation failed: Missing required fields');
+        // Delete uploaded file if validation fails
+        if (file) {
+          deleteFile(file.path);
+        }
         return res.status(400).json({
           message: "All fields are required: leaveType, startDate, endDate, reason"
         });
@@ -19,6 +31,11 @@ class LeaveRequestController {
       // Validate leave type
       const validLeaveTypes = Object.values(LeaveRequest.LEAVE_TYPE);
       if (!validLeaveTypes.includes(leaveType)) {
+        console.log('❌ Validation failed: Invalid leave type');
+        // Delete uploaded file if validation fails
+        if (file) {
+          deleteFile(file.path);
+        }
         return res.status(400).json({
           message: `Invalid leave type. Valid types: ${validLeaveTypes.join(', ')}`
         });
@@ -87,14 +104,18 @@ class LeaveRequestController {
       });
 
       if (overlappingRequest) {
+        // Delete uploaded file if validation fails
+        if (file) {
+          deleteFile(file.path);
+        }
         return res.status(400).json({
           message: "You already have a leave request for overlapping dates",
           existingRequest: overlappingRequest
         });
       }
 
-      // Create leave request
-      const leaveRequest = await LeaveRequest.create({
+      // Prepare leave request data
+      const leaveRequestData = {
         UserId: userId,
         leaveType,
         startDate,
@@ -102,7 +123,18 @@ class LeaveRequestController {
         totalDays,
         reason,
         status: LeaveRequest.REQUEST_STATUS.PENDING
-      });
+      };
+
+      // Add attachment info if file was uploaded
+      if (file) {
+        leaveRequestData.attachmentPath = file.path;
+        leaveRequestData.attachmentOriginalName = file.originalname;
+        leaveRequestData.attachmentMimeType = file.mimetype;
+        leaveRequestData.attachmentSize = file.size;
+      }
+
+      // Create leave request
+      const leaveRequest = await LeaveRequest.create(leaveRequestData);
 
       // Auto-create attendance for TODAY if leave request includes today
       const todayDateOnly = new Date();
@@ -167,15 +199,30 @@ class LeaveRequestController {
         }
       }
 
+      console.log('✅ Leave request created successfully:', leaveRequest.id);
+      console.log('Attachment uploaded:', file ? 'Yes' : 'No');
+      console.log('Attendance auto-created:', attendanceCreated);
+
       res.status(201).json({
         message: attendanceCreated 
           ? "Leave request submitted successfully. Attendance record created for today. Waiting for admin approval."
           : "Leave request submitted successfully. Waiting for admin approval.",
         data: leaveRequest,
-        attendanceCreatedForToday: attendanceCreated
+        attendanceCreatedForToday: attendanceCreated,
+        attachmentUploaded: file ? true : false,
+        attachmentInfo: file ? {
+          originalName: file.originalname,
+          size: file.size,
+          mimeType: file.mimetype
+        } : null
       });
 
     } catch (error) {
+      console.error('❌ Leave Request Submission Error:', error);
+      // Delete uploaded file if error occurs
+      if (req.file) {
+        deleteFile(req.file.path);
+      }
       next(error);
     }
   }

@@ -49,8 +49,10 @@ export default function EmployeePage() {
     leaveType: 'ANNUAL_LEAVE',
     startDate: '',
     endDate: '',
-    reason: ''
+    reason: '',
+    attachment: null // For file upload
   })
+  const [attachmentPreview, setAttachmentPreview] = useState(null)
   
   // Overtime State
   const [overtimeRequests, setOvertimeRequests] = useState([])
@@ -526,39 +528,107 @@ export default function EmployeePage() {
       toast.error('Tanggal selesai tidak boleh lebih awal dari tanggal mulai')
       return
     }
+
+    // Validate file size if attachment exists
+    if (leaveForm.attachment) {
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (leaveForm.attachment.size > maxSize) {
+        toast.error('Ukuran file maksimal 5MB')
+        return
+      }
+    }
     
     setLoading(true)
     try {
       const token = localStorage.getItem('access_token')
       
-      // Prepare payload with trimmed reason
-      const payload = {
-        leaveType: leaveForm.leaveType,
-        startDate: leaveForm.startDate,
-        endDate: leaveForm.endDate,
-        reason: leaveForm.reason.trim()
+      // Use FormData for file upload
+      const formData = new FormData()
+      formData.append('leaveType', leaveForm.leaveType)
+      formData.append('startDate', leaveForm.startDate)
+      formData.append('endDate', leaveForm.endDate)
+      formData.append('reason', leaveForm.reason.trim())
+      
+      // Add attachment if exists
+      if (leaveForm.attachment) {
+        formData.append('attachment', leaveForm.attachment)
       }
       
-      console.log('Submitting leave request:', payload)
+      console.log('Submitting leave request with attachment')
       
-      await axios.post(`${baseUrl}/leave-requests`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
+      // Debug: Log FormData contents
+      for (let pair of formData.entries()) {
+        console.log(pair[0], pair[1]);
+      }
+      
+      const response = await axios.post(`${baseUrl}/leave-requests`, formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`
+          // Don't set Content-Type for FormData - let browser set it with boundary
+        }
       })
       
-      toast.success('Pengajuan cuti berhasil dikirim!')
+      toast.success(leaveForm.attachment 
+        ? 'Pengajuan cuti dengan lampiran berhasil dikirim!' 
+        : 'Pengajuan cuti berhasil dikirim!')
+      
       setShowLeaveForm(false)
       setLeaveForm({
         leaveType: 'ANNUAL_LEAVE',
         startDate: '',
         endDate: '',
-        reason: ''
+        reason: '',
+        attachment: null
       })
+      setAttachmentPreview(null)
       fetchLeaveData()
     } catch (error) {
+      console.error('Submit error:', error)
+      console.error('Error response:', error.response?.data)
+      console.error('Error status:', error.response?.status)
       handleApiError(error, 'Gagal mengajukan cuti')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      // Validate file type
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
+      if (!allowedTypes.includes(file.type)) {
+        toast.error('Hanya file PDF, JPG, atau PNG yang diperbolehkan')
+        e.target.value = null
+        return
+      }
+
+      // Validate file size (5MB)
+      const maxSize = 5 * 1024 * 1024
+      if (file.size > maxSize) {
+        toast.error('Ukuran file maksimal 5MB')
+        e.target.value = null
+        return
+      }
+
+      setLeaveForm({...leaveForm, attachment: file})
+      
+      // Create preview for images
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          setAttachmentPreview(reader.result)
+        }
+        reader.readAsDataURL(file)
+      } else {
+        setAttachmentPreview('PDF')
+      }
+    }
+  }
+
+  const removeAttachment = () => {
+    setLeaveForm({...leaveForm, attachment: null})
+    setAttachmentPreview(null)
   }
 
   const handleCancelLeave = async (leaveId) => {
@@ -1224,7 +1294,22 @@ export default function EmployeePage() {
   const renderLeave = () => (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Cuti & Izin</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">Cuti & Izin</h2>
+        
+        {/* Info Section about Leave System */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
+          <h3 className="font-semibold text-gray-800 mb-2">📋 Sistem Pengajuan Cuti & Izin</h3>
+          <div className="text-sm text-gray-700 space-y-2">
+            <p>
+              <strong>Jenis Pengajuan yang Tersedia:</strong>
+            </p>
+            <ul className="ml-4 space-y-1 list-disc">
+              <li><strong>🏖️ Cuti Tahunan (Annual Leave)</strong></li>
+              <li><strong>🤒 Sakit (Sick Leave)</strong></li>
+              <li><strong>📝 Izin (Permission)</strong></li>
+            </ul>
+          </div>
+        </div>
 
         {/* Leave Balance */}
         {leaveBalance && (
@@ -1274,7 +1359,7 @@ export default function EmployeePage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">
-                  Jenis Cuti/Izin
+                  Jenis Cuti/Izin <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={leaveForm.leaveType}
@@ -1282,16 +1367,21 @@ export default function EmployeePage() {
                   className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none"
                   required
                 >
-                  <option value="ANNUAL_LEAVE">Cuti Tahunan</option>
-                  <option value="SICK_LEAVE">Sakit</option>
-                  <option value="PERMISSION">Izin</option>
+                  <option value="ANNUAL_LEAVE">🏖️ Cuti Tahunan (Annual Leave) </option>
+                  <option value="SICK_LEAVE">🤒 Sakit (Sick Leave)</option>
+                  <option value="PERMISSION">📝 Izin (Permission)</option>
                 </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {leaveForm.leaveType === 'ANNUAL_LEAVE' && 'Jenis ini akan mengurangi kuota cuti tahunan Anda'}
+                  {leaveForm.leaveType === 'SICK_LEAVE' && 'Jenis ini tidak mengurangi kuota cuti (untuk kondisi sakit)'}
+                  {leaveForm.leaveType === 'PERMISSION' && 'Jenis ini tidak mengurangi kuota cuti (untuk keperluan pribadi)'}
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">
-                    Tanggal Mulai
+                    Tanggal Mulai <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="date"
@@ -1303,7 +1393,7 @@ export default function EmployeePage() {
                 </div>
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">
-                    Tanggal Selesai
+                    Tanggal Selesai <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="date"
@@ -1314,22 +1404,143 @@ export default function EmployeePage() {
                   />
                 </div>
               </div>
+              
+              {/* Show estimated days */}
+              {leaveForm.startDate && leaveForm.endDate && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <p className="text-sm text-gray-700">
+                    📅 <strong>Durasi:</strong> {' '}
+                    {(() => {
+                      const start = new Date(leaveForm.startDate);
+                      const end = new Date(leaveForm.endDate);
+                      const diffTime = Math.abs(end - start);
+                      const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                      return `${totalDays} hari`;
+                    })()}
+                  </p>
+                  {leaveForm.leaveType === 'ANNUAL_LEAVE' && leaveBalance && (
+                    <p className="text-xs text-yellow-700 mt-1">
+                      ⚠️ Kuota yang akan terpakai: {' '}
+                      {(() => {
+                        const start = new Date(leaveForm.startDate);
+                        const end = new Date(leaveForm.endDate);
+                        const diffTime = Math.abs(end - start);
+                        const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                        return totalDays;
+                      })()} dari {leaveBalance.remainingLeaveQuota || 0} hari tersisa
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">
-                  Alasan (Minimal 10 karakter)
+                  Alasan <span className="text-red-500">*</span> (Minimal 10 karakter)
                 </label>
                 <textarea
                   value={leaveForm.reason}
                   onChange={(e) => setLeaveForm({...leaveForm, reason: e.target.value})}
                   className="w-full px-4 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none"
-                  rows="3"
-                  placeholder="Jelaskan alasan pengajuan (minimal 10 karakter)..."
+                  rows="4"
+                  placeholder="Jelaskan alasan pengajuan secara detail (minimal 10 karakter)...&#10;Contoh:&#10;- Cuti: Liburan keluarga ke Bali&#10;- Sakit: Demam tinggi dan perlu istirahat&#10;- Izin: Mengurus dokumen di kantor pemerintahan"
                   required
                   minLength={10}
                 />
+                <div className="flex justify-between items-center mt-1">
+                  <p className={`text-xs ${leaveForm.reason.trim().length >= 10 ? 'text-green-600' : 'text-red-500'}`}>
+                    {leaveForm.reason.trim().length >= 10 ? '✓' : '✗'} {leaveForm.reason.trim().length}/10 karakter minimum
+                  </p>
+                  {leaveForm.reason.trim().length >= 10 && (
+                    <p className="text-xs text-green-600">✓ Alasan sudah cukup</p>
+                  )}
+                </div>
+              </div>
+
+              {/* File Upload Section */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">
+                  📎 Lampiran (Opsional)
+                </label>
+                <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-4">
+                  {!attachmentPreview ? (
+                    <>
+                      <input
+                        type="file"
+                        id="attachment-upload"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                      <label
+                        htmlFor="attachment-upload"
+                        className="cursor-pointer block text-center"
+                      >
+                        <div className="text-4xl mb-2">📄</div>
+                        <p className="text-sm text-gray-600 font-semibold">
+                          Klik untuk upload dokumen pendukung
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          PDF, JPG, PNG (Max 5MB)
+                        </p>
+                        <p className="text-xs text-blue-600 mt-2">
+                          💡 Untuk sakit, lampirkan surat sakit. Untuk izin, lampirkan dokumen terkait.
+                        </p>
+                      </label>
+                    </>
+                  ) : (
+                    <div className="space-y-2">
+                      {attachmentPreview === 'PDF' ? (
+                        <div className="flex items-center justify-between bg-white p-3 rounded">
+                          <div className="flex items-center">
+                            <span className="text-3xl mr-3">📄</span>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800">
+                                {leaveForm.attachment.name}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {(leaveForm.attachment.size / 1024).toFixed(2)} KB
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={removeAttachment}
+                            className="text-red-600 hover:text-red-800 font-semibold"
+                          >
+                            ❌ Hapus
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <img
+                            src={attachmentPreview}
+                            alt="Preview"
+                            className="w-full h-48 object-contain bg-white rounded"
+                          />
+                          <div className="flex items-center justify-between bg-white p-3 rounded">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800">
+                                {leaveForm.attachment.name}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {(leaveForm.attachment.size / 1024).toFixed(2)} KB
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={removeAttachment}
+                              className="text-red-600 hover:text-red-800 font-semibold"
+                            >
+                              ❌ Hapus
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  {leaveForm.reason.trim().length}/10 karakter minimum
+                  ℹ️ Lampiran bersifat opsional, namun sangat direkomendasikan untuk mempercepat persetujuan
                 </p>
               </div>
 
@@ -1394,9 +1605,23 @@ export default function EmployeePage() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {leaveRequests.map((leave) => (
                         <tr key={leave.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {leave.leaveType === 'ANNUAL_LEAVE' ? 'Cuti Tahunan' :
-                             leave.leaveType === 'SICK_LEAVE' ? 'Sakit' : 'Izin'}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <div className="flex items-center">
+                              <span className="mr-2">
+                                {leave.leaveType === 'ANNUAL_LEAVE' ? '🏖️' :
+                                 leave.leaveType === 'SICK_LEAVE' ? '🤒' : '📝'}
+                              </span>
+                              <div>
+                                <div className="font-semibold text-gray-900">
+                                  {leave.leaveType === 'ANNUAL_LEAVE' ? 'Cuti Tahunan' :
+                                   leave.leaveType === 'SICK_LEAVE' ? 'Sakit' : 'Izin'}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {leave.leaveType === 'ANNUAL_LEAVE' ? 'Potong kuota' :
+                                   leave.leaveType === 'SICK_LEAVE' ? 'Tidak potong kuota' : 'Tidak potong kuota'}
+                                </div>
+                              </div>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {new Date(leave.startDate).toLocaleDateString('id-ID')} - {' '}
@@ -1406,13 +1631,16 @@ export default function EmployeePage() {
                             {leave.totalDays} hari
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                               leave.status === 'APPROVED' ? 'bg-green-200 text-green-800' :
                               leave.status === 'REJECTED' ? 'bg-red-200 text-red-800' :
                               leave.status === 'CANCELLED' ? 'bg-gray-200 text-gray-800' :
                               'bg-yellow-200 text-yellow-800'
                             }`}>
-                              {leave.status}
+                              {leave.status === 'APPROVED' ? '✓ Disetujui' :
+                               leave.status === 'REJECTED' ? '✗ Ditolak' :
+                               leave.status === 'CANCELLED' ? '⊘ Dibatalkan' :
+                               '⏳ Menunggu'}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">

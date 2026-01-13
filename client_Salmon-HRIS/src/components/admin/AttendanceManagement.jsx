@@ -308,10 +308,13 @@ const AttendanceManagement = () => {
             onChange={(e) => setStatusFilter(e.target.value)}
             options={[
               { value: 'all', label: 'All Status' },
+              { value: 'ON_PROGRESS', label: 'On Progress (Clock In Only)' },
               { value: 'ON_TIME', label: 'On Time' },
               { value: 'LATE', label: 'Late' },
               { value: 'ABSENT', label: 'Absent' },
-              { value: 'LEAVE', label: 'Leave' },
+              { value: 'LEAVE', label: 'Leave (Annual)' },
+              { value: 'SICK_LEAVE', label: 'Sick Leave' },
+              { value: 'PERMISSION', label: 'Permission' },
               { value: 'HOLIDAY', label: 'Holiday' },
             ]}
           />

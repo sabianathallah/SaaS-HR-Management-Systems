@@ -20,4 +20,10 @@ router.put("/adjust-quota/:userId", LeaveRequestAdminController.adjustQuota);
 // Admin - Get employee leave balance
 router.get("/balance/:userId", LeaveRequestAdminController.getEmployeeBalance);
 
+// Admin - View leave request attachment (inline preview)
+router.get("/:id/attachment/view", LeaveRequestAdminController.viewAttachment);
+
+// Admin - Download leave request attachment
+router.get("/:id/attachment/download", LeaveRequestAdminController.downloadAttachment);
+
 module.exports = router;

@@ -251,7 +251,7 @@ class LeaveRequestAdminController {
         leaveRequest.UserId,
         Notification.NOTIFICATION_TYPE.LEAVE_REJECTED,
         '❌ Leave Request Rejected',
-        `Your ${leaveRequest.leaveType.replace('_', ' ').toLowerCase()} request from ${leaveRequest.startDate} to ${leaveRequest.endDate} has been rejected.${deletedCount > 0 ? ' Related attendance records have been removed.' : ''}`,
+        `Your ${leaveRequest.leaveType.replace('_', ' ').toLowerCase()} request from ${leaveRequest.startDate} to ${leaveRequest.endDate} has been rejected.${approvalNote ? `\n\n📝 Reason: ${approvalNote}` : ''}${deletedCount > 0 ? '\n\nRelated attendance records have been removed.' : ''}`,
         {
           leaveRequestId: leaveRequest.id,
           leaveType: leaveRequest.leaveType,
@@ -388,6 +388,89 @@ class LeaveRequestAdminController {
         },
         statistics: leaveStats
       });
+
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Admin: View/Download leave request attachment
+  static async viewAttachment(req, res, next) {
+    try {
+      const { id } = req.params;
+      const path = require('path');
+      const fs = require('fs');
+
+      const leaveRequest = await LeaveRequest.findByPk(id);
+
+      if (!leaveRequest) {
+        return res.status(404).json({
+          message: "Leave request not found"
+        });
+      }
+
+      if (!leaveRequest.attachmentPath) {
+        return res.status(404).json({
+          message: "No attachment found for this leave request"
+        });
+      }
+
+      // Check if file exists
+      if (!fs.existsSync(leaveRequest.attachmentPath)) {
+        return res.status(404).json({
+          message: "Attachment file not found on server",
+          attachmentPath: leaveRequest.attachmentPath
+        });
+      }
+
+      // Set appropriate headers
+      res.setHeader('Content-Type', leaveRequest.attachmentMimeType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `inline; filename="${leaveRequest.attachmentOriginalName}"`);
+
+      // Stream the file
+      const fileStream = fs.createReadStream(leaveRequest.attachmentPath);
+      fileStream.pipe(res);
+
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Admin: Download leave request attachment
+  static async downloadAttachment(req, res, next) {
+    try {
+      const { id } = req.params;
+      const path = require('path');
+      const fs = require('fs');
+
+      const leaveRequest = await LeaveRequest.findByPk(id);
+
+      if (!leaveRequest) {
+        return res.status(404).json({
+          message: "Leave request not found"
+        });
+      }
+
+      if (!leaveRequest.attachmentPath) {
+        return res.status(404).json({
+          message: "No attachment found for this leave request"
+        });
+      }
+
+      // Check if file exists
+      if (!fs.existsSync(leaveRequest.attachmentPath)) {
+        return res.status(404).json({
+          message: "Attachment file not found on server"
+        });
+      }
+
+      // Set appropriate headers for download
+      res.setHeader('Content-Type', leaveRequest.attachmentMimeType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${leaveRequest.attachmentOriginalName}"`);
+
+      // Stream the file
+      const fileStream = fs.createReadStream(leaveRequest.attachmentPath);
+      fileStream.pipe(res);
 
     } catch (error) {
       next(error);

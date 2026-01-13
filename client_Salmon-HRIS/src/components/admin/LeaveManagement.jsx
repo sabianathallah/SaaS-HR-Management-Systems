@@ -84,6 +84,33 @@ const LeaveManagement = () => {
       console.log('Reject response:', response.data);
       alert('Leave request rejected successfully!');
       setShowDetailModal(false);
+      setApprovalNote('');
+      await fetchData();
+    } catch (error) {
+      console.error('Error rejecting leave:', error);
+      alert(error.response?.data?.message || 'Failed to reject leave request');
+    }
+  };
+
+  const handleRejectFromModal = async () => {
+    try {
+      if (!approvalNote || approvalNote.trim() === '') {
+        alert('Please provide a reason for rejection in the notes field');
+        return;
+      }
+
+      const token = localStorage.getItem('access_token');
+      const response = await axios.put(
+        `${import.meta.env.VITE_BASE_URL}/leave-requests/admin/${selectedRequest.id}/reject`,
+        { approvalNote: approvalNote },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      console.log('Reject response:', response.data);
+      alert('Leave request rejected successfully!');
+      setShowDetailModal(false);
+      setSelectedRequest(null);
+      setApprovalNote('');
       await fetchData();
     } catch (error) {
       console.error('Error rejecting leave:', error);
@@ -129,6 +156,59 @@ const LeaveManagement = () => {
     console.log('Opening detail modal for request:', request); // Debug log
     setSelectedRequest(request);
     setShowDetailModal(true);
+  };
+
+  const handleViewAttachment = async (requestId) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.get(
+        `${import.meta.env.VITE_BASE_URL}/leave-requests/admin/${requestId}/attachment/view`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: 'blob' // Important for file download
+        }
+      );
+
+      // Create blob URL and open in new tab
+      const blob = new Blob([response.data], { type: response.headers['content-type'] });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      
+      // Clean up the URL after opening
+      setTimeout(() => window.URL.revokeObjectURL(url), 100);
+    } catch (error) {
+      console.error('Error viewing attachment:', error);
+      alert(error.response?.data?.message || 'Failed to view attachment');
+    }
+  };
+
+  const handleDownloadAttachment = async (requestId, filename) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.get(
+        `${import.meta.env.VITE_BASE_URL}/leave-requests/admin/${requestId}/attachment/download`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: 'blob' // Important for file download
+        }
+      );
+
+      // Create blob URL and trigger download
+      const blob = new Blob([response.data], { type: response.headers['content-type'] });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || 'attachment';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the URL
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading attachment:', error);
+      alert(error.response?.data?.message || 'Failed to download attachment');
+    }
   };
 
   const filteredRequests = leaveRequests.filter(req => 
@@ -371,6 +451,39 @@ const LeaveManagement = () => {
                 <p className="font-medium">{selectedRequest.reason}</p>
               </div>
               
+              {selectedRequest.attachmentPath && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Attachment</p>
+                  <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span>📎</span>
+                      <span className="font-medium text-gray-700">{selectedRequest.attachmentOriginalName}</span>
+                    </div>
+                    {selectedRequest.attachmentSize && (
+                      <p className="text-xs text-gray-500">
+                        Size: {(selectedRequest.attachmentSize / 1024).toFixed(2)} KB
+                      </p>
+                    )}
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => handleViewAttachment(selectedRequest.id)}
+                        className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center gap-1"
+                      >
+                        👁️ View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadAttachment(selectedRequest.id, selectedRequest.attachmentOriginalName)}
+                        className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700 flex items-center gap-1"
+                      >
+                        ⬇️ Download
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {selectedRequest.approvalNote && (
                 <div>
                   <p className="text-sm text-gray-600">Approval Note</p>
@@ -403,7 +516,7 @@ const LeaveManagement = () => {
                     ✅ Approve
                   </button>
                   <button
-                    onClick={() => handleReject(selectedRequest.id)}
+                    onClick={handleRejectFromModal}
                     className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
                   >
                     ❌ Reject
