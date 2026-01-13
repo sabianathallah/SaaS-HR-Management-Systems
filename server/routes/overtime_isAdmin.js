@@ -13,6 +13,9 @@ router.get('/requests', OvertimeAdminController.getAllOvertimeRequests);
 // Get overtime summary (with period filter)
 router.get('/summary', OvertimeAdminController.getOvertimeSummary);
 
+// Update overtime status (re-approve or re-reject) - MUST BE BEFORE /:id routes
+router.patch('/:id/update-status', OvertimeAdminController.updateOvertimeStatus);
+
 // Approve overtime request
 router.patch('/:id/approve', OvertimeAdminController.approveOvertime);
 

@@ -469,6 +469,140 @@ class OvertimeAdminController {
       next(error);
     }
   }
+
+  /**
+   * Update overtime status (Re-approve or Re-reject)
+   * PATCH /overtimes/admin/:id/update-status
+   * This endpoint allows changing status from approved to rejected or vice versa
+   */
+  static async updateOvertimeStatus(req, res, next) {
+    try {
+      const adminId = req.user.id;
+      const { id } = req.params;
+      const { status, rejectionReason, actualHours } = req.body;
+
+      // Validate status
+      if (!status || !['approved', 'rejected'].includes(status)) {
+        return res.status(400).json({
+          message: "Status is required and must be either 'approved' or 'rejected'"
+        });
+      }
+
+      const overtime = await Overtime.findByPk(id, {
+        include: [
+          {
+            model: User,
+            as: 'employee',
+            attributes: ['id', 'name', 'email']
+          }
+        ]
+      });
+
+      if (!overtime) {
+        return res.status(404).json({
+          message: "Overtime request not found"
+        });
+      }
+
+      // Check if status is being changed
+      if (overtime.status === status) {
+        return res.status(400).json({
+          message: `Overtime is already ${status}`
+        });
+      }
+
+      const oldStatus = overtime.status;
+
+      // If changing to rejected, require rejection reason
+      if (status === 'rejected') {
+        if (!rejectionReason || rejectionReason.trim().length < 10) {
+          return res.status(400).json({
+            message: "Rejection reason is required (minimum 10 characters)"
+          });
+        }
+        
+        overtime.status = Overtime.STATUS.REJECTED;
+        overtime.rejectionReason = rejectionReason.trim();
+        overtime.approvedBy = adminId;
+        overtime.approvedAt = new Date();
+        
+        // Send notification
+        await notificationHelper.sendNotification(
+          overtime.UserId,
+          Notification.NOTIFICATION_TYPE.OVERTIME_REJECTED,
+          '❌ Overtime Status Changed to Rejected',
+          `Your overtime request for ${overtime.overtimeDate} status has been changed from ${oldStatus} to rejected. Reason: ${rejectionReason}`,
+          {
+            overtimeId: overtime.id,
+            overtimeDate: overtime.overtimeDate,
+            requestedHours: overtime.requestedHours,
+            rejectionReason: overtime.rejectionReason,
+            previousStatus: oldStatus
+          },
+          true
+        );
+      } 
+      // If changing to approved
+      else if (status === 'approved') {
+        let finalActualHours = overtime.actualHours || overtime.requestedHours;
+        
+        if (actualHours !== undefined) {
+          if (actualHours < 0 || actualHours > 12) {
+            return res.status(400).json({
+              message: "Actual hours must be between 0 and 12"
+            });
+          }
+          finalActualHours = parseFloat(actualHours);
+        }
+        
+        overtime.status = Overtime.STATUS.APPROVED;
+        overtime.actualHours = finalActualHours;
+        overtime.approvedBy = adminId;
+        overtime.approvedAt = new Date();
+        overtime.rejectionReason = null; // Clear rejection reason
+        
+        // Send notification
+        await notificationHelper.sendNotification(
+          overtime.UserId,
+          Notification.NOTIFICATION_TYPE.OVERTIME_APPROVED,
+          '✅ Overtime Status Changed to Approved',
+          `Your overtime request for ${overtime.overtimeDate} status has been changed from ${oldStatus} to approved. Approved hours: ${overtime.actualHours} hours.`,
+          {
+            overtimeId: overtime.id,
+            overtimeDate: overtime.overtimeDate,
+            requestedHours: overtime.requestedHours,
+            actualHours: overtime.actualHours,
+            previousStatus: oldStatus
+          },
+          true
+        );
+      }
+
+      await overtime.save();
+
+      res.status(200).json({
+        message: `Overtime status updated from ${oldStatus} to ${status} successfully`,
+        data: {
+          id: overtime.id,
+          employee: {
+            id: overtime.employee.id,
+            name: overtime.employee.name,
+            email: overtime.employee.email
+          },
+          overtimeDate: overtime.overtimeDate,
+          requestedHours: overtime.requestedHours,
+          actualHours: overtime.actualHours,
+          status: overtime.status,
+          rejectionReason: overtime.rejectionReason,
+          approvedAt: overtime.approvedAt,
+          previousStatus: oldStatus
+        }
+      });
+
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = OvertimeAdminController;
