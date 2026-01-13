@@ -238,6 +238,9 @@ function prepareCSVData(attendances) {
   return attendances.map(att => ({
     'User ID': att.UserId,
     'Employee Name': att.User?.name || '-',
+    'Email': att.User?.email || '-',
+    'Position': att.User?.position || '-',
+    'Department': att.User?.department || '-',
     'Date': formatDate(att.date),
     'Clock In': formatDateTime(att.clockIn),
     'Clock Out': formatDateTime(att.clockOut),

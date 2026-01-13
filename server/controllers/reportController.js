@@ -34,7 +34,7 @@ exports.exportAttendanceExcel = async (req, res) => {
       where,
       include: [{
         model: User,
-        attributes: ['id', 'name', 'email']
+        attributes: ['id', 'name', 'email', 'position', 'department']
       }],
       order: [['date', 'DESC'], ['clockIn', 'DESC']]
     });
@@ -49,60 +49,238 @@ exports.exportAttendanceExcel = async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Attendance Report');
     workbook.creator = 'HR Management System';
+    workbook.created = new Date();
     
+    // Add title section
+    worksheet.mergeCells('A1:H1');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = 'ATTENDANCE REPORT';
+    titleCell.font = { name: 'Calibri', size: 18, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF2E75B6' }
+    };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    worksheet.getRow(1).height = 30;
+    
+    // Add filter info
+    worksheet.mergeCells('A2:H2');
+    const filterCell = worksheet.getCell('A2');
+    const filterInfo = [];
+    if (startDate) filterInfo.push(`Start: ${formatDate(startDate)}`);
+    if (endDate) filterInfo.push(`End: ${formatDate(endDate)}`);
+    if (userId) filterInfo.push(`User ID: ${userId}`);
+    if (status) filterInfo.push(`Status: ${status}`);
+    filterCell.value = filterInfo.length > 0 ? `Filters: ${filterInfo.join(' | ')}` : 'No filters applied';
+    filterCell.font = { italic: true, color: { argb: 'FF666666' } };
+    filterCell.alignment = { horizontal: 'center' };
+    
+    // Add generated date
+    worksheet.mergeCells('A3:H3');
+    const dateCell = worksheet.getCell('A3');
+    dateCell.value = `Generated: ${formatDateTime(new Date())}`;
+    dateCell.font = { size: 10, color: { argb: 'FF666666' } };
+    dateCell.alignment = { horizontal: 'center' };
+    worksheet.getRow(3).height = 18;
+    
+    // Add empty row
+    worksheet.addRow([]);
+    
+    // Define columns with headers
     worksheet.columns = [
-      { header: 'User ID', key: 'userId', width: 15 },
+      { header: 'User ID', key: 'userId', width: 12 },
       { header: 'Employee Name', key: 'employeeName', width: 25 },
+      { header: 'Position', key: 'position', width: 20 },
+      { header: 'Department', key: 'department', width: 20 },
       { header: 'Date', key: 'date', width: 15 },
-      { header: 'Clock In', key: 'clockIn', width: 20 },
-      { header: 'Clock Out', key: 'clockOut', width: 20 },
+      { header: 'Clock In', key: 'clockIn', width: 18 },
+      { header: 'Clock Out', key: 'clockOut', width: 18 },
       { header: 'Status', key: 'status', width: 15 },
-      { header: 'Work Hours', key: 'workHours', width: 12 }
+      { header: 'Work Hours', key: 'workHours', width: 14 }
     ];
     
-    worksheet.getRow(1).font = { bold: true };
-    worksheet.getRow(1).fill = {
+    // Style header row (row 5)
+    const headerRow = worksheet.getRow(5);
+    headerRow.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.fill = {
       type: 'pattern',
       pattern: 'solid',
       fgColor: { argb: 'FF4472C4' }
     };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+    headerRow.height = 25;
     
+    // Add borders to header
+    headerRow.eachCell((cell) => {
+      cell.border = {
+        top: { style: 'medium', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'medium', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+    });
+    
+    // Freeze header rows
+    worksheet.views = [
+      { state: 'frozen', xSplit: 0, ySplit: 5 }
+    ];
+    
+    // Add auto-filter
+    worksheet.autoFilter = {
+      from: 'A5',
+      to: 'I5'
+    };
+    
+    // Add data rows
     let totalWorkHours = 0;
-    attendances.forEach(att => {
+    const statusCount = {};
+    
+    attendances.forEach((att, index) => {
       const workHours = calculateWorkHours(att.clockIn, att.clockOut);
       totalWorkHours += parseFloat(workHours);
       
-      worksheet.addRow({
+      // Count status
+      statusCount[att.status] = (statusCount[att.status] || 0) + 1;
+      
+      const row = worksheet.addRow({
         userId: att.UserId,
         employeeName: att.User?.name || '-',
+        position: att.User?.position || '-',
+        department: att.User?.department || '-',
         date: formatDate(att.date),
         clockIn: formatDateTime(att.clockIn),
         clockOut: formatDateTime(att.clockOut),
         status: att.status,
-        workHours: workHours
+        workHours: parseFloat(workHours)
+      });
+      
+      // Alternate row colors
+      if (index % 2 === 0) {
+        row.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF2F2F2' }
+        };
+      }
+      
+      // Center align certain columns
+      row.getCell(1).alignment = { horizontal: 'center' };
+      row.getCell(5).alignment = { horizontal: 'center' };
+      row.getCell(6).alignment = { horizontal: 'center' };
+      row.getCell(7).alignment = { horizontal: 'center' };
+      row.getCell(8).alignment = { horizontal: 'center' };
+      row.getCell(9).alignment = { horizontal: 'right' };
+      
+      // Number format for work hours
+      row.getCell(9).numFmt = '#,##0.00';
+      
+      // Conditional formatting for status
+      const statusCell = row.getCell(8);
+      statusCell.font = { bold: true };
+      
+      switch(att.status) {
+        case 'ON_TIME':
+          statusCell.font.color = { argb: 'FF008000' };
+          statusCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE6F4EA' }
+          };
+          break;
+        case 'LATE':
+          statusCell.font.color = { argb: 'FFFF8C00' };
+          statusCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFFF4E6' }
+          };
+          break;
+        case 'ABSENT':
+          statusCell.font.color = { argb: 'FFDC3545' };
+          statusCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFFEAEA' }
+          };
+          break;
+        case 'LEAVE':
+        case 'SICK_LEAVE':
+        case 'PERMISSION':
+          statusCell.font.color = { argb: 'FF6C757D' };
+          statusCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF8F9FA' }
+          };
+          break;
+      }
+      
+      // Add borders
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+        };
       });
     });
     
-    const summaryRow = worksheet.rowCount + 2;
-    worksheet.mergeCells(`A${summaryRow}:B${summaryRow}`);
-    worksheet.getCell(`A${summaryRow}`).value = 'Total Records:';
-    worksheet.getCell(`C${summaryRow}`).value = attendances.length;
-    worksheet.getCell(`A${summaryRow}`).font = { bold: true };
+    // Add summary section
+    const summaryStartRow = worksheet.rowCount + 2;
     
-    worksheet.mergeCells(`A${summaryRow + 1}:B${summaryRow + 1}`);
-    worksheet.getCell(`A${summaryRow + 1}`).value = 'Total Work Hours:';
-    worksheet.getCell(`C${summaryRow + 1}`).value = totalWorkHours.toFixed(2);
-    worksheet.getCell(`A${summaryRow + 1}`).font = { bold: true };
+    // Summary title
+    worksheet.mergeCells(`A${summaryStartRow}:I${summaryStartRow}`);
+    const summaryTitle = worksheet.getCell(`A${summaryStartRow}`);
+    summaryTitle.value = 'SUMMARY';
+    summaryTitle.font = { size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+    summaryTitle.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF2E75B6' }
+    };
+    summaryTitle.alignment = { horizontal: 'center', vertical: 'middle' };
+    worksheet.getRow(summaryStartRow).height = 25;
     
-    worksheet.eachRow((row) => {
-      row.eachCell((cell) => {
-        cell.border = {
-          top: { style: 'thin' },
-          left: { style: 'thin' },
-          bottom: { style: 'thin' },
-          right: { style: 'thin' }
-        };
-      });
+    // Total records
+    const totalRecordsRow = summaryStartRow + 1;
+    worksheet.mergeCells(`A${totalRecordsRow}:B${totalRecordsRow}`);
+    worksheet.getCell(`A${totalRecordsRow}`).value = 'Total Records:';
+    worksheet.getCell(`A${totalRecordsRow}`).font = { bold: true };
+    worksheet.getCell(`C${totalRecordsRow}`).value = attendances.length;
+    worksheet.getCell(`C${totalRecordsRow}`).numFmt = '#,##0';
+    
+    // Total work hours
+    const totalHoursRow = totalRecordsRow + 1;
+    worksheet.mergeCells(`A${totalHoursRow}:B${totalHoursRow}`);
+    worksheet.getCell(`A${totalHoursRow}`).value = 'Total Work Hours:';
+    worksheet.getCell(`A${totalHoursRow}`).font = { bold: true };
+    worksheet.getCell(`C${totalHoursRow}`).value = totalWorkHours;
+    worksheet.getCell(`C${totalHoursRow}`).numFmt = '#,##0.00';
+    
+    // Average work hours
+    const avgHoursRow = totalHoursRow + 1;
+    worksheet.mergeCells(`A${avgHoursRow}:B${avgHoursRow}`);
+    worksheet.getCell(`A${avgHoursRow}`).value = 'Average Work Hours:';
+    worksheet.getCell(`A${avgHoursRow}`).font = { bold: true };
+    worksheet.getCell(`C${avgHoursRow}`).value = totalWorkHours / attendances.length;
+    worksheet.getCell(`C${avgHoursRow}`).numFmt = '#,##0.00';
+    
+    // Status breakdown
+    const statusRow = avgHoursRow + 2;
+    worksheet.mergeCells(`A${statusRow}:C${statusRow}`);
+    worksheet.getCell(`A${statusRow}`).value = 'Status Breakdown:';
+    worksheet.getCell(`A${statusRow}`).font = { bold: true, size: 12 };
+    
+    let currentRow = statusRow + 1;
+    Object.entries(statusCount).forEach(([status, count]) => {
+      worksheet.getCell(`A${currentRow}`).value = status;
+      worksheet.getCell(`B${currentRow}`).value = count;
+      worksheet.getCell(`B${currentRow}`).numFmt = '#,##0';
+      worksheet.getCell(`C${currentRow}`).value = (count / attendances.length) * 100;
+      worksheet.getCell(`C${currentRow}`).numFmt = '#,##0.00"%"';
+      currentRow++;
     });
     
     const buffer = await workbook.xlsx.writeBuffer();
@@ -116,8 +294,9 @@ exports.exportAttendanceExcel = async (req, res) => {
       ipAddress: req.ip
     });
     
+    const fileName = `Attendance_Report_${formatDate(new Date()).replace(/\//g, '-')}_${Date.now()}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=attendance_report_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
     return res.send(buffer);
     
   } catch (error) {
@@ -151,7 +330,7 @@ exports.exportAttendanceCSV = async (req, res) => {
       where,
       include: [{
         model: User,
-        attributes: ['id', 'name', 'email']
+        attributes: ['id', 'name', 'email', 'position', 'department']
       }],
       order: [['date', 'DESC'], ['clockIn', 'DESC']]
     });
@@ -165,8 +344,25 @@ exports.exportAttendanceCSV = async (req, res) => {
     
     const data = prepareCSVData(attendances);
     
-    const fields = ['User ID', 'Employee Name', 'Date', 'Clock In', 'Clock Out', 'Status', 'Work Hours'];
-    const json2csvParser = new Parser({ fields });
+    const fields = [
+      'User ID', 
+      'Employee Name', 
+      'Email',
+      'Position',
+      'Department',
+      'Date', 
+      'Clock In', 
+      'Clock Out', 
+      'Status', 
+      'Work Hours'
+    ];
+    
+    const json2csvParser = new Parser({ 
+      fields,
+      delimiter: ',',
+      quote: '"',
+      header: true
+    });
     const csv = json2csvParser.parse(data);
     
     await AuditLogger.log({
@@ -178,9 +374,12 @@ exports.exportAttendanceCSV = async (req, res) => {
       ipAddress: req.ip
     });
     
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=attendance_report_${Date.now()}.csv`);
-    return res.send(csv);
+    const fileName = `Attendance_Report_${formatDate(new Date()).replace(/\//g, '-')}_${Date.now()}.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+    
+    // Add BOM for proper Excel UTF-8 support
+    return res.send('\ufeff' + csv);
     
   } catch (error) {
     console.error('Error exporting to CSV:', error);
@@ -223,7 +422,7 @@ exports.generateMonthlyReport = async (req, res) => {
       },
       include: [{
         model: User,
-        attributes: ['id', 'name', 'email']
+        attributes: ['id', 'name', 'email', 'position', 'department']
       }],
       order: [['date', 'ASC']]
     });
@@ -244,6 +443,8 @@ exports.generateMonthlyReport = async (req, res) => {
         userStatsMap[userId] = {
           userId: userId,
           userName: att.User?.name || 'Unknown',
+          position: att.User?.position || '-',
+          department: att.User?.department || '-',
           totalDays: 0,
           present: 0,
           late: 0,
@@ -266,97 +467,342 @@ exports.generateMonthlyReport = async (req, res) => {
     
     const userStats = Object.values(userStatsMap).map(stats => {
       const workingDays = stats.totalDays - stats.leave;
-      const attendanceRate = workingDays > 0 ? ((stats.present / workingDays) * 100).toFixed(2) : '0.00';
-      return { ...stats, workHours: stats.workHours.toFixed(2), attendanceRate };
+      const attendanceRate = workingDays > 0 ? ((stats.present / workingDays) * 100) : 0;
+      return { 
+        ...stats, 
+        workHours: parseFloat(stats.workHours.toFixed(2)), 
+        attendanceRate: parseFloat(attendanceRate.toFixed(2))
+      };
     });
     
     const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'HR Management System';
+    workbook.created = new Date();
     
+    // ===== SUMMARY SHEET =====
     const summarySheet = workbook.addWorksheet('Monthly Summary');
-    summarySheet.mergeCells('A1:D1');
-    summarySheet.getCell('A1').value = `Monthly Attendance Report - ${getMonthName(monthNum)} ${yearNum}`;
-    summarySheet.getCell('A1').font = { size: 16, bold: true };
+    
+    // Title
+    summarySheet.mergeCells('A1:F1');
+    const titleCell = summarySheet.getCell('A1');
+    titleCell.value = `MONTHLY ATTENDANCE REPORT - ${getMonthName(monthNum).toUpperCase()} ${yearNum}`;
+    titleCell.font = { size: 18, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E75B6' } };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    summarySheet.getRow(1).height = 35;
+    
+    // Period Info
+    summarySheet.mergeCells('A2:F2');
+    const periodCell = summarySheet.getCell('A2');
+    periodCell.value = `Period: ${formatDate(startDate)} - ${formatDate(endDate)}`;
+    periodCell.font = { size: 12, italic: true, color: { argb: 'FF666666' } };
+    periodCell.alignment = { horizontal: 'center' };
+    summarySheet.getRow(2).height = 20;
+    
+    // Generated Date
+    summarySheet.mergeCells('A3:F3');
+    const genCell = summarySheet.getCell('A3');
+    genCell.value = `Generated: ${formatDateTime(new Date())}`;
+    genCell.font = { size: 10, color: { argb: 'FF999999' } };
+    genCell.alignment = { horizontal: 'center' };
+    
+    summarySheet.addRow([]);
+    
+    // Overall Statistics Section
+    summarySheet.mergeCells('A5:F5');
+    const overallTitle = summarySheet.getCell('A5');
+    overallTitle.value = 'OVERALL STATISTICS';
+    overallTitle.font = { size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+    overallTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+    overallTitle.alignment = { horizontal: 'center', vertical: 'middle' };
+    summarySheet.getRow(5).height = 25;
     
     const totalWorkHours = attendances.reduce((sum, att) => sum + parseFloat(calculateWorkHours(att.clockIn, att.clockOut)), 0);
+    const avgWorkHours = attendances.length > 0 ? totalWorkHours / attendances.length : 0;
+    
+    const statsData = [
+      ['Total Records:', attendances.length],
+      ['Total Employees:', userStats.length],
+      ['Total Work Hours:', totalWorkHours.toFixed(2)],
+      ['Average Work Hours:', avgWorkHours.toFixed(2)],
+      ['Working Days:', new Date(yearNum, monthNum, 0).getDate()]
+    ];
+    
+    let currentRow = 6;
+    statsData.forEach(([label, value]) => {
+      summarySheet.mergeCells(`A${currentRow}:C${currentRow}`);
+      const labelCell = summarySheet.getCell(`A${currentRow}`);
+      labelCell.value = label;
+      labelCell.font = { bold: true, size: 11 };
+      labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+      
+      summarySheet.mergeCells(`D${currentRow}:F${currentRow}`);
+      const valueCell = summarySheet.getCell(`D${currentRow}`);
+      valueCell.value = value;
+      valueCell.font = { size: 11 };
+      valueCell.numFmt = typeof value === 'number' ? '#,##0.00' : '@';
+      valueCell.alignment = { horizontal: 'right' };
+      
+      currentRow++;
+    });
+    
+    // Status Breakdown Section
+    currentRow += 1;
+    summarySheet.mergeCells(`A${currentRow}:F${currentRow}`);
+    const statusTitle = summarySheet.getCell(`A${currentRow}`);
+    statusTitle.value = 'STATUS BREAKDOWN';
+    statusTitle.font = { size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+    statusTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+    statusTitle.alignment = { horizontal: 'center', vertical: 'middle' };
+    summarySheet.getRow(currentRow).height = 25;
+    
+    currentRow++;
     const statusCounts = attendances.reduce((acc, att) => {
       acc[att.status] = (acc[att.status] || 0) + 1;
       return acc;
     }, {});
     
-    summarySheet.addRow([]);
-    summarySheet.addRow(['Total Records:', attendances.length]);
-    summarySheet.addRow(['Total Employees:', userStats.length]);
-    summarySheet.addRow(['Total Work Hours:', totalWorkHours.toFixed(2)]);
-    summarySheet.addRow([]);
-    summarySheet.addRow(['Status Breakdown:']);
+    // Status header
+    summarySheet.getCell(`A${currentRow}`).value = 'Status';
+    summarySheet.getCell(`B${currentRow}`).value = 'Count';
+    summarySheet.getCell(`C${currentRow}`).value = 'Percentage';
+    summarySheet.getRow(currentRow).font = { bold: true };
+    summarySheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
     
+    currentRow++;
     Object.entries(statusCounts).forEach(([status, count]) => {
-      summarySheet.addRow([status, count, '', `${((count/attendances.length)*100).toFixed(2)}%`]);
+      const percentage = (count / attendances.length) * 100;
+      summarySheet.getCell(`A${currentRow}`).value = status;
+      summarySheet.getCell(`B${currentRow}`).value = count;
+      summarySheet.getCell(`B${currentRow}`).numFmt = '#,##0';
+      summarySheet.getCell(`C${currentRow}`).value = percentage / 100;
+      summarySheet.getCell(`C${currentRow}`).numFmt = '0.00%';
+      
+      // Color coding
+      let bgColor = 'FFFFFFFF';
+      switch(status) {
+        case 'ON_TIME': bgColor = 'FFE6F4EA'; break;
+        case 'LATE': bgColor = 'FFFFF4E6'; break;
+        case 'ABSENT': bgColor = 'FFFFEAEA'; break;
+        case 'LEAVE':
+        case 'SICK_LEAVE':
+        case 'PERMISSION': bgColor = 'FFF8F9FA'; break;
+      }
+      
+      summarySheet.getRow(currentRow).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+      currentRow++;
     });
     
+    // Set column widths
+    summarySheet.getColumn(1).width = 25;
+    summarySheet.getColumn(2).width = 15;
+    summarySheet.getColumn(3).width = 15;
+    summarySheet.getColumn(4).width = 15;
+    summarySheet.getColumn(5).width = 15;
+    summarySheet.getColumn(6).width = 15;
+    
+    // ===== EMPLOYEE STATISTICS SHEET =====
     const employeeSheet = workbook.addWorksheet('Employee Statistics');
+    
+    // Title
+    employeeSheet.mergeCells('A1:I1');
+    const empTitleCell = employeeSheet.getCell('A1');
+    empTitleCell.value = 'EMPLOYEE STATISTICS';
+    empTitleCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    empTitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+    empTitleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    employeeSheet.getRow(1).height = 30;
+    
+    employeeSheet.addRow([]);
+    employeeSheet.addRow([]);
+    
+    // Define columns
     employeeSheet.columns = [
-      { header: 'Employee ID', key: 'userId', width: 15 },
+      { header: 'Employee ID', key: 'userId', width: 12 },
       { header: 'Employee Name', key: 'userName', width: 25 },
+      { header: 'Position', key: 'position', width: 20 },
+      { header: 'Department', key: 'department', width: 20 },
       { header: 'Total Days', key: 'totalDays', width: 12 },
       { header: 'Present', key: 'present', width: 10 },
       { header: 'Late', key: 'late', width: 10 },
       { header: 'Absent', key: 'absent', width: 10 },
       { header: 'Work Hours', key: 'workHours', width: 12 },
-      { header: 'Attendance Rate', key: 'attendanceRate', width: 15 }
+      { header: 'Attendance %', key: 'attendanceRate', width: 14 }
     ];
     
-    employeeSheet.getRow(1).font = { bold: true };
-    employeeSheet.getRow(1).fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FF70AD47' }
-    };
+    // Style header row (row 3)
+    const empHeaderRow = employeeSheet.getRow(3);
+    empHeaderRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    empHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF70AD47' } };
+    empHeaderRow.alignment = { vertical: 'middle', horizontal: 'center' };
+    empHeaderRow.height = 25;
     
-    userStats.forEach(stats => {
-      employeeSheet.addRow({ ...stats, attendanceRate: `${stats.attendanceRate}%` });
+    empHeaderRow.eachCell((cell) => {
+      cell.border = {
+        top: { style: 'medium', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'medium', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
     });
     
+    // Freeze header
+    employeeSheet.views = [{ state: 'frozen', xSplit: 0, ySplit: 3 }];
+    
+    // Add auto-filter
+    employeeSheet.autoFilter = { from: 'A3', to: 'J3' };
+    
+    // Add data
+    userStats.forEach((stats, index) => {
+      const row = employeeSheet.addRow({
+        ...stats,
+        attendanceRate: stats.attendanceRate / 100
+      });
+      
+      // Alternate row colors
+      if (index % 2 === 0) {
+        row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+      }
+      
+      // Alignment
+      row.getCell(1).alignment = { horizontal: 'center' };
+      row.getCell(5).alignment = { horizontal: 'center' };
+      row.getCell(6).alignment = { horizontal: 'center' };
+      row.getCell(7).alignment = { horizontal: 'center' };
+      row.getCell(8).alignment = { horizontal: 'center' };
+      row.getCell(9).alignment = { horizontal: 'right' };
+      row.getCell(10).alignment = { horizontal: 'right' };
+      
+      // Number formatting
+      row.getCell(9).numFmt = '#,##0.00';
+      row.getCell(10).numFmt = '0.00%';
+      
+      // Conditional formatting for attendance rate
+      const attendanceCell = row.getCell(10);
+      if (stats.attendanceRate >= 95) {
+        attendanceCell.font = { color: { argb: 'FF008000' }, bold: true };
+      } else if (stats.attendanceRate >= 80) {
+        attendanceCell.font = { color: { argb: 'FFFF8C00' }, bold: true };
+      } else {
+        attendanceCell.font = { color: { argb: 'FFDC3545' }, bold: true };
+      }
+      
+      // Borders
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+        };
+      });
+    });
+    
+    // ===== DETAILED ATTENDANCE SHEET =====
     const detailSheet = workbook.addWorksheet('Detailed Attendance');
+    
+    // Title
+    detailSheet.mergeCells('A1:I1');
+    const detailTitleCell = detailSheet.getCell('A1');
+    detailTitleCell.value = 'DETAILED ATTENDANCE';
+    detailTitleCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    detailTitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC000' } };
+    detailTitleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    detailSheet.getRow(1).height = 30;
+    
+    detailSheet.addRow([]);
+    detailSheet.addRow([]);
+    
     detailSheet.columns = [
       { header: 'Date', key: 'date', width: 15 },
-      { header: 'User ID', key: 'userId', width: 15 },
+      { header: 'User ID', key: 'userId', width: 12 },
       { header: 'Employee Name', key: 'employeeName', width: 25 },
-      { header: 'Clock In', key: 'clockIn', width: 20 },
-      { header: 'Clock Out', key: 'clockOut', width: 20 },
+      { header: 'Position', key: 'position', width: 20 },
+      { header: 'Department', key: 'department', width: 20 },
+      { header: 'Clock In', key: 'clockIn', width: 18 },
+      { header: 'Clock Out', key: 'clockOut', width: 18 },
       { header: 'Status', key: 'status', width: 15 },
       { header: 'Work Hours', key: 'workHours', width: 12 }
     ];
     
-    detailSheet.getRow(1).font = { bold: true };
-    detailSheet.getRow(1).fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFFFC000' }
-    };
+    // Style header row (row 3)
+    const detailHeaderRow = detailSheet.getRow(3);
+    detailHeaderRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    detailHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC000' } };
+    detailHeaderRow.alignment = { vertical: 'middle', horizontal: 'center' };
+    detailHeaderRow.height = 25;
     
-    attendances.forEach(att => {
-      detailSheet.addRow({
+    detailHeaderRow.eachCell((cell) => {
+      cell.border = {
+        top: { style: 'medium', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'medium', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+    });
+    
+    // Freeze header
+    detailSheet.views = [{ state: 'frozen', xSplit: 0, ySplit: 3 }];
+    
+    // Add auto-filter
+    detailSheet.autoFilter = { from: 'A3', to: 'I3' };
+    
+    attendances.forEach((att, index) => {
+      const workHours = parseFloat(calculateWorkHours(att.clockIn, att.clockOut));
+      const row = detailSheet.addRow({
         date: formatDate(att.date),
         userId: att.UserId,
         employeeName: att.User?.name || '-',
+        position: att.User?.position || '-',
+        department: att.User?.department || '-',
         clockIn: formatDateTime(att.clockIn),
         clockOut: formatDateTime(att.clockOut),
         status: att.status,
-        workHours: calculateWorkHours(att.clockIn, att.clockOut)
+        workHours: workHours
       });
-    });
-    
-    [summarySheet, employeeSheet, detailSheet].forEach(sheet => {
-      sheet.eachRow((row) => {
-        row.eachCell((cell) => {
-          cell.border = {
-            top: { style: 'thin' },
-            left: { style: 'thin' },
-            bottom: { style: 'thin' },
-            right: { style: 'thin' }
-          };
-        });
+      
+      // Alternate row colors
+      if (index % 2 === 0) {
+        row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+      }
+      
+      // Alignment
+      row.getCell(1).alignment = { horizontal: 'center' };
+      row.getCell(2).alignment = { horizontal: 'center' };
+      row.getCell(6).alignment = { horizontal: 'center' };
+      row.getCell(7).alignment = { horizontal: 'center' };
+      row.getCell(8).alignment = { horizontal: 'center' };
+      row.getCell(9).alignment = { horizontal: 'right' };
+      
+      // Number formatting
+      row.getCell(9).numFmt = '#,##0.00';
+      
+      // Status color coding
+      const statusCell = row.getCell(8);
+      statusCell.font = { bold: true };
+      
+      switch(att.status) {
+        case 'ON_TIME':
+          statusCell.font.color = { argb: 'FF008000' };
+          break;
+        case 'LATE':
+          statusCell.font.color = { argb: 'FFFF8C00' };
+          break;
+        case 'ABSENT':
+          statusCell.font.color = { argb: 'FFDC3545' };
+          break;
+        default:
+          statusCell.font.color = { argb: 'FF6C757D' };
+      }
+      
+      // Borders
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+        };
       });
     });
     
@@ -371,8 +817,9 @@ exports.generateMonthlyReport = async (req, res) => {
       ipAddress: req.ip
     });
     
+    const fileName = `Monthly_Report_${getMonthName(monthNum)}_${yearNum}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=monthly_report_${monthNum}_${yearNum}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
     return res.send(buffer);
     
   } catch (error) {
