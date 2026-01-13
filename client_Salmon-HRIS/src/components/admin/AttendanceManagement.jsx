@@ -8,6 +8,7 @@ const AttendanceManagement = () => {
   const [attendances, setAttendances] = useState([]);
   const [filteredAttendances, setFilteredAttendances] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [officeLocations, setOfficeLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // Filters
@@ -25,10 +26,11 @@ const AttendanceManagement = () => {
   const [formData, setFormData] = useState({
     userId: '',
     date: '',
-    clockIn: '',
-    clockOut: '',
+    clockInTime: '',
+    clockOutTime: '',
     status: 'ON_TIME',
     locationValidationStatus: 'not_checked',
+    officeLocationId: '',
   });
 
   useEffect(() => {
@@ -44,13 +46,22 @@ const AttendanceManagement = () => {
       const token = localStorage.getItem('access_token');
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
-      const [attendanceRes, employeeRes] = await Promise.all([
+      const [attendanceRes, employeeRes, officeLocationsRes] = await Promise.all([
         axios.get(`${import.meta.env.VITE_BASE_URL}/attendances/admin/all-attendance`, config),
         axios.get(`${import.meta.env.VITE_BASE_URL}/users/admin`, config),
+        axios.get(`${import.meta.env.VITE_BASE_URL}/office-locations/admin`, config),
       ]);
 
       setAttendances(attendanceRes.data.data || []);
       setEmployees(employeeRes.data.data || []);
+      
+      // Transform office locations data
+      const transformedLocations = (officeLocationsRes.data.data || []).map(loc => ({
+        ...loc,
+        isActive: loc.is_active !== undefined ? loc.is_active : loc.isActive
+      }));
+      setOfficeLocations(transformedLocations.filter(loc => loc.isActive));
+      
       setLoading(false);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -86,9 +97,33 @@ const AttendanceManagement = () => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('access_token');
+      
+      // Prepare payload based on status
+      const payload = {
+        userId: formData.userId,
+        date: formData.date,
+        status: formData.status,
+        locationValidationStatus: formData.locationValidationStatus,
+      };
+
+      // Only add clockIn/clockOut for ON_TIME or LATE status
+      if (formData.status === 'ON_TIME' || formData.status === 'LATE') {
+        if (formData.clockInTime) {
+          payload.clockIn = `${formData.date}T${formData.clockInTime}:00`;
+        }
+        if (formData.clockOutTime) {
+          payload.clockOut = `${formData.date}T${formData.clockOutTime}:00`;
+        }
+      }
+
+      // Add office location if validation is valid
+      if (formData.locationValidationStatus === 'valid' && formData.officeLocationId) {
+        payload.office_location_id = formData.officeLocationId;
+      }
+
       await axios.post(
         `${import.meta.env.VITE_BASE_URL}/attendances/admin/manual-attendance`,
-        formData,
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       alert('Manual attendance created successfully!');
@@ -105,9 +140,33 @@ const AttendanceManagement = () => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('access_token');
+      
+      // Prepare payload based on status
+      const payload = {
+        userId: formData.userId,
+        date: formData.date,
+        status: formData.status,
+        locationValidationStatus: formData.locationValidationStatus,
+      };
+
+      // Only add clockIn/clockOut for ON_TIME or LATE status
+      if (formData.status === 'ON_TIME' || formData.status === 'LATE') {
+        if (formData.clockInTime) {
+          payload.clockIn = `${formData.date}T${formData.clockInTime}:00`;
+        }
+        if (formData.clockOutTime) {
+          payload.clockOut = `${formData.date}T${formData.clockOutTime}:00`;
+        }
+      }
+
+      // Add office location if validation is valid
+      if (formData.locationValidationStatus === 'valid' && formData.officeLocationId) {
+        payload.office_location_id = formData.officeLocationId;
+      }
+
       await axios.put(
         `${import.meta.env.VITE_BASE_URL}/attendances/admin/manual-attendance/${editingAttendance.id}`,
-        formData,
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       alert('Attendance updated successfully!');
@@ -122,13 +181,22 @@ const AttendanceManagement = () => {
 
   const openEditModal = (attendance) => {
     setEditingAttendance(attendance);
+    
+    // Extract time from datetime
+    const getTimeFromDateTime = (datetime) => {
+      if (!datetime) return '';
+      const date = new Date(datetime);
+      return date.toTimeString().slice(0, 5); // HH:mm format
+    };
+
     setFormData({
       userId: attendance.UserId,
       date: attendance.date.split('T')[0],
-      clockIn: attendance.clockIn ? new Date(attendance.clockIn).toISOString().slice(0, 16) : '',
-      clockOut: attendance.clockOut ? new Date(attendance.clockOut).toISOString().slice(0, 16) : '',
+      clockInTime: getTimeFromDateTime(attendance.clockIn),
+      clockOutTime: getTimeFromDateTime(attendance.clockOut),
       status: attendance.status,
       locationValidationStatus: attendance.locationValidationStatus || 'not_checked',
+      officeLocationId: attendance.office_location_id || '',
     });
     setShowEditModal(true);
   };
@@ -137,10 +205,11 @@ const AttendanceManagement = () => {
     setFormData({
       userId: '',
       date: '',
-      clockIn: '',
-      clockOut: '',
+      clockInTime: '',
+      clockOutTime: '',
       status: 'ON_TIME',
       locationValidationStatus: 'not_checked',
+      officeLocationId: '',
     });
     setEditingAttendance(null);
   };
@@ -387,22 +456,6 @@ const AttendanceManagement = () => {
               required
             />
             
-            <FormInput
-              label="Clock In"
-              type="datetime-local"
-              value={formData.clockIn}
-              onChange={(e) => setFormData({ ...formData, clockIn: e.target.value })}
-              required
-            />
-            
-            <FormInput
-              label="Clock Out"
-              type="datetime-local"
-              value={formData.clockOut}
-              onChange={(e) => setFormData({ ...formData, clockOut: e.target.value })}
-              required
-            />
-            
             <FormSelect
               label="Status"
               value={formData.status}
@@ -415,6 +468,31 @@ const AttendanceManagement = () => {
                 { value: 'HOLIDAY', label: 'Holiday' },
               ]}
             />
+
+            {/* Clock In/Out fields - only show for ON_TIME or LATE */}
+            {(formData.status === 'ON_TIME' || formData.status === 'LATE') && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormInput
+                    label="Clock In Time"
+                    type="time"
+                    value={formData.clockInTime}
+                    onChange={(e) => setFormData({ ...formData, clockInTime: e.target.value })}
+                    required
+                  />
+                  
+                  <FormInput
+                    label="Clock Out Time"
+                    type="time"
+                    value={formData.clockOutTime}
+                    onChange={(e) => setFormData({ ...formData, clockOutTime: e.target.value })}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 -mt-2">
+                  ℹ️ Times will be combined with the selected date above
+                </p>
+              </>
+            )}
             
             <FormSelect
               label="Location Validation"
@@ -422,11 +500,28 @@ const AttendanceManagement = () => {
               onChange={(e) => setFormData({ ...formData, locationValidationStatus: e.target.value })}
               options={[
                 { value: 'not_checked', label: '⚠️ Not Checked' },
-                { value: 'valid', label: '✅ Valid (Inside Radius)' },
+                { value: 'valid', label: '✅ Valid (In Radius)' },
                 { value: 'outside_radius', label: '❌ Outside Radius' },
                 { value: 'gps_error', label: '⚠️ GPS Error' },
               ]}
             />
+
+            {/* Office Location - only show when location validation is 'valid' */}
+            {formData.locationValidationStatus === 'valid' && (
+              <FormSelect
+                label="Office Location"
+                value={formData.officeLocationId}
+                onChange={(e) => setFormData({ ...formData, officeLocationId: e.target.value })}
+                options={[
+                  { value: '', label: 'Select Office Location' },
+                  ...officeLocations.map(loc => ({ 
+                    value: loc.id, 
+                    label: `${loc.name} - ${loc.address}` 
+                  }))
+                ]}
+                required
+              />
+            )}
             
             <div className="flex space-x-4">
               <button
@@ -469,20 +564,6 @@ const AttendanceManagement = () => {
               required
             />
             
-            <FormInput
-              label="Clock In"
-              type="datetime-local"
-              value={formData.clockIn}
-              onChange={(e) => setFormData({ ...formData, clockIn: e.target.value })}
-            />
-            
-            <FormInput
-              label="Clock Out"
-              type="datetime-local"
-              value={formData.clockOut}
-              onChange={(e) => setFormData({ ...formData, clockOut: e.target.value })}
-            />
-            
             <FormSelect
               label="Status"
               value={formData.status}
@@ -495,6 +576,30 @@ const AttendanceManagement = () => {
                 { value: 'HOLIDAY', label: 'Holiday' },
               ]}
             />
+
+            {/* Clock In/Out fields - only show for ON_TIME or LATE */}
+            {(formData.status === 'ON_TIME' || formData.status === 'LATE') && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormInput
+                    label="Clock In Time"
+                    type="time"
+                    value={formData.clockInTime}
+                    onChange={(e) => setFormData({ ...formData, clockInTime: e.target.value })}
+                  />
+                  
+                  <FormInput
+                    label="Clock Out Time"
+                    type="time"
+                    value={formData.clockOutTime}
+                    onChange={(e) => setFormData({ ...formData, clockOutTime: e.target.value })}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 -mt-2">
+                  ℹ️ Times will be combined with the selected date above
+                </p>
+              </>
+            )}
             
             <FormSelect
               label="Location Validation"
@@ -502,11 +607,27 @@ const AttendanceManagement = () => {
               onChange={(e) => setFormData({ ...formData, locationValidationStatus: e.target.value })}
               options={[
                 { value: 'not_checked', label: '⚠️ Not Checked' },
-                { value: 'valid', label: '✅ Valid (Inside Radius)' },
+                { value: 'valid', label: '✅ Valid (In Radius)' },
                 { value: 'outside_radius', label: '❌ Outside Radius' },
                 { value: 'gps_error', label: '⚠️ GPS Error' },
               ]}
             />
+
+            {/* Office Location - only show when location validation is 'valid' */}
+            {formData.locationValidationStatus === 'valid' && (
+              <FormSelect
+                label="Office Location"
+                value={formData.officeLocationId}
+                onChange={(e) => setFormData({ ...formData, officeLocationId: e.target.value })}
+                options={[
+                  { value: '', label: 'Select Office Location' },
+                  ...officeLocations.map(loc => ({ 
+                    value: loc.id, 
+                    label: `${loc.name} - ${loc.address}` 
+                  }))
+                ]}
+              />
+            )}
             
             <div className="flex space-x-4">
               <button
