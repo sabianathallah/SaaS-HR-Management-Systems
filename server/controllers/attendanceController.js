@@ -183,8 +183,22 @@ class AttendanceController {
         });
       }
       
-      // Jika sudah clock-out, return error
-      if (attendance.status !== Attendance.ATTENDANCE_STATUS.ON_PROGRESS) {
+      // Jika sudah clock-out atau status bukan ON_PROGRESS, return error
+      // Status seperti LEAVE, SICK_LEAVE, HOLIDAY, ABSENT, PERMISSION tidak perlu clock-out
+      const statusesThatCanClockOut = [
+        Attendance.ATTENDANCE_STATUS.ON_PROGRESS,
+        Attendance.ATTENDANCE_STATUS.ON_TIME,
+        Attendance.ATTENDANCE_STATUS.LATE
+      ];
+      
+      if (!statusesThatCanClockOut.includes(attendance.status)) {
+        return res.status(400).json({
+          message: `Cannot clock-out. Current status is ${attendance.status}. Only ON_PROGRESS, ON_TIME, or LATE status can be clocked out.`,
+          currentStatus: attendance.status
+        });
+      }
+      
+      if (attendance.clockOut) {
         return res.status(400).json({
           message: "Already clocked out today"
         });

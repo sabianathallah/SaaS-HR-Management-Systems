@@ -4,15 +4,16 @@ const {
 } = require('sequelize');
 
 // Define attendance status constants
+// Complete list of all possible attendance statuses
 const ATTENDANCE_STATUS = {
-  ON_PROGRESS: 'ON_PROGRESS',
-  ON_TIME: 'ON_TIME',
-  LATE: 'LATE',
-  ABSENT: 'ABSENT',
-  LEAVE: 'LEAVE',
-  SICK_LEAVE: 'SICK_LEAVE',
-  PERMISSION: 'PERMISSION',
-  HOLIDAY: 'HOLIDAY'
+  ON_PROGRESS: 'ON_PROGRESS',    // User has clocked in but not yet clocked out
+  ON_TIME: 'ON_TIME',            // User clocked out on time
+  LATE: 'LATE',                  // User clocked in late
+  ABSENT: 'ABSENT',              // User did not attend work
+  LEAVE: 'LEAVE',                // User is on annual leave (deducts quota)
+  SICK_LEAVE: 'SICK_LEAVE',      // User is on sick leave (deducts quota)
+  PERMISSION: 'PERMISSION',      // User has permission to be absent (no quota deduction)
+  HOLIDAY: 'HOLIDAY'             // National/company holiday
 };
 
 module.exports = (sequelize, DataTypes) => {

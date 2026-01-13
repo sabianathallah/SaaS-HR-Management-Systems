@@ -44,9 +44,8 @@ class LeaveRequestController {
       // Get user data
       const user = await User.findByPk(userId);
       
-      // Check quota only for ANNUAL_LEAVE and SICK_LEAVE
-      if (leaveType === LeaveRequest.LEAVE_TYPE.ANNUAL_LEAVE || 
-          leaveType === LeaveRequest.LEAVE_TYPE.SICK_LEAVE) {
+      // Check quota ONLY for ANNUAL_LEAVE (SICK_LEAVE and PERMISSION don't deduct quota)
+      if (leaveType === LeaveRequest.LEAVE_TYPE.ANNUAL_LEAVE) {
         
         const remainingQuota = user.annualLeaveQuota - user.usedLeaveQuota;
         
@@ -105,9 +104,75 @@ class LeaveRequestController {
         status: LeaveRequest.REQUEST_STATUS.PENDING
       });
 
+      // Auto-create attendance for TODAY if leave request includes today
+      const todayDateOnly = new Date();
+      todayDateOnly.setHours(0, 0, 0, 0);
+      const startDateOnly = new Date(startDate);
+      startDateOnly.setHours(0, 0, 0, 0);
+      const endDateOnly = new Date(endDate);
+      endDateOnly.setHours(0, 0, 0, 0);
+
+      let attendanceCreated = false;
+      
+      // Check if today is within the leave request range
+      if (todayDateOnly >= startDateOnly && todayDateOnly <= endDateOnly) {
+        // Get active work schedule
+        const workSchedule = await WorkSchedule.findOne({
+          where: { isActive: true }
+        });
+
+        // Determine attendance status based on leave type
+        let attendanceStatus;
+        switch (leaveType) {
+          case LeaveRequest.LEAVE_TYPE.ANNUAL_LEAVE:
+            attendanceStatus = Attendance.ATTENDANCE_STATUS.LEAVE;
+            break;
+          case LeaveRequest.LEAVE_TYPE.SICK_LEAVE:
+            attendanceStatus = Attendance.ATTENDANCE_STATUS.SICK_LEAVE;
+            break;
+          case LeaveRequest.LEAVE_TYPE.PERMISSION:
+            attendanceStatus = Attendance.ATTENDANCE_STATUS.PERMISSION;
+            break;
+          default:
+            attendanceStatus = Attendance.ATTENDANCE_STATUS.LEAVE;
+        }
+
+        // Check if attendance already exists for today
+        const startOfToday = new Date(todayDateOnly);
+        const endOfToday = new Date(todayDateOnly);
+        endOfToday.setHours(23, 59, 59, 999);
+
+        const existingAttendance = await Attendance.findOne({
+          where: {
+            UserId: userId,
+            date: {
+              [Op.between]: [startOfToday, endOfToday]
+            }
+          }
+        });
+
+        // Only create if attendance doesn't exist yet
+        if (!existingAttendance) {
+          await Attendance.create({
+            UserId: userId,
+            WorkScheduleId: workSchedule ? workSchedule.id : null,
+            HolidayId: null,
+            LeaveRequestId: leaveRequest.id,
+            date: new Date(todayDateOnly),
+            clockIn: new Date(todayDateOnly),
+            clockOut: new Date(todayDateOnly),
+            status: attendanceStatus
+          });
+          attendanceCreated = true;
+        }
+      }
+
       res.status(201).json({
-        message: "Leave request submitted successfully. Waiting for admin approval.",
-        data: leaveRequest
+        message: attendanceCreated 
+          ? "Leave request submitted successfully. Attendance record created for today. Waiting for admin approval."
+          : "Leave request submitted successfully. Waiting for admin approval.",
+        data: leaveRequest,
+        attendanceCreatedForToday: attendanceCreated
       });
 
     } catch (error) {

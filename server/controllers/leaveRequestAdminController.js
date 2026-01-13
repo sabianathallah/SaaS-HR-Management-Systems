@@ -76,9 +76,8 @@ class LeaveRequestAdminController {
         });
       }
 
-      // Check quota again for ANNUAL_LEAVE and SICK_LEAVE
-      if (leaveRequest.leaveType === LeaveRequest.LEAVE_TYPE.ANNUAL_LEAVE || 
-          leaveRequest.leaveType === LeaveRequest.LEAVE_TYPE.SICK_LEAVE) {
+      // Check quota ONLY for ANNUAL_LEAVE (SICK_LEAVE and PERMISSION don't deduct quota)
+      if (leaveRequest.leaveType === LeaveRequest.LEAVE_TYPE.ANNUAL_LEAVE) {
         
         const employee = leaveRequest.employee;
         const remainingQuota = employee.annualLeaveQuota - employee.usedLeaveQuota;
@@ -91,7 +90,7 @@ class LeaveRequestAdminController {
           });
         }
 
-        // Deduct quota
+        // Deduct quota only for ANNUAL_LEAVE
         employee.usedLeaveQuota += leaveRequest.totalDays;
         await employee.save();
       }
@@ -239,26 +238,36 @@ class LeaveRequestAdminController {
       leaveRequest.approvalDate = new Date();
       await leaveRequest.save();
 
+      // Delete any attendance records created for this leave request
+      // This handles cases where user submitted leave for today and attendance was auto-created
+      const deletedCount = await Attendance.destroy({
+        where: {
+          LeaveRequestId: leaveRequest.id
+        }
+      });
+
       // Send notification to employee
       await notificationHelper.sendNotification(
         leaveRequest.UserId,
         Notification.NOTIFICATION_TYPE.LEAVE_REJECTED,
         '❌ Leave Request Rejected',
-        `Your ${leaveRequest.leaveType.replace('_', ' ').toLowerCase()} request from ${leaveRequest.startDate} to ${leaveRequest.endDate} has been rejected.`,
+        `Your ${leaveRequest.leaveType.replace('_', ' ').toLowerCase()} request from ${leaveRequest.startDate} to ${leaveRequest.endDate} has been rejected.${deletedCount > 0 ? ' Related attendance records have been removed.' : ''}`,
         {
           leaveRequestId: leaveRequest.id,
           leaveType: leaveRequest.leaveType,
           startDate: leaveRequest.startDate,
           endDate: leaveRequest.endDate,
           totalDays: leaveRequest.totalDays,
-          approvalNote: leaveRequest.approvalNote
+          approvalNote: leaveRequest.approvalNote,
+          attendanceRecordsDeleted: deletedCount
         },
         true // Send email
       );
 
       res.status(200).json({
         message: "Leave request rejected successfully",
-        data: leaveRequest
+        data: leaveRequest,
+        attendanceRecordsDeleted: deletedCount
       });
 
     } catch (error) {

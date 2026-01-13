@@ -17,8 +17,8 @@ const LeaveManagement = () => {
   const [approvalNote, setApprovalNote] = useState('');
   const [quotaAdjustment, setQuotaAdjustment] = useState({
     userId: '',
-    annualLeave: 0,
-    sickLeave: 0,
+    annualLeaveQuota: '',
+    usedLeaveQuota: '',
   });
 
   useEffect(() => {
@@ -45,19 +45,21 @@ const LeaveManagement = () => {
   };
 
   const handleApprove = async (requestId) => {
-    if (!confirm('Are you sure you want to approve this leave request?')) return;
-
     try {
+      if (!confirm('Are you sure you want to approve this leave request?')) return;
+
       const token = localStorage.getItem('access_token');
-      await axios.put(
+      const response = await axios.put(
         `${import.meta.env.VITE_BASE_URL}/leave-requests/admin/${requestId}/approve`,
         { approvalNote },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      
+      console.log('Approve response:', response.data);
       alert('Leave request approved successfully!');
       setShowDetailModal(false);
       setApprovalNote('');
-      fetchData();
+      await fetchData();
     } catch (error) {
       console.error('Error approving leave:', error);
       alert(error.response?.data?.message || 'Failed to approve leave request');
@@ -65,19 +67,24 @@ const LeaveManagement = () => {
   };
 
   const handleReject = async (requestId) => {
-    const note = prompt('Please provide a reason for rejection:');
-    if (!note) return;
-
     try {
+      const note = prompt('Please provide a reason for rejection:');
+      if (!note || note.trim() === '') {
+        alert('Rejection reason is required');
+        return;
+      }
+
       const token = localStorage.getItem('access_token');
-      await axios.put(
+      const response = await axios.put(
         `${import.meta.env.VITE_BASE_URL}/leave-requests/admin/${requestId}/reject`,
         { approvalNote: note },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      
+      console.log('Reject response:', response.data);
       alert('Leave request rejected successfully!');
       setShowDetailModal(false);
-      fetchData();
+      await fetchData();
     } catch (error) {
       console.error('Error rejecting leave:', error);
       alert(error.response?.data?.message || 'Failed to reject leave request');
@@ -86,19 +93,32 @@ const LeaveManagement = () => {
 
   const handleAdjustQuota = async (e) => {
     e.preventDefault();
+    
+    // Validasi input
+    if (!quotaAdjustment.userId) {
+      alert('Please select an employee');
+      return;
+    }
+    
+    if (!quotaAdjustment.annualLeaveQuota || !quotaAdjustment.usedLeaveQuota) {
+      alert('Please fill in all quota fields');
+      return;
+    }
+    
     try {
       const token = localStorage.getItem('access_token');
       await axios.put(
         `${import.meta.env.VITE_BASE_URL}/leave-requests/admin/adjust-quota/${quotaAdjustment.userId}`,
         {
-          annualLeave: parseInt(quotaAdjustment.annualLeave),
-          sickLeave: parseInt(quotaAdjustment.sickLeave),
+          annualLeaveQuota: parseInt(quotaAdjustment.annualLeaveQuota),
+          usedLeaveQuota: parseInt(quotaAdjustment.usedLeaveQuota),
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       alert('Leave quota adjusted successfully!');
       setShowAdjustQuotaModal(false);
-      setQuotaAdjustment({ userId: '', annualLeave: 0, sickLeave: 0 });
+      setQuotaAdjustment({ userId: '', annualLeaveQuota: '', usedLeaveQuota: '' });
+      fetchData(); // Refresh data
     } catch (error) {
       console.error('Error adjusting quota:', error);
       alert(error.response?.data?.message || 'Failed to adjust leave quota');
@@ -106,6 +126,7 @@ const LeaveManagement = () => {
   };
 
   const openDetailModal = (request) => {
+    console.log('Opening detail modal for request:', request); // Debug log
     setSelectedRequest(request);
     setShowDetailModal(true);
   };
@@ -145,8 +166,13 @@ const LeaveManagement = () => {
           <p className="text-gray-600">Manage employee leave requests and quotas</p>
         </div>
         <button
-          onClick={() => setShowAdjustQuotaModal(true)}
-          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            console.log('Opening adjust quota modal');
+            setShowAdjustQuotaModal(true);
+          }}
+          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors cursor-pointer"
         >
           ⚙️ Adjust Quota
         </button>
@@ -221,10 +247,10 @@ const LeaveManagement = () => {
                   <tr key={request.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {request.User?.name || 'N/A'}
+                        {request.employee?.name || 'N/A'}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {request.User?.email || ''}
+                        {request.employee?.email || ''}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -249,22 +275,37 @@ const LeaveManagement = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                       <button
-                        onClick={() => openDetailModal(request)}
-                        className="text-blue-600 hover:text-blue-900"
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          openDetailModal(request);
+                        }}
+                        className="text-blue-600 hover:text-blue-900 cursor-pointer"
                       >
                         👁️ View
                       </button>
                       {request.status === 'PENDING' && (
                         <>
                           <button
-                            onClick={() => handleApprove(request.id)}
-                            className="text-green-600 hover:text-green-900"
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleApprove(request.id);
+                            }}
+                            className="text-green-600 hover:text-green-900 cursor-pointer"
                           >
                             ✅ Approve
                           </button>
                           <button
-                            onClick={() => handleReject(request.id)}
-                            className="text-red-600 hover:text-red-900"
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleReject(request.id);
+                            }}
+                            className="text-red-600 hover:text-red-900 cursor-pointer"
                           >
                             ❌ Reject
                           </button>
@@ -280,8 +321,16 @@ const LeaveManagement = () => {
       </div>
 
       {/* Detail Modal */}
-      {showDetailModal && selectedRequest && (
-        <Modal onClose={() => setShowDetailModal(false)}>
+      <Modal 
+        isOpen={showDetailModal && selectedRequest !== null}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedRequest(null);
+          setApprovalNote('');
+        }}
+        title="Leave Request Detail"
+      >
+        {selectedRequest && (
           <div className="space-y-4">
             <h3 className="text-xl font-bold text-gray-900">Leave Request Detail</h3>
             
@@ -289,7 +338,7 @@ const LeaveManagement = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-600">Employee</p>
-                  <p className="font-medium">{selectedRequest.User?.name}</p>
+                  <p className="font-medium">{selectedRequest.employee?.name}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Leave Type</p>
@@ -364,19 +413,30 @@ const LeaveManagement = () => {
             )}
 
             <button
-              onClick={() => setShowDetailModal(false)}
+              type="button"
+              onClick={() => {
+                setShowDetailModal(false);
+                setSelectedRequest(null);
+                setApprovalNote('');
+              }}
               className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
             >
               Close
             </button>
           </div>
-        </Modal>
-      )}
+        )}
+      </Modal>
 
       {/* Adjust Quota Modal */}
-      {showAdjustQuotaModal && (
-        <Modal onClose={() => setShowAdjustQuotaModal(false)}>
-          <form onSubmit={handleAdjustQuota} className="space-y-4">
+      <Modal
+        isOpen={showAdjustQuotaModal}
+        onClose={() => {
+          setShowAdjustQuotaModal(false);
+          setQuotaAdjustment({ userId: '', annualLeaveQuota: '', usedLeaveQuota: '' });
+        }}
+        title="Adjust Leave Quota"
+      >
+        <form onSubmit={handleAdjustQuota} className="space-y-4">
             <h3 className="text-xl font-bold text-gray-900">Adjust Leave Quota</h3>
             
             <FormSelect
@@ -391,18 +451,22 @@ const LeaveManagement = () => {
             />
             
             <FormInput
-              label="Annual Leave Quota"
+              label="Annual Leave Quota (Total)"
               type="number"
-              value={quotaAdjustment.annualLeave}
-              onChange={(e) => setQuotaAdjustment({ ...quotaAdjustment, annualLeave: e.target.value })}
+              min="0"
+              value={quotaAdjustment.annualLeaveQuota}
+              onChange={(e) => setQuotaAdjustment({ ...quotaAdjustment, annualLeaveQuota: e.target.value })}
+              placeholder="e.g., 12"
               required
             />
             
             <FormInput
-              label="Sick Leave Quota"
+              label="Used Leave Quota"
               type="number"
-              value={quotaAdjustment.sickLeave}
-              onChange={(e) => setQuotaAdjustment({ ...quotaAdjustment, sickLeave: e.target.value })}
+              min="0"
+              value={quotaAdjustment.usedLeaveQuota}
+              onChange={(e) => setQuotaAdjustment({ ...quotaAdjustment, usedLeaveQuota: e.target.value })}
+              placeholder="e.g., 5"
               required
             />
             
@@ -415,15 +479,17 @@ const LeaveManagement = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setShowAdjustQuotaModal(false)}
+                onClick={() => {
+                  setShowAdjustQuotaModal(false);
+                  setQuotaAdjustment({ userId: '', annualLeaveQuota: '', usedLeaveQuota: '' });
+                }}
                 className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
               >
                 Cancel
               </button>
             </div>
           </form>
-        </Modal>
-      )}
+      </Modal>
     </div>
   );
 };

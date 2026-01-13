@@ -233,6 +233,83 @@ class UserAdminController {
             next(error);
         }
     }
+
+    // ENDPOINT: Sync leave quota with actual attendance count
+    static async syncLeaveQuota(req, res, next) {
+        try {
+            const { userId } = req.params;
+
+            if (userId) {
+                // Sync specific user
+                const user = await User.findByPk(userId);
+                if (!user) {
+                    return res.status(404).json({
+                        message: "User not found"
+                    });
+                }
+
+                // Count actual LEAVE attendances
+                const actualLeaveCount = await Attendance.count({
+                    where: {
+                        UserId: userId,
+                        status: 'LEAVE'
+                    }
+                });
+
+                const oldQuota = user.usedLeaveQuota;
+                user.usedLeaveQuota = actualLeaveCount;
+                await user.save();
+
+                return res.status(200).json({
+                    message: "Leave quota synced successfully",
+                    data: {
+                        userId: user.id,
+                        name: user.name,
+                        email: user.email,
+                        oldUsedQuota: oldQuota,
+                        newUsedQuota: actualLeaveCount,
+                        difference: actualLeaveCount - oldQuota,
+                        remainingQuota: user.annualLeaveQuota - actualLeaveCount
+                    }
+                });
+            } else {
+                // Sync ALL users
+                const users = await User.findAll();
+                const results = [];
+
+                for (const user of users) {
+                    const actualLeaveCount = await Attendance.count({
+                        where: {
+                            UserId: user.id,
+                            status: 'LEAVE'
+                        }
+                    });
+
+                    const oldQuota = user.usedLeaveQuota;
+                    if (oldQuota !== actualLeaveCount) {
+                        user.usedLeaveQuota = actualLeaveCount;
+                        await user.save();
+
+                        results.push({
+                            userId: user.id,
+                            name: user.name,
+                            email: user.email,
+                            oldUsedQuota: oldQuota,
+                            newUsedQuota: actualLeaveCount,
+                            difference: actualLeaveCount - oldQuota
+                        });
+                    }
+                }
+
+                return res.status(200).json({
+                    message: `Leave quota synced for ${results.length} users`,
+                    data: results
+                });
+            }
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 module.exports = UserAdminController;

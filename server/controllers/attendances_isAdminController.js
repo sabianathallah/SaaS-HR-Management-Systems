@@ -163,6 +163,25 @@ class AttendanceAdminController {
       const photoCheckIn = req.photoInfo?.photoCheckIn || null;
       const photoCheckOut = req.photoInfo?.photoCheckOut || null;
 
+      // Deduct leave quota ONLY for LEAVE status (not SICK_LEAVE or PERMISSION)
+      if (status === Attendance.ATTENDANCE_STATUS.LEAVE) {
+        
+        const remainingQuota = user.annualLeaveQuota - user.usedLeaveQuota;
+        
+        if (remainingQuota < 1) {
+          return res.status(400).json({
+            message: `Cannot create leave attendance. User has insufficient leave quota. Remaining: ${remainingQuota} days.`,
+            remainingQuota,
+            currentUsed: user.usedLeaveQuota,
+            totalQuota: user.annualLeaveQuota
+          });
+        }
+
+        // Deduct 1 day from quota
+        user.usedLeaveQuota += 1;
+        await user.save();
+      }
+
       // Create manual attendance
       const manualAttendance = await Attendance.create({
         UserId: userId,
@@ -179,18 +198,23 @@ class AttendanceAdminController {
 
       // Send notification to employee
       if (user) {
+        const notificationMessage = status === Attendance.ATTENDANCE_STATUS.LEAVE
+          ? `An attendance record has been created for you by the administrator for ${new Date(date).toLocaleDateString()}. Your leave quota has been deducted by 1 day.`
+          : `An attendance record has been created for you by the administrator for ${new Date(date).toLocaleDateString()}.`;
+        
         await notificationHelper.sendNotification(
           userId,
           Notification.NOTIFICATION_TYPE.ATTENDANCE_CORRECTION,
           '📝 Attendance Record Created',
-          `An attendance record has been created for you by the administrator for ${new Date(date).toLocaleDateString()}.`,
+          notificationMessage,
           {
             attendanceId: manualAttendance.id,
             action: 'created',
             date: new Date(date).toLocaleDateString(),
             clockIn: new Date(clockIn).toLocaleTimeString(),
             clockOut: new Date(clockOut).toLocaleTimeString(),
-            status: status
+            status: status,
+            quotaDeducted: status === Attendance.ATTENDANCE_STATUS.LEAVE ? 1 : 0
           },
           true // Send email
         );
@@ -198,7 +222,14 @@ class AttendanceAdminController {
 
       res.status(201).json({
         message: "Manual attendance created successfully",
-        data: manualAttendance
+        data: manualAttendance,
+        quotaInfo: status === Attendance.ATTENDANCE_STATUS.LEAVE
+          ? {
+              quotaDeducted: 1,
+              currentUsedQuota: user.usedLeaveQuota,
+              remainingQuota: user.annualLeaveQuota - user.usedLeaveQuota
+            }
+          : null
       });
 
     } catch (error) {
@@ -230,6 +261,38 @@ class AttendanceAdminController {
         }
       }
 
+      // Handle leave quota adjustment if status is changing
+      if (status && status !== attendance.status) {
+        const user = await User.findByPk(attendance.UserId);
+        
+        // Only LEAVE status affects quota (not SICK_LEAVE or PERMISSION)
+        const oldStatusIsLeave = attendance.status === Attendance.ATTENDANCE_STATUS.LEAVE;
+        const newStatusIsLeave = status === Attendance.ATTENDANCE_STATUS.LEAVE;
+        
+        // Case 1: Changing FROM LEAVE TO non-leave status → refund quota
+        if (oldStatusIsLeave && !newStatusIsLeave) {
+          user.usedLeaveQuota = Math.max(0, user.usedLeaveQuota - 1);
+          await user.save();
+        }
+        
+        // Case 2: Changing FROM non-leave TO LEAVE status → deduct quota
+        if (!oldStatusIsLeave && newStatusIsLeave) {
+          const remainingQuota = user.annualLeaveQuota - user.usedLeaveQuota;
+          
+          if (remainingQuota < 1) {
+            return res.status(400).json({
+              message: `Cannot change to leave status. User has insufficient leave quota. Remaining: ${remainingQuota} days.`,
+              remainingQuota,
+              currentUsed: user.usedLeaveQuota,
+              totalQuota: user.annualLeaveQuota
+            });
+          }
+          
+          user.usedLeaveQuota += 1;
+          await user.save();
+        }
+      }
+
       // Prepare update data
       const updateData = {};
       if (date) updateData.date = new Date(date);
@@ -255,26 +318,49 @@ class AttendanceAdminController {
       Object.assign(attendance, updateData);
       await attendance.save();
 
+      // Get user data for quota info in response
+      const updatedUser = await User.findByPk(attendance.UserId);
+      
+      // Prepare notification message based on quota changes
+      let notificationMessage = `Your attendance record for ${attendance.date.toLocaleDateString()} has been updated by the administrator.`;
+      
+      if (status && status !== attendance.status) {
+        const newStatusIsLeave = status === Attendance.ATTENDANCE_STATUS.LEAVE;
+        const oldStatusIsLeave = attendance.status === Attendance.ATTENDANCE_STATUS.LEAVE;
+        
+        if (!oldStatusIsLeave && newStatusIsLeave) {
+          notificationMessage = `Your attendance record for ${attendance.date.toLocaleDateString()} has been updated to ${status} by the administrator. Your leave quota has been deducted by 1 day.`;
+        } else if (oldStatusIsLeave && !newStatusIsLeave) {
+          notificationMessage = `Your attendance record for ${attendance.date.toLocaleDateString()} has been updated to ${status} by the administrator. Your leave quota has been refunded by 1 day.`;
+        }
+      }
+
       // Send notification to employee
       await notificationHelper.sendNotification(
         attendance.UserId,
         Notification.NOTIFICATION_TYPE.ATTENDANCE_CORRECTION,
         '📝 Attendance Record Updated',
-        `Your attendance record for ${attendance.date.toLocaleDateString()} has been updated by the administrator.`,
+        notificationMessage,
         {
           attendanceId: attendance.id,
           action: 'updated',
           date: attendance.date.toLocaleDateString(),
           clockIn: attendance.clockIn.toLocaleTimeString(),
-          clockOut: attendance.clockOut.toLocaleTimeString(),
-          status: attendance.status
+          clockOut: attendance.clockOut ? attendance.clockOut.toLocaleTimeString() : 'Not set',
+          status: attendance.status,
+          oldStatus: req.body.status ? attendance.status : null
         },
         true // Send email
       );
 
       res.status(200).json({
         message: "Attendance record updated successfully",
-        data: attendance
+        data: attendance,
+        quotaInfo: updatedUser ? {
+          currentUsedQuota: updatedUser.usedLeaveQuota,
+          remainingQuota: updatedUser.annualLeaveQuota - updatedUser.usedLeaveQuota,
+          totalQuota: updatedUser.annualLeaveQuota
+        } : null
       });
 
     } catch (error) {

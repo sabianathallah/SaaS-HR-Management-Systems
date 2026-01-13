@@ -245,10 +245,13 @@ const AttendanceManagement = () => {
 
   const getStatusBadgeClass = (status) => {
     switch (status) {
+      case 'ON_PROGRESS': return 'bg-indigo-100 text-indigo-800';
       case 'ON_TIME': return 'bg-green-100 text-green-800';
       case 'LATE': return 'bg-yellow-100 text-yellow-800';
       case 'ABSENT': return 'bg-red-100 text-red-800';
       case 'LEAVE': return 'bg-blue-100 text-blue-800';
+      case 'SICK_LEAVE': return 'bg-orange-100 text-orange-800';
+      case 'PERMISSION': return 'bg-cyan-100 text-cyan-800';
       case 'HOLIDAY': return 'bg-purple-100 text-purple-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -461,10 +464,13 @@ const AttendanceManagement = () => {
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               options={[
+                { value: 'ON_PROGRESS', label: 'On Progress' },
                 { value: 'ON_TIME', label: 'On Time' },
                 { value: 'LATE', label: 'Late' },
                 { value: 'ABSENT', label: 'Absent' },
-                { value: 'LEAVE', label: 'Leave' },
+                { value: 'LEAVE', label: 'Leave (Annual)' },
+                { value: 'SICK_LEAVE', label: 'Sick Leave' },
+                { value: 'PERMISSION', label: 'Permission' },
                 { value: 'HOLIDAY', label: 'Holiday' },
               ]}
             />
@@ -569,10 +575,13 @@ const AttendanceManagement = () => {
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               options={[
+                { value: 'ON_PROGRESS', label: 'On Progress' },
                 { value: 'ON_TIME', label: 'On Time' },
                 { value: 'LATE', label: 'Late' },
                 { value: 'ABSENT', label: 'Absent' },
-                { value: 'LEAVE', label: 'Leave' },
+                { value: 'LEAVE', label: 'Leave (Annual)' },
+                { value: 'SICK_LEAVE', label: 'Sick Leave' },
+                { value: 'PERMISSION', label: 'Permission' },
                 { value: 'HOLIDAY', label: 'Holiday' },
               ]}
             />
