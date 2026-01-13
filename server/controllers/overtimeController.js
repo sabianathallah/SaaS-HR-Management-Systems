@@ -1,5 +1,6 @@
 const { Overtime, User, Attendance } = require('../models');
 const { Op } = require('sequelize');
+const AuditLogger = require('../helpers/auditLogger');
 
 class OvertimeController {
   
@@ -79,6 +80,17 @@ class OvertimeController {
         reason: reason.trim(),
         status: Overtime.STATUS.PENDING
       });
+
+      // Log to audit
+      await AuditLogger.logCreate(
+        userId,
+        'Overtimes',
+        overtime.id,
+        overtime.toJSON(),
+        req.ip,
+        req.get('user-agent'),
+        `Overtime request submitted: ${requestedHours} hours on ${overtimeDate}`
+      );
 
       res.status(201).json({
         message: "Overtime request submitted successfully",

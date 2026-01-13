@@ -1,4 +1,5 @@
 const { User } = require('../models');
+const AuditLogger = require('../helpers/auditLogger');
 
 class UserAdminController {
     /**
@@ -33,7 +34,19 @@ class UserAdminController {
             if (leaveDate !== undefined) updateData.leaveDate = leaveDate ? new Date(leaveDate) : null;
             if (isActive !== undefined) updateData.isActive = isActive;
 
+            const oldData = user.toJSON();
             await user.update(updateData);
+
+            // ===== AUDIT LOG =====
+            await AuditLogger.logUpdate({
+                userId: req.user.id,
+                tableName: 'Users',
+                recordId: user.id,
+                oldData,
+                newData: user.toJSON(),
+                req,
+                description: `Updated user "${user.name}"`
+            });
 
             res.status(200).json({
                 message: "User updated successfully",

@@ -1,6 +1,7 @@
 const { LeaveRequest, User, Attendance, WorkSchedule } = require('../models');
 const { Op } = require('sequelize');
 const { deleteFile } = require('../helpers/fileUploadHelper');
+const AuditLogger = require('../helpers/auditLogger');
 
 class LeaveRequestController {
   
@@ -202,6 +203,17 @@ class LeaveRequestController {
       console.log('✅ Leave request created successfully:', leaveRequest.id);
       console.log('Attachment uploaded:', file ? 'Yes' : 'No');
       console.log('Attendance auto-created:', attendanceCreated);
+
+      // Log to audit
+      await AuditLogger.logCreate(
+        userId,
+        'LeaveRequests',
+        leaveRequest.id,
+        leaveRequest.toJSON(),
+        req.ip,
+        req.get('user-agent'),
+        `Leave request submitted: ${leaveType} from ${startDate} to ${endDate}`
+      );
 
       res.status(201).json({
         message: attendanceCreated 

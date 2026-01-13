@@ -1,5 +1,6 @@
 const { User } = require('../models')
 const { compare, hashPassword } = require('../helpers/bcrypt')
+const AuditLogger = require('../helpers/auditLogger')
 
 class ProfileController {
     // Get user profile
@@ -37,10 +38,25 @@ class ProfileController {
                 throw { name: "NotFound", message: "User not found" }
             }
 
+            // Capture old data before update
+            const oldData = { name: user.name }
+
             // Update fields if provided
             if (name) user.name = name
 
             await user.save()
+
+            // Log to audit
+            await AuditLogger.logUpdate(
+                userId,
+                'Users',
+                user.id,
+                oldData,
+                { name: user.name },
+                req.ip,
+                req.get('user-agent'),
+                `Profile updated: name changed to ${user.name}`
+            )
 
             res.status(200).json({
                 message: "Profile updated successfully",

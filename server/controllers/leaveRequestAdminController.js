@@ -1,6 +1,7 @@
 const { LeaveRequest, User, Attendance, WorkSchedule, Notification } = require('../models');
 const { Op } = require('sequelize');
 const notificationHelper = require('../helpers/notificationHelper');
+const AuditLogger = require('../helpers/auditLogger');
 
 class LeaveRequestAdminController {
 
@@ -101,6 +102,17 @@ class LeaveRequestAdminController {
       leaveRequest.approvalNote = approvalNote || null;
       leaveRequest.approvalDate = new Date();
       await leaveRequest.save();
+
+      // ===== AUDIT LOG =====
+      await AuditLogger.logApprove({
+        userId: adminId,
+        tableName: 'LeaveRequests',
+        recordId: leaveRequest.id,
+        oldData: { status: 'PENDING' },
+        newData: leaveRequest.toJSON(),
+        req,
+        description: `Approved ${leaveRequest.leaveType} leave for ${leaveRequest.employee?.name || 'user'}`
+      });
 
       // Get active work schedule
       const workSchedule = await WorkSchedule.findOne({
@@ -237,6 +249,17 @@ class LeaveRequestAdminController {
       leaveRequest.approvalNote = approvalNote || 'Request rejected by admin';
       leaveRequest.approvalDate = new Date();
       await leaveRequest.save();
+
+      // ===== AUDIT LOG =====
+      await AuditLogger.logReject({
+        userId: adminId,
+        tableName: 'LeaveRequests',
+        recordId: leaveRequest.id,
+        oldData: { status: 'PENDING' },
+        newData: leaveRequest.toJSON(),
+        req,
+        description: `Rejected ${leaveRequest.leaveType} leave: ${approvalNote || 'No reason'}`
+      });
 
       // Delete any attendance records created for this leave request
       // This handles cases where user submitted leave for today and attendance was auto-created

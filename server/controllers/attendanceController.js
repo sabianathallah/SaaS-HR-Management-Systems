@@ -7,6 +7,7 @@ const {
   calculateAttendanceSummaryByPeriod
 } = require('../helpers/attendance');
 const { validateAttendanceLocation } = require('../helpers/geolocation');
+const AuditLogger = require('../helpers/auditLogger');
 
 class AttendanceController {
   // Controllers for regular users (employees)
@@ -141,6 +142,17 @@ class AttendanceController {
           officeName: locationValidation.nearestOffice?.name
         }
       };
+
+      // Log to audit
+      await AuditLogger.logCreate(
+        userId,
+        'Attendances',
+        newAttendance.id,
+        newAttendance.toJSON(),
+        req.ip,
+        req.get('user-agent'),
+        `Clock-in at ${now.toLocaleTimeString()}`
+      );
       
       res.status(201).json({ 
         message: "Clock-in successful",
@@ -218,6 +230,9 @@ class AttendanceController {
       // GPS Validation untuk clock-out (optional, bisa di-skip)
       // Biasanya clock-out tidak se-strict clock-in
       const isFlexibleShift = attendance.shift?.name?.toLowerCase() === 'flexible';
+
+      // Capture old data before update
+      const oldData = { ...attendance.toJSON() };
       
       // Update record dengan clock-out time, status final, dan foto
       const clockOutTime = new Date();
@@ -235,6 +250,18 @@ class AttendanceController {
       
       // Hitung durasi kerja
       const workDuration = calculateWorkDuration(attendance.clockIn, clockOutTime);
+
+      // Log to audit
+      await AuditLogger.logUpdate(
+        userId,
+        'Attendances',
+        attendance.id,
+        oldData,
+        attendance.toJSON(),
+        req.ip,
+        req.get('user-agent'),
+        `Clock-out at ${clockOutTime.toLocaleTimeString()}, work duration: ${workDuration} hours`
+      );
       
       res.status(200).json({ 
         message: "Clock-out successful",

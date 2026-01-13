@@ -1,6 +1,7 @@
 const { OfficeLocation, Attendance } = require('../models');
 const { Op } = require('sequelize');
 const { isValidGPSCoordinates, formatGPSCoordinates, generateMapsLink } = require('../helpers/geolocation');
+const AuditLogger = require('../helpers/auditLogger');
 
 /**
  * ========================================
@@ -153,6 +154,17 @@ class OfficeLocationAdminController {
         mapsLink: generateMapsLink(newLocation.latitude, newLocation.longitude)
       };
 
+      // Log to audit
+      await AuditLogger.logCreate(
+        req.user.id,
+        'OfficeLocations',
+        newLocation.id,
+        newLocation.toJSON(),
+        req.ip,
+        req.get('user-agent'),
+        `Office location created: ${newLocation.name}`
+      );
+
       res.status(201).json({
         message: 'Office location created successfully',
         data: locationData
@@ -199,6 +211,9 @@ class OfficeLocationAdminController {
         });
       }
 
+      // Capture old data before update
+      const oldData = { ...location.toJSON() };
+
       // Update fields
       if (name !== undefined) location.name = name;
       if (address !== undefined) location.address = address;
@@ -214,6 +229,18 @@ class OfficeLocationAdminController {
         coordinatesFormatted: formatGPSCoordinates(location.latitude, location.longitude),
         mapsLink: generateMapsLink(location.latitude, location.longitude)
       };
+
+      // Log to audit
+      await AuditLogger.logUpdate(
+        req.user.id,
+        'OfficeLocations',
+        location.id,
+        oldData,
+        location.toJSON(),
+        req.ip,
+        req.get('user-agent'),
+        `Office location updated: ${location.name}`
+      );
 
       res.status(200).json({
         message: 'Office location updated successfully',
@@ -255,7 +282,21 @@ class OfficeLocationAdminController {
         });
       }
 
+      // Capture old data before deletion
+      const oldData = { ...location.toJSON() };
+
       await location.destroy();
+
+      // Log to audit
+      await AuditLogger.logDelete(
+        req.user.id,
+        'OfficeLocations',
+        id,
+        oldData,
+        req.ip,
+        req.get('user-agent'),
+        `Office location deleted: ${oldData.name}`
+      );
 
       res.status(200).json({
         message: 'Office location deleted successfully'

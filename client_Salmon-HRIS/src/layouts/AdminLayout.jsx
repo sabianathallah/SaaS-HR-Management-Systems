@@ -75,7 +75,7 @@ const AdminLayout = () => {
     },
     { 
       id: 'audit', 
-      label: 'Notifications', 
+      label: 'Activity Logs', 
       icon: '🔔',
       path: '/admin/notifications',
       description: 'System Audit Logs',

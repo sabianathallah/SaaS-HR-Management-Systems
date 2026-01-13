@@ -2,6 +2,7 @@ const { Overtime, User, Attendance, Notification } = require('../models');
 const { Op } = require('sequelize');
 const { getDateRangeForPeriod } = require('../helpers/utils');
 const notificationHelper = require('../helpers/notificationHelper');
+const AuditLogger = require('../helpers/auditLogger');
 
 class OvertimeAdminController {
 
@@ -151,6 +152,17 @@ class OvertimeAdminController {
       overtime.approvedAt = new Date();
       await overtime.save();
 
+      // ===== AUDIT LOG =====
+      await AuditLogger.logApprove({
+        userId: adminId,
+        tableName: 'Overtimes',
+        recordId: overtime.id,
+        oldData: { status: 'pending' },
+        newData: overtime.toJSON(),
+        req,
+        description: `Approved overtime for ${overtime.employee?.name || 'user'} - ${finalActualHours} hours`
+      });
+
       // Send notification to employee
       await notificationHelper.sendNotification(
         overtime.UserId,
@@ -232,6 +244,17 @@ class OvertimeAdminController {
       overtime.approvedBy = adminId;
       overtime.approvedAt = new Date();
       await overtime.save();
+
+      // ===== AUDIT LOG =====
+      await AuditLogger.logReject({
+        userId: adminId,
+        tableName: 'Overtimes',
+        recordId: overtime.id,
+        oldData: { status: 'pending' },
+        newData: overtime.toJSON(),
+        req,
+        description: `Rejected overtime for ${overtime.employee?.name || 'user'}: ${rejectionReason.substring(0, 50)}`
+      });
 
       // Send notification to employee
       await notificationHelper.sendNotification(

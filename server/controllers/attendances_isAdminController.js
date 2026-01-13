@@ -8,6 +8,7 @@ const {
 } = require('../helpers/attendance');
 const notificationHelper = require('../helpers/notificationHelper');
 const { cleanupOldPhotos } = require('../helpers/photoHelper');
+const AuditLogger = require('../helpers/auditLogger');
 
 class AttendanceAdminController {
 
@@ -314,6 +315,9 @@ class AttendanceAdminController {
         await cleanupOldPhotos(attendance, updateData);
       }
 
+      // Capture old data before update
+      const oldData = { ...attendance.toJSON() };
+
       // Update fields
       Object.assign(attendance, updateData);
       await attendance.save();
@@ -351,6 +355,18 @@ class AttendanceAdminController {
           oldStatus: req.body.status ? attendance.status : null
         },
         true // Send email
+      );
+
+      // Log to audit
+      await AuditLogger.logUpdate(
+        req.user.id,
+        'Attendances',
+        attendance.id,
+        oldData,
+        attendance.toJSON(),
+        req.ip,
+        req.get('user-agent'),
+        `Admin updated attendance record for user ${attendance.UserId} on ${attendance.date.toLocaleDateString()}`
       );
 
       res.status(200).json({

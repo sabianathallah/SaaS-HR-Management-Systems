@@ -1,4 +1,5 @@
 const { Shift, User, Attendance } = require('../models');
+const AuditLogger = require('../helpers/auditLogger');
 
 /**
  * Controller untuk CRUD Shift (Admin only)
@@ -126,6 +127,16 @@ class ShiftAdminController {
         isActive: isActive !== undefined ? isActive : true
       });
 
+      // ===== AUDIT LOG =====
+      await AuditLogger.logCreate({
+        userId: req.user.id,
+        tableName: 'Shifts',
+        recordId: newShift.id,
+        newData: newShift.toJSON(),
+        req,
+        description: `Created shift "${newShift.name}"`
+      });
+
       res.status(201).json({
         success: true,
         message: 'Shift created successfully',
@@ -175,7 +186,19 @@ class ShiftAdminController {
       if (description !== undefined) shift.description = description;
       if (isActive !== undefined) shift.isActive = isActive;
 
+      const oldData = shift._previousDataValues || {};
       await shift.save();
+
+      // ===== AUDIT LOG =====
+      await AuditLogger.logUpdate({
+        userId: req.user.id,
+        tableName: 'Shifts',
+        recordId: shift.id,
+        oldData,
+        newData: shift.toJSON(),
+        req,
+        description: `Updated shift "${shift.name}"`
+      });
 
       res.status(200).json({
         success: true,
@@ -215,7 +238,20 @@ class ShiftAdminController {
         });
       }
 
+      // Save old data for audit log before destroying
+      const oldData = shift.toJSON();
+
       await shift.destroy();
+
+      // ===== AUDIT LOG =====
+      await AuditLogger.logDelete({
+        userId: req.user.id,
+        tableName: 'Shifts',
+        recordId: id,
+        oldData,
+        req,
+        description: `Deleted shift "${oldData.name}"`
+      });
 
       res.status(200).json({
         success: true,
