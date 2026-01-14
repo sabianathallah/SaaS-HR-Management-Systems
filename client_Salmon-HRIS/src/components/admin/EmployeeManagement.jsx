@@ -73,6 +73,24 @@ const EmployeeManagement = () => {
 
   const handleAddEmployee = async (e) => {
     e.preventDefault();
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      alert('⚠️ Please enter a valid email address');
+      return;
+    }
+    
+    // Check if email already exists in current employee list
+    const emailExists = employees.some(emp => 
+      emp.email.toLowerCase() === formData.email.toLowerCase()
+    );
+    
+    if (emailExists) {
+      alert('⚠️ Email already exists! Please use a different email address.');
+      return;
+    }
+    
     try {
       const token = localStorage.getItem('access_token');
       await axios.post(
@@ -88,12 +106,40 @@ const EmployeeManagement = () => {
       fetchEmployees();
     } catch (error) {
       console.error('Error adding employee:', error);
-      alert(error.response?.data?.message || 'Failed to add employee');
+      const errorMessage = error.response?.data?.message || 'Failed to add employee';
+      
+      // Handle specific error messages
+      if (errorMessage.toLowerCase().includes('email') && errorMessage.toLowerCase().includes('use')) {
+        alert('⚠️ Email already exists! Please use a different email address.');
+      } else if (errorMessage.toLowerCase().includes('unique')) {
+        alert('⚠️ This email is already registered in the system. Please use a different email.');
+      } else {
+        alert(`❌ Error: ${errorMessage}`);
+      }
     }
   };
 
   const handleEditEmployee = async (e) => {
     e.preventDefault();
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      alert('⚠️ Please enter a valid email address');
+      return;
+    }
+    
+    // Check if email already exists in other employees (exclude current employee)
+    const emailExists = employees.some(emp => 
+      emp.email.toLowerCase() === formData.email.toLowerCase() && 
+      emp.id !== selectedEmployee.id
+    );
+    
+    if (emailExists) {
+      alert('⚠️ Email already exists! Please use a different email address.');
+      return;
+    }
+    
     try {
       const token = localStorage.getItem('access_token');
       await axios.put(
@@ -109,7 +155,16 @@ const EmployeeManagement = () => {
       fetchEmployees();
     } catch (error) {
       console.error('Error updating employee:', error);
-      alert(error.response?.data?.message || 'Failed to update employee');
+      const errorMessage = error.response?.data?.message || 'Failed to update employee';
+      
+      // Handle specific error messages
+      if (errorMessage.toLowerCase().includes('email') && errorMessage.toLowerCase().includes('use')) {
+        alert('⚠️ Email already exists! Please use a different email address.');
+      } else if (errorMessage.toLowerCase().includes('unique')) {
+        alert('⚠️ This email is already registered by another employee.');
+      } else {
+        alert(`❌ Error: ${errorMessage}`);
+      }
     }
   };
 

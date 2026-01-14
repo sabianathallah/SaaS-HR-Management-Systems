@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import FormInput from '../FormInput';
 import FormSelect from '../FormSelect';
+import SearchableSelect from '../SearchableSelect';
 import Modal from '../Modal';
 
 const AttendanceManagement = () => {
@@ -293,14 +294,19 @@ const AttendanceManagement = () => {
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
           />
-          <FormSelect
+          <SearchableSelect
             label="Employee"
             value={selectedEmployee}
             onChange={(e) => setSelectedEmployee(e.target.value)}
             options={[
               { value: 'all', label: 'All Employees' },
-              ...employees.map(emp => ({ value: emp.id, label: emp.name }))
+              ...employees.map(emp => ({ 
+                value: emp.id, 
+                label: emp.name,
+                description: `${emp.position || 'No position'} - ${emp.email}`
+              }))
             ]}
+            placeholder="Search employee..."
           />
           <FormSelect
             label="Status"
@@ -443,14 +449,19 @@ const AttendanceManagement = () => {
       >
         <form onSubmit={handleManualAttendance} className="space-y-4">
             
-            <FormSelect
+            <SearchableSelect
               label="Employee"
               value={formData.userId}
               onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
               options={[
                 { value: '', label: 'Select Employee' },
-                ...employees.map(emp => ({ value: emp.id, label: emp.name }))
+                ...employees.map(emp => ({ 
+                  value: emp.id, 
+                  label: emp.name,
+                  description: emp.email // Menampilkan email sebagai info tambahan
+                }))
               ]}
+              placeholder="Search employee by name..."
               required
             />
             
