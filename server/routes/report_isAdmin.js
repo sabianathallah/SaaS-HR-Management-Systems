@@ -11,26 +11,57 @@ router.use(authenticateToken);
 router.use(isAdmin);
 
 /**
- * Export Routes
+ * ============================================
+ * ADVANCED REPORT ROUTES
+ * ============================================
  */
 
-// Export attendance to Excel
-router.get('/export/excel', reportController.exportAttendanceExcel);
+// Get report metadata (untuk preview)
+router.get('/metadata', reportController.getReportMetadata);
 
-// Export attendance to CSV
-router.get('/export/csv', reportController.exportAttendanceCSV);
+// A. Attendance Report (most used)
+router.get('/attendance', reportController.getAttendanceReport);
+
+// B. Monthly Recap Report (for payroll)
+router.get('/monthly-recap', reportController.getMonthlyRecapReport);
+
+// C. Overtime Report
+router.get('/overtime', reportController.getOvertimeReport);
+
+// D. Leave Report
+router.get('/leave', reportController.getLeaveReport);
+
+// E. Payroll Support Report
+router.get('/payroll-support', reportController.getPayrollSupportReport);
+
+// F. Location & GPS Report (Premium)
+router.get('/location-gps', reportController.getLocationGPSReport);
+
+// G. Audit Log Report (Enterprise)
+router.get('/audit-log', reportController.getAuditLogReport);
+
+// H. Compliance / Violation Report
+router.get('/compliance', reportController.getComplianceReport);
 
 /**
- * Report Routes
+ * ============================================
+ * LEGACY EXPORT ROUTES (Keep for backward compatibility)
+ * ============================================
  */
 
-// Generate monthly report
+// Export attendance to Excel (legacy)
+router.get('/export/excel', reportController.exportAttendanceExcel);
+
+// Export attendance to CSV (legacy)
+router.get('/export/csv', reportController.exportAttendanceCSV);
+
+// Generate monthly report (legacy)
 router.get('/monthly', reportController.generateMonthlyReport);
 
-// Get report preview (JSON)
+// Get report preview (JSON) (legacy)
 router.get('/preview', reportController.getReportPreview);
 
-// Get employee performance report
+// Get employee performance report (legacy)
 router.get('/employee-performance', reportController.getEmployeePerformanceReport);
 
 module.exports = router;

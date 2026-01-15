@@ -1,4 +1,4 @@
-const { Attendance, User } = require('../models');
+const { Attendance, User, Overtime, LeaveRequest, AuditLog, OfficeLocation, Shift } = require('../models');
 const { Op } = require('sequelize');
 const ExcelJS = require('exceljs');
 const { Parser } = require('json2csv');
@@ -10,7 +10,16 @@ const {
   getMonthName,
   calculateStatusBreakdown,
   prepareCSVData,
-  generateFileName
+  generateFileName,
+  // Advanced report generators
+  generateAttendanceReport,
+  generateMonthlyRecapReport,
+  generateOvertimeReport,
+  generateLeaveReport,
+  generatePayrollSupportReport,
+  generateLocationGPSReport,
+  generateAuditLogReport,
+  generateComplianceReport
 } = require('../helpers/report');
 
 // Export to Excel
@@ -966,5 +975,799 @@ exports.getEmployeePerformanceReport = async (req, res) => {
       message: 'Failed to get employee performance report',
       error: error.message
     });
+  }
+};
+
+/**
+ * ============================================
+ * ADVANCED REPORT METHODS
+ * ============================================
+ */
+
+/**
+ * A. ATTENDANCE REPORT
+ * GET /reports/attendance
+ * Most frequently used report
+ */
+exports.getAttendanceReport = async (req, res, next) => {
+  try {
+    const { startDate, endDate, department, locationId, status, format = 'excel' } = req.query;
+    
+    const where = {};
+    
+    // Date filter
+    if (startDate && endDate) {
+      where.date = { [Op.between]: [new Date(startDate), new Date(endDate)] };
+    } else if (startDate) {
+      where.date = { [Op.gte]: new Date(startDate) };
+    } else if (endDate) {
+      where.date = { [Op.lte]: new Date(endDate) };
+    }
+
+    // Status filter
+    if (status) {
+      where.status = status;
+    }
+
+    // Location filter
+    if (locationId) {
+      where.OfficeLocationId = locationId;
+    }
+
+    const attendances = await Attendance.findAll({
+      where,
+      include: [
+        {
+          model: User,
+          attributes: ['id', 'name', 'email', 'position', 'department'],
+          where: department ? { department } : undefined,
+          required: false
+        },
+        {
+          model: OfficeLocation,
+          as: 'office_location',
+          attributes: ['id', 'name', 'address'],
+          required: false
+        },
+        {
+          model: Shift,
+          as: 'shift',
+          attributes: ['id', 'name', 'startTime', 'endTime'],
+          required: false
+        }
+      ],
+      order: [['date', 'DESC'], ['clockIn', 'DESC']]
+    });
+
+    if (attendances.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'No attendance data found for the specified criteria'
+      });
+    }
+
+    // Generate report
+    const buffer = await generateAttendanceReport(attendances, format);
+
+    // Audit log
+    await AuditLogger.log({
+      userId: req.user.id,
+      action: 'EXPORT',
+      tableName: 'Attendance',
+      recordId: null,
+      newData: { 
+        reportType: 'attendance',
+        format,
+        recordCount: attendances.length,
+        filters: { startDate, endDate, department, locationId, status }
+      },
+      ipAddress: req.ip
+    });
+
+    const fileName = `Attendance_Report_${new Date().toISOString().split('T')[0]}.${format === 'csv' ? 'csv' : 'xlsx'}`;
+    
+    if (format === 'csv') {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+      return res.send(buffer);
+    } else {
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+      return res.send(buffer);
+    }
+
+  } catch (error) {
+    console.error('Error generating attendance report:', error);
+    next(error);
+  }
+};
+
+/**
+ * B. MONTHLY RECAP REPORT
+ * GET /reports/monthly-recap
+ * For payroll processing
+ */
+exports.getMonthlyRecapReport = async (req, res, next) => {
+  try {
+    const { month, year, groupBy = 'employee' } = req.query;
+
+    if (!month || !year) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Month and year are required'
+      });
+    }
+
+    const monthNum = parseInt(month);
+    const yearNum = parseInt(year);
+
+    if (monthNum < 1 || monthNum > 12) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Month must be between 1 and 12'
+      });
+    }
+
+    const startDate = new Date(yearNum, monthNum - 1, 1);
+    const endDate = new Date(yearNum, monthNum, 0, 23, 59, 59);
+
+    // Fetch all data for the month
+    const attendances = await Attendance.findAll({
+      where: { date: { [Op.between]: [startDate, endDate] } },
+      include: [
+        {
+          model: User,
+          attributes: ['id', 'name', 'email', 'position', 'department'],
+          required: false
+        },
+        {
+          model: Shift,
+          as: 'shift',
+          attributes: ['id', 'name', 'startTime', 'endTime'],
+          required: false
+        }
+      ]
+    });
+
+    const overtimes = await Overtime.findAll({
+      where: { 
+        overtimeDate: { [Op.between]: [startDate, endDate] },
+        status: 'approved'
+      },
+      include: [
+        {
+          model: User,
+          as: 'employee',
+          attributes: ['id', 'name', 'department']
+        }
+      ]
+    });
+
+    const leaveRequests = await LeaveRequest.findAll({
+      where: {
+        status: 'APPROVED',
+        [Op.or]: [
+          { startDate: { [Op.between]: [startDate, endDate] } },
+          { endDate: { [Op.between]: [startDate, endDate] } },
+          {
+            [Op.and]: [
+              { startDate: { [Op.lte]: startDate } },
+              { endDate: { [Op.gte]: endDate } }
+            ]
+          }
+        ]
+      },
+      include: [
+        {
+          model: User,
+          as: 'employee',
+          attributes: ['id', 'name', 'department'],
+          required: false
+        }
+      ]
+    });
+
+    if (attendances.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: `No attendance data found for ${month}/${year}`
+      });
+    }
+
+    // Generate report
+    const buffer = await generateMonthlyRecapReport(attendances, overtimes, leaveRequests, groupBy);
+
+    // Audit log
+    await AuditLogger.log({
+      userId: req.user.id,
+      action: 'EXPORT',
+      tableName: 'Attendance',
+      recordId: null,
+      newData: { 
+        reportType: 'monthly-recap',
+        month: monthNum,
+        year: yearNum,
+        groupBy,
+        recordCount: attendances.length
+      },
+      ipAddress: req.ip
+    });
+
+    const fileName = `Monthly_Recap_${month}_${year}_${groupBy}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+    return res.send(buffer);
+
+  } catch (error) {
+    console.error('Error generating monthly recap report:', error);
+    next(error);
+  }
+};
+
+/**
+ * C. OVERTIME REPORT
+ * GET /reports/overtime
+ */
+exports.getOvertimeReport = async (req, res, next) => {
+  try {
+    const { startDate, endDate, status, userId, department } = req.query;
+
+    const where = {};
+
+    // Date filter
+    if (startDate && endDate) {
+      where.overtimeDate = { [Op.between]: [new Date(startDate), new Date(endDate)] };
+    } else if (startDate) {
+      where.overtimeDate = { [Op.gte]: new Date(startDate) };
+    } else if (endDate) {
+      where.overtimeDate = { [Op.lte]: new Date(endDate) };
+    }
+
+    // Status filter
+    if (status) {
+      where.status = status;
+    }
+
+    // User filter
+    if (userId) {
+      where.UserId = userId;
+    }
+
+    const overtimes = await Overtime.findAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'employee',
+          attributes: ['id', 'name', 'email', 'position', 'department'],
+          where: department ? { department } : undefined,
+          required: false
+        },
+        {
+          model: User,
+          as: 'approver',
+          attributes: ['id', 'name', 'email'],
+          required: false
+        }
+      ],
+      order: [['overtimeDate', 'DESC']]
+    });
+
+    if (overtimes.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'No overtime data found'
+      });
+    }
+
+    // Generate report
+    const buffer = await generateOvertimeReport(overtimes);
+
+    // Audit log
+    await AuditLogger.log({
+      userId: req.user.id,
+      action: 'EXPORT',
+      tableName: 'Overtimes',
+      recordId: null,
+      newData: { 
+        reportType: 'overtime',
+        recordCount: overtimes.length,
+        filters: { startDate, endDate, status, userId, department }
+      },
+      ipAddress: req.ip
+    });
+
+    const fileName = `Overtime_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+    return res.send(buffer);
+
+  } catch (error) {
+    console.error('Error generating overtime report:', error);
+    next(error);
+  }
+};
+
+/**
+ * D. LEAVE REPORT
+ * GET /reports/leave
+ */
+exports.getLeaveReport = async (req, res, next) => {
+  try {
+    const { startDate, endDate, leaveType, status, userId, department } = req.query;
+
+    const where = {};
+
+    // Date filter
+    if (startDate && endDate) {
+      where[Op.or] = [
+        { startDate: { [Op.between]: [new Date(startDate), new Date(endDate)] } },
+        { endDate: { [Op.between]: [new Date(startDate), new Date(endDate)] } }
+      ];
+    }
+
+    // Leave type filter
+    if (leaveType) {
+      where.leaveType = leaveType;
+    }
+
+    // Status filter
+    if (status) {
+      where.status = status;
+    }
+
+    // User filter
+    if (userId) {
+      where.UserId = userId;
+    }
+
+    const leaveRequests = await LeaveRequest.findAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'employee',
+          attributes: ['id', 'name', 'email', 'position', 'department', 'remainingLeaveQuota', 'annualLeaveQuota'],
+          where: department ? { department } : undefined,
+          required: false
+        },
+        {
+          model: User,
+          as: 'approver',
+          attributes: ['id', 'name', 'email'],
+          required: false
+        }
+      ],
+      order: [['startDate', 'DESC']]
+    });
+
+    if (leaveRequests.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'No leave data found'
+      });
+    }
+
+    // Generate report
+    const buffer = await generateLeaveReport(leaveRequests);
+
+    // Audit log
+    await AuditLogger.log({
+      userId: req.user.id,
+      action: 'EXPORT',
+      tableName: 'LeaveRequests',
+      recordId: null,
+      newData: { 
+        reportType: 'leave',
+        recordCount: leaveRequests.length,
+        filters: { startDate, endDate, leaveType, status, userId, department }
+      },
+      ipAddress: req.ip
+    });
+
+    const fileName = `Leave_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+    return res.send(buffer);
+
+  } catch (error) {
+    console.error('Error generating leave report:', error);
+    next(error);
+  }
+};
+
+/**
+ * E. PAYROLL SUPPORT REPORT
+ * GET /reports/payroll-support
+ */
+exports.getPayrollSupportReport = async (req, res, next) => {
+  try {
+    const { month, year } = req.query;
+
+    if (!month || !year) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Month and year are required'
+      });
+    }
+
+    const monthNum = parseInt(month);
+    const yearNum = parseInt(year);
+
+    if (monthNum < 1 || monthNum > 12) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Month must be between 1 and 12'
+      });
+    }
+
+    const startDate = new Date(yearNum, monthNum - 1, 1);
+    const endDate = new Date(yearNum, monthNum, 0, 23, 59, 59);
+
+    // Fetch all data
+    const attendances = await Attendance.findAll({
+      where: { date: { [Op.between]: [startDate, endDate] } },
+      include: [
+        {
+          model: User,
+          attributes: ['id', 'name', 'email', 'position', 'department'],
+          required: false
+        },
+        {
+          model: Shift,
+          as: 'shift',
+          attributes: ['id', 'name', 'startTime', 'endTime'],
+          required: false
+        }
+      ]
+    });
+
+    const overtimes = await Overtime.findAll({
+      where: { 
+        overtimeDate: { [Op.between]: [startDate, endDate] },
+        status: 'approved'
+      }
+    });
+
+    const leaveRequests = await LeaveRequest.findAll({
+      where: {
+        status: 'APPROVED',
+        [Op.or]: [
+          { startDate: { [Op.between]: [startDate, endDate] } },
+          { endDate: { [Op.between]: [startDate, endDate] } }
+        ]
+      }
+    });
+
+    if (attendances.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'No data found for payroll report'
+      });
+    }
+
+    const period = `${monthNum}/${yearNum}`;
+    const buffer = await generatePayrollSupportReport(attendances, overtimes, leaveRequests, period);
+
+    // Audit log
+    await AuditLogger.log({
+      userId: req.user.id,
+      action: 'EXPORT',
+      tableName: 'Attendance',
+      recordId: null,
+      newData: { 
+        reportType: 'payroll-support',
+        month: monthNum,
+        year: yearNum,
+        recordCount: attendances.length
+      },
+      ipAddress: req.ip
+    });
+
+    const fileName = `Payroll_Support_${month}_${year}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+    return res.send(buffer);
+
+  } catch (error) {
+    console.error('Error generating payroll support report:', error);
+    next(error);
+  }
+};
+
+/**
+ * F. LOCATION & GPS REPORT
+ * GET /reports/location-gps
+ */
+exports.getLocationGPSReport = async (req, res, next) => {
+  try {
+    const { startDate, endDate, validationStatus } = req.query;
+
+    const where = {};
+
+    // Date filter
+    if (startDate && endDate) {
+      where.date = { [Op.between]: [new Date(startDate), new Date(endDate)] };
+    }
+
+    // Only get records with GPS data
+    where[Op.or] = [
+      { clockInLatitude: { [Op.ne]: null } },
+      { clockOutLatitude: { [Op.ne]: null } }
+    ];
+
+    // Validation status filter
+    if (validationStatus) {
+      where.locationValidationStatus = validationStatus;
+    }
+
+    const attendances = await Attendance.findAll({
+      where,
+      include: [
+        {
+          model: User,
+          attributes: ['id', 'name', 'email', 'position', 'department'],
+          required: false
+        },
+        {
+          model: OfficeLocation,
+          as: 'office_location',
+          attributes: ['id', 'name', 'address', 'latitude', 'longitude', 'radius'],
+          required: false
+        }
+      ],
+      order: [['date', 'DESC']]
+    });
+
+    if (attendances.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'No GPS data found'
+      });
+    }
+
+    // Generate report
+    const buffer = await generateLocationGPSReport(attendances);
+
+    // Audit log
+    await AuditLogger.log({
+      userId: req.user.id,
+      action: 'EXPORT',
+      tableName: 'Attendance',
+      recordId: null,
+      newData: { 
+        reportType: 'location-gps',
+        recordCount: attendances.length,
+        filters: { startDate, endDate, validationStatus }
+      },
+      ipAddress: req.ip
+    });
+
+    const fileName = `Location_GPS_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+    return res.send(buffer);
+
+  } catch (error) {
+    console.error('Error generating location GPS report:', error);
+    next(error);
+  }
+};
+
+/**
+ * G. AUDIT LOG REPORT
+ * GET /reports/audit-log
+ */
+exports.getAuditLogReport = async (req, res, next) => {
+  try {
+    const { startDate, endDate, userId, module, action } = req.query;
+
+    const where = {};
+
+    // Date filter
+    if (startDate && endDate) {
+      where.createdAt = { [Op.between]: [new Date(startDate), new Date(endDate)] };
+    }
+
+    // User filter
+    if (userId) {
+      where.userId = userId;
+    }
+
+    // Module filter
+    if (module) {
+      where.tableName = module;
+    }
+
+    // Action filter
+    if (action) {
+      where.action = action;
+    }
+
+    const auditLogs = await AuditLog.findAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'name', 'email', 'role'],
+          required: false
+        }
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: 5000
+    });
+
+    if (auditLogs.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'No audit log data found'
+      });
+    }
+
+    // Generate report
+    const buffer = await generateAuditLogReport(auditLogs);
+
+    // Audit log (recursive, tapi penting)
+    await AuditLogger.log({
+      userId: req.user.id,
+      action: 'EXPORT',
+      tableName: 'AuditLogs',
+      recordId: null,
+      newData: { 
+        reportType: 'audit-log',
+        recordCount: auditLogs.length,
+        filters: { startDate, endDate, userId, module, action }
+      },
+      ipAddress: req.ip
+    });
+
+    const fileName = `Audit_Log_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+    return res.send(buffer);
+
+  } catch (error) {
+    console.error('Error generating audit log report:', error);
+    next(error);
+  }
+};
+
+/**
+ * H. COMPLIANCE / VIOLATION REPORT
+ * GET /reports/compliance
+ */
+exports.getComplianceReport = async (req, res, next) => {
+  try {
+    const { startDate, endDate, department } = req.query;
+
+    const where = {};
+
+    // Date filter
+    if (startDate && endDate) {
+      where.date = { [Op.between]: [new Date(startDate), new Date(endDate)] };
+    }
+
+    const attendances = await Attendance.findAll({
+      where,
+      include: [
+        {
+          model: User,
+          attributes: ['id', 'name', 'email', 'position', 'department'],
+          where: department ? { department } : undefined,
+          required: false
+        },
+        {
+          model: OfficeLocation,
+          as: 'office_location',
+          attributes: ['id', 'name'],
+          required: false
+        }
+      ],
+      order: [['date', 'DESC']]
+    });
+
+    if (attendances.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'No data found for compliance report'
+      });
+    }
+
+    // Generate report
+    const buffer = await generateComplianceReport(attendances);
+
+    // Audit log
+    await AuditLogger.log({
+      userId: req.user.id,
+      action: 'EXPORT',
+      tableName: 'Attendance',
+      recordId: null,
+      newData: { 
+        reportType: 'compliance-violation',
+        recordCount: attendances.length,
+        filters: { startDate, endDate, department }
+      },
+      ipAddress: req.ip
+    });
+
+    const fileName = `Compliance_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+    return res.send(buffer);
+
+  } catch (error) {
+    console.error('Error generating compliance report:', error);
+    next(error);
+  }
+};
+
+/**
+ * GET REPORT METADATA / PREVIEW
+ * GET /reports/metadata
+ */
+exports.getReportMetadata = async (req, res, next) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    const where = {};
+    if (startDate && endDate) {
+      where.date = { [Op.between]: [new Date(startDate), new Date(endDate)] };
+    }
+
+    const [
+      totalAttendances,
+      totalOvertimes,
+      totalLeaves,
+      totalDepartments,
+      totalEmployees
+    ] = await Promise.all([
+      Attendance.count({ where }),
+      Overtime.count({
+        where: startDate && endDate ? {
+          overtimeDate: { [Op.between]: [new Date(startDate), new Date(endDate)] }
+        } : {}
+      }),
+      LeaveRequest.count({
+        where: startDate && endDate ? {
+          startDate: { [Op.between]: [new Date(startDate), new Date(endDate)] }
+        } : {}
+      }),
+      User.count({
+        distinct: true,
+        col: 'department',
+        where: { department: { [Op.ne]: null } }
+      }),
+      User.count({ where: { isActive: true } })
+    ]);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Report metadata retrieved successfully',
+      data: {
+        period: { startDate, endDate },
+        summary: {
+          totalAttendances,
+          totalOvertimes,
+          totalLeaves,
+          totalDepartments,
+          totalEmployees
+        },
+        availableReports: [
+          { id: 'attendance', name: 'Attendance Report', icon: '📊' },
+          { id: 'monthly-recap', name: 'Monthly Recap', icon: '📅' },
+          { id: 'overtime', name: 'Overtime Report', icon: '⏰' },
+          { id: 'leave', name: 'Leave Report', icon: '🏖️' },
+          { id: 'payroll-support', name: 'Payroll Support', icon: '💰' },
+          { id: 'location-gps', name: 'Location & GPS', icon: '📍' },
+          { id: 'audit-log', name: 'Audit Log', icon: '🔒' },
+          { id: 'compliance', name: 'Compliance', icon: '⚠️' }
+        ]
+      }
+    });
+
+  } catch (error) {
+    console.error('Error getting report metadata:', error);
+    next(error);
   }
 };
