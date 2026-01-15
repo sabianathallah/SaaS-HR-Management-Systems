@@ -58,6 +58,8 @@ const AttendanceManagement = () => {
       ]);
 
       console.log('📊 Attendance Data Sample:', attendanceRes.data.data[0]); // Debug log
+      console.log('📊 office_location field:', attendanceRes.data.data[0]?.office_location);
+      console.log('📊 OfficeLocation field:', attendanceRes.data.data[0]?.OfficeLocation);
 
       setAttendances(attendanceRes.data.data || []);
       setEmployees(employeeRes.data.data || []);
@@ -573,12 +575,18 @@ const AttendanceManagement = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {attendance.officeLocation?.name || 'N/A'}
-                        {attendance.officeLocation && (
-                          <div className="text-xs text-gray-400">
-                            {attendance.officeLocation.address}
-                          </div>
-                        )}
+                        {(() => {
+                          const office = attendance.office_location || attendance.OfficeLocation || attendance.officeLocation;
+                          return office?.name || 'N/A';
+                        })()}
+                        {(() => {
+                          const office = attendance.office_location || attendance.OfficeLocation || attendance.officeLocation;
+                          return office && (
+                            <div className="text-xs text-gray-400">
+                              {office.address}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         {attendance.distanceFromOffice ? (
@@ -906,7 +914,10 @@ const AttendanceManagement = () => {
                   <div className="text-sm">
                     <span className="text-gray-600">Office:</span>
                     <span className="ml-2 font-medium">
-                      {selectedAttendance.officeLocation?.name || 'N/A'}
+                      {(() => {
+                        const office = selectedAttendance.office_location || selectedAttendance.OfficeLocation || selectedAttendance.officeLocation;
+                        return office?.name || 'N/A';
+                      })()}
                     </span>
                   </div>
                   <a
