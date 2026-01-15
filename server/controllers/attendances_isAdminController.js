@@ -1,4 +1,4 @@
-const { Attendance, User, WorkSchedule, Holiday, Notification } = require('../models');
+const { Attendance, User, WorkSchedule, Holiday, Notification, OfficeLocation } = require('../models');
 const { Op } = require('sequelize');
 const { getTodayRange } = require('../helpers/utils');
 const { 
@@ -16,10 +16,16 @@ class AttendanceAdminController {
   static async getAllAttendance(req, res, next) {
     try {
       const attendances = await Attendance.findAll({
-        include: [{
-          model: User,
-          attributes: ['id', 'name', 'email']
-        }],
+        include: [
+          {
+            model: User,
+            attributes: ['id', 'name', 'email']
+          },
+          {
+            model: OfficeLocation,
+            attributes: ['id', 'name', 'address', 'latitude', 'longitude']
+          }
+        ],
         order: [['date', 'DESC']]
       });
       
@@ -50,10 +56,16 @@ class AttendanceAdminController {
       
       const attendances = await Attendance.findAll({
         where: whereClause,
-        include: [{
-          model: User,
-          attributes: ['id', 'name', 'email']
-        }]
+        include: [
+          {
+            model: User,
+            attributes: ['id', 'name', 'email']
+          },
+          {
+            model: OfficeLocation,
+            attributes: ['id', 'name', 'address', 'latitude', 'longitude']
+          }
+        ]
       });
       
       res.status(200).json({ 
