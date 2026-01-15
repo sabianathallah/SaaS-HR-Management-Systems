@@ -12,7 +12,7 @@ describe('Attendance Employee Endpoints', () => {
       .post('/login')
       .send({
         email: 'budi@company.com',
-        password: 'budi123'
+        password: 'password123'
       });
     employeeToken = employeeLogin.body.access_token;
 
@@ -96,12 +96,10 @@ describe('Attendance Employee Endpoints', () => {
 
     it('should return 400 without photo', async () => {
       const response = await request(app)
-        .post('/attendances/clock-out')
+        .put('/attendances/clock-out')
         .set('Authorization', `Bearer ${employeeToken}`)
-        .send({
-          latitude: '-6.200000',
-          longitude: '106.816666'
-        });
+        .field('latitude', '-6.200000')
+        .field('longitude', '106.816666');
 
       expect(response.status).toBe(400);
     });

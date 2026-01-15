@@ -26,7 +26,10 @@ app.use(router)
 
 // Setup cron jobs for auto set absent
 // Uncomment the line below to enable automatic absent marking
-setupCronJobs()
+// Only run cron jobs if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  setupCronJobs()
+}
 
 
 module.exports = app

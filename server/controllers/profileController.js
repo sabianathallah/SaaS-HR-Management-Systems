@@ -33,6 +33,11 @@ class ProfileController {
             const userId = req.user.id
             const { name } = req.body
 
+            // Validate name
+            if (name !== undefined && name.trim() === '') {
+                throw { name: "BadRequest", message: "Name cannot be empty" }
+            }
+
             const user = await User.findByPk(userId)
             if (!user) {
                 throw { name: "NotFound", message: "User not found" }

@@ -10,14 +10,15 @@
     "id": 2,
     "name": "Budi Santoso",
     "email": "budi@company.com",
-    "password": "budi123",
+    "password": "password123",
     "role": "EMPLOYEE"
   },
   {
     "id": 3,
     "name": "Ani Wijaya",
     "email": "ani@company.com",
-    "password": "ani123",
+    "password": "password123",
     "role": "EMPLOYEE"
   }
 ]
+

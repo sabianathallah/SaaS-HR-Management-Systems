@@ -20,7 +20,7 @@ describe('User Admin Endpoints', () => {
       .post('/login')
       .send({
         email: 'budi@company.com',
-        password: 'budi123'
+        password: 'password123'
       });
     employeeToken = employeeLogin.body.access_token;
   });
@@ -32,8 +32,8 @@ describe('User Admin Endpoints', () => {
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('users');
-      expect(Array.isArray(response.body.users)).toBe(true);
+      expect(response.body).toHaveProperty('data');
+      expect(Array.isArray(response.body.data)).toBe(true);
     });
 
     it('should support pagination', async () => {
@@ -95,10 +95,10 @@ describe('User Admin Endpoints', () => {
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('user');
-      expect(response.body.user).toHaveProperty('id');
-      expect(response.body.user).toHaveProperty('email');
-      expect(response.body.user).toHaveProperty('name');
+      expect(response.body).toHaveProperty('data');
+      expect(response.body.data).toHaveProperty('id');
+      expect(response.body.data).toHaveProperty('email');
+      expect(response.body.data).toHaveProperty('name');
     });
 
     it('should return 404 for non-existent user', async () => {

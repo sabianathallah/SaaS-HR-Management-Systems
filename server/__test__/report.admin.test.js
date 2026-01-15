@@ -20,7 +20,7 @@ describe('Report Admin Endpoints', () => {
       .post('/login')
       .send({
         email: 'budi@company.com',
-        password: 'budi123'
+        password: 'password123'
       });
     employeeToken = employeeLogin.body.access_token;
   });
