@@ -113,6 +113,33 @@ export default function EmployeePage() {
     return errorMessage
   }
 
+  // Fetch profile saat komponen pertama kali dimuat
+  useEffect(() => {
+    const token = localStorage.getItem('access_token')
+    if (!token) {
+      navigate('/login')
+      return
+    }
+    
+    // Fetch profile data saat pertama kali load untuk menampilkan nama user
+    const fetchInitialProfile = async () => {
+      try {
+        const { data } = await axios.get(`${baseUrl}/profile`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        setProfile(data.data || profile)
+        setProfileForm({ name: data.data?.name || '' })
+      } catch (error) {
+        console.error('Error fetching profile:', error)
+        // Set default profile from localStorage if available
+        const userEmail = localStorage.getItem('user_email') || 'employee@example.com'
+        setProfile({ ...profile, email: userEmail })
+      }
+    }
+    
+    fetchInitialProfile()
+  }, [navigate])
+
   // Fetch data when component mounts or tab changes
   useEffect(() => {
     const token = localStorage.getItem('access_token')

@@ -93,7 +93,7 @@ const AdminDashboard = () => {
       const allAtt = allAttendanceRes.data.data || [];
       const leaveReqs = leaveRequestsRes.data.data || [];
       const overtimeReqs = overtimeRes.data.data || [];
-      const auditLogs = auditLogsRes.data.data || [];
+      const auditLogs = Array.isArray(auditLogsRes.data.data) ? auditLogsRes.data.data : [];
 
       // Calculate KPI stats
       const activeEmployees = employees.filter(e => e.isActive).length;
