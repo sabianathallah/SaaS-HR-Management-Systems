@@ -68,6 +68,11 @@ const isLateClockIn = async (clockInTime, userId = null, shift = null) => {
  * @returns {String} Status final (ON_TIME atau LATE)
  */
 const determineFinalStatus = async (clockInTime, userId = null, shift = null) => {
+  // Jika shift flexible, selalu ON_TIME (tidak ada keterlambatan)
+  if (shift && shift.isFlexible) {
+    return Attendance.ATTENDANCE_STATUS.ON_TIME;
+  }
+  
   const isLate = await isLateClockIn(clockInTime, userId, shift);
   return isLate 
     ? Attendance.ATTENDANCE_STATUS.LATE 

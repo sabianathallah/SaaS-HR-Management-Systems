@@ -102,6 +102,10 @@ class AttendanceController {
             distance: locationValidation.distance,
             message: locationValidation.message
           });
+          
+          // Jika di luar radius, JANGAN set officeLocationId
+          // Biarkan null agar tidak menampilkan nama kantor
+          locationValidation.officeLocationId = null;
         }
       }
       
@@ -131,16 +135,46 @@ class AttendanceController {
       });
 
       // Include office location info in response
-      const responseData = {
-        ...newAttendance.toJSON(),
-        locationInfo: isFlexibleShift ? {
+      let locationInfo;
+      
+      if (isFlexibleShift) {
+        locationInfo = {
           message: 'WFH/Flexible shift - location not required'
-        } : {
+        };
+      } else if (locationValidation.isValid && locationValidation.officeLocationId) {
+        // Jika di dalam radius kantor
+        locationInfo = {
+          type: 'office',
           validationStatus: locationValidation.status,
           message: locationValidation.message,
           distance: locationValidation.distance ? `${Math.round(locationValidation.distance)}m` : null,
-          officeName: locationValidation.nearestOffice?.name
-        }
+          officeName: locationValidation.nearestOffice?.name,
+          officeAddress: locationValidation.nearestOffice?.address
+        };
+      } else if (latitude && longitude) {
+        // Jika di luar radius (punya koordinat tapi tidak valid)
+        locationInfo = {
+          type: 'remote',
+          validationStatus: locationValidation.status,
+          message: locationValidation.message || 'Clock-in from remote location',
+          distance: locationValidation.distance ? `${Math.round(locationValidation.distance)}m from nearest office` : null,
+          coordinates: {
+            latitude: parseFloat(latitude),
+            longitude: parseFloat(longitude)
+          },
+          googleMapsUrl: `https://www.google.com/maps?q=${latitude},${longitude}`,
+          warning: 'Outside office radius - may require admin approval'
+        };
+      } else {
+        locationInfo = {
+          type: 'unknown',
+          message: 'No location data available'
+        };
+      }
+
+      const responseData = {
+        ...newAttendance.toJSON(),
+        locationInfo
       };
 
       // Log to audit
@@ -237,7 +271,8 @@ class AttendanceController {
       // Update record dengan clock-out time, status final, dan foto
       const clockOutTime = new Date();
       attendance.clockOut = clockOutTime;
-      attendance.status = await determineFinalStatus(attendance.clockIn);
+      // Pass userId dan shift agar bisa cek apakah flexible shift
+      attendance.status = await determineFinalStatus(attendance.clockIn, userId, attendance.shift);
       attendance.photoCheckOut = req.photoInfo.relativePath;
       
       // Save GPS data for clock-out (if provided)
@@ -250,6 +285,49 @@ class AttendanceController {
       
       // Hitung durasi kerja
       const workDuration = calculateWorkDuration(attendance.clockIn, clockOutTime);
+
+      // Prepare location info for response
+      let clockOutLocationInfo = null;
+      if (latitude && longitude) {
+        clockOutLocationInfo = {
+          coordinates: {
+            latitude: parseFloat(latitude),
+            longitude: parseFloat(longitude)
+          },
+          googleMapsUrl: `https://www.google.com/maps?q=${latitude},${longitude}`,
+          message: 'Clock-out location recorded'
+        };
+      }
+
+      // Prepare clock-in location info for reference
+      let clockInLocationInfo = null;
+      if (attendance.officeLocationId) {
+        // Clock-in dari kantor
+        const officeLocation = await OfficeLocation.findByPk(attendance.officeLocationId);
+        if (officeLocation) {
+          clockInLocationInfo = {
+            type: 'office',
+            officeName: officeLocation.name,
+            officeAddress: officeLocation.address,
+            coordinates: {
+              latitude: attendance.clockInLatitude,
+              longitude: attendance.clockInLongitude
+            },
+            googleMapsUrl: `https://www.google.com/maps?q=${attendance.clockInLatitude},${attendance.clockInLongitude}`
+          };
+        }
+      } else if (attendance.clockInLatitude && attendance.clockInLongitude) {
+        // Clock-in dari lokasi remote
+        clockInLocationInfo = {
+          type: 'remote',
+          message: 'Clocked-in from remote location',
+          coordinates: {
+            latitude: attendance.clockInLatitude,
+            longitude: attendance.clockInLongitude
+          },
+          googleMapsUrl: `https://www.google.com/maps?q=${attendance.clockInLatitude},${attendance.clockInLongitude}`
+        };
+      }
 
       // Log to audit
       await AuditLogger.logUpdate(
@@ -269,6 +347,10 @@ class AttendanceController {
           ...attendance.toJSON(),
           workDurationHours: workDuration
         },
+        locationInfo: {
+          clockIn: clockInLocationInfo,
+          clockOut: clockOutLocationInfo
+        },
         photoInfo: {
           uploaded: true,
           path: req.photoInfo.relativePath,
@@ -287,12 +369,88 @@ class AttendanceController {
       
       const attendances = await Attendance.findAll({
         where: { UserId: userId },
+        include: [{
+          model: OfficeLocation,
+          as: 'office_location',  // Harus sesuai dengan alias di model
+          attributes: ['id', 'name', 'address', 'latitude', 'longitude']
+        }],
         order: [['date', 'DESC']]
+      });
+
+      // Enrich attendance data with location info
+      const enrichedAttendances = attendances.map(attendance => {
+        const attendanceData = attendance.toJSON();
+        
+        // Clock-in location info
+        let clockInLocationInfo = null;
+        if (attendanceData.office_location) {  // Sesuaikan dengan alias
+          clockInLocationInfo = {
+            type: 'office',
+            officeName: attendanceData.office_location.name,
+            officeAddress: attendanceData.office_location.address,
+            coordinates: {
+              latitude: attendanceData.clockInLatitude,
+              longitude: attendanceData.clockInLongitude
+            },
+            googleMapsUrl: attendanceData.clockInLatitude && attendanceData.clockInLongitude 
+              ? `https://www.google.com/maps?q=${attendanceData.clockInLatitude},${attendanceData.clockInLongitude}`
+              : null,
+            displayText: attendanceData.office_location.name
+          };
+        } else if (attendanceData.clockInLatitude && attendanceData.clockInLongitude) {
+          const lat = parseFloat(attendanceData.clockInLatitude);
+          const lng = parseFloat(attendanceData.clockInLongitude);
+          clockInLocationInfo = {
+            type: 'remote',
+            message: 'Clocked-in from remote location',
+            coordinates: {
+              latitude: lat,
+              longitude: lng
+            },
+            googleMapsUrl: `https://www.google.com/maps?q=${lat},${lng}`,
+            displayText: `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+          };
+        } else {
+          clockInLocationInfo = {
+            type: 'unknown',
+            message: 'No location data available',
+            displayText: 'N/A'
+          };
+        }
+
+        // Clock-out location info
+        let clockOutLocationInfo = null;
+        if (attendanceData.clockOutLatitude && attendanceData.clockOutLongitude) {
+          const lat = parseFloat(attendanceData.clockOutLatitude);
+          const lng = parseFloat(attendanceData.clockOutLongitude);
+          clockOutLocationInfo = {
+            coordinates: {
+              latitude: lat,
+              longitude: lng
+            },
+            googleMapsUrl: `https://www.google.com/maps?q=${lat},${lng}`,
+            displayText: `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+          };
+        } else {
+          clockOutLocationInfo = {
+            type: 'unknown',
+            message: 'Not clocked out yet or no location data',
+            displayText: 'N/A'
+          };
+        }
+
+        return {
+          ...attendanceData,
+          locationInfo: {
+            clockIn: clockInLocationInfo,
+            clockOut: clockOutLocationInfo
+          }
+        };
       });
       
       res.status(200).json({ 
         message: "My attendance records",
-        data: attendances
+        data: enrichedAttendances
       });
 
     } catch (error) {
@@ -311,7 +469,12 @@ class AttendanceController {
           date: {
             [Op.between]: [startOfDay, endOfDay]
           }
-        }
+        },
+        include: [{
+          model: OfficeLocation,
+          as: 'office_location',  // Harus sesuai dengan alias di model
+          attributes: ['id', 'name', 'address', 'latitude', 'longitude']
+        }]
       });
       
       if (!attendance) {
@@ -326,12 +489,77 @@ class AttendanceController {
       if (attendance.status !== Attendance.ATTENDANCE_STATUS.ON_PROGRESS) {
         workDuration = calculateWorkDuration(attendance.clockIn, attendance.clockOut);
       }
+
+      const attendanceData = attendance.toJSON();
+
+      // Clock-in location info
+      let clockInLocationInfo = null;
+      if (attendanceData.office_location) {  // Sesuaikan dengan alias
+        clockInLocationInfo = {
+          type: 'office',
+          officeName: attendanceData.office_location.name,
+          officeAddress: attendanceData.office_location.address,
+          coordinates: {
+            latitude: attendanceData.clockInLatitude,
+            longitude: attendanceData.clockInLongitude
+          },
+          googleMapsUrl: attendanceData.clockInLatitude && attendanceData.clockInLongitude 
+            ? `https://www.google.com/maps?q=${attendanceData.clockInLatitude},${attendanceData.clockInLongitude}`
+            : null,
+          displayText: attendanceData.office_location.name // Untuk ditampilkan di UI
+        };
+      } else if (attendanceData.clockInLatitude && attendanceData.clockInLongitude) {
+        const lat = parseFloat(attendanceData.clockInLatitude);
+        const lng = parseFloat(attendanceData.clockInLongitude);
+        clockInLocationInfo = {
+          type: 'remote',
+          message: 'Clocked-in from remote location',
+          coordinates: {
+            latitude: lat,
+            longitude: lng
+          },
+          googleMapsUrl: `https://www.google.com/maps?q=${lat},${lng}`,
+          displayText: `${lat.toFixed(6)}, ${lng.toFixed(6)}` // Tampilkan koordinat
+        };
+      } else {
+        // Fallback jika tidak ada data lokasi sama sekali
+        clockInLocationInfo = {
+          type: 'unknown',
+          message: 'No location data available',
+          displayText: 'N/A'
+        };
+      }
+
+      // Clock-out location info
+      let clockOutLocationInfo = null;
+      if (attendanceData.clockOutLatitude && attendanceData.clockOutLongitude) {
+        const lat = parseFloat(attendanceData.clockOutLatitude);
+        const lng = parseFloat(attendanceData.clockOutLongitude);
+        clockOutLocationInfo = {
+          coordinates: {
+            latitude: lat,
+            longitude: lng
+          },
+          googleMapsUrl: `https://www.google.com/maps?q=${lat},${lng}`,
+          displayText: `${lat.toFixed(6)}, ${lng.toFixed(6)}` // Tampilkan koordinat
+        };
+      } else {
+        clockOutLocationInfo = {
+          type: 'unknown',
+          message: 'Not clocked out yet or no location data',
+          displayText: 'N/A'
+        };
+      }
       
       res.status(200).json({ 
         message: "Today's attendance record",
         data: {
-          ...attendance.toJSON(),
-          workDurationHours: workDuration
+          ...attendanceData,
+          workDurationHours: workDuration,
+          locationInfo: {
+            clockIn: clockInLocationInfo,
+            clockOut: clockOutLocationInfo
+          }
         }
       });
 

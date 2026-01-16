@@ -906,6 +906,27 @@ export default function EmployeePage() {
                   {new Date(todayAttendance.clockIn).toLocaleTimeString('id-ID')}
                 </span>
               </div>
+
+              {/* Clock-in Location */}
+              {todayAttendance.locationInfo?.clockIn && (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Lokasi Clock In:</span>
+                  {todayAttendance.locationInfo.clockIn.googleMapsUrl ? (
+                    <a 
+                      href={todayAttendance.locationInfo.clockIn.googleMapsUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                      📍 {todayAttendance.locationInfo.clockIn.displayText}
+                    </a>
+                  ) : (
+                    <span className="text-gray-400 italic">
+                      {todayAttendance.locationInfo.clockIn.displayText}
+                    </span>
+                  )}
+                </div>
+              )}
               
               {todayAttendance.clockOut ? (
                 <>
@@ -915,6 +936,22 @@ export default function EmployeePage() {
                       {new Date(todayAttendance.clockOut).toLocaleTimeString('id-ID')}
                     </span>
                   </div>
+
+                  {/* Clock-out Location */}
+                  {todayAttendance.locationInfo?.clockOut?.googleMapsUrl && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Lokasi Clock Out:</span>
+                      <a 
+                        href={todayAttendance.locationInfo.clockOut.googleMapsUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        📍 {todayAttendance.locationInfo.clockOut.displayText}
+                      </a>
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Durasi Kerja:</span>
                     <span className="font-semibold text-blue-600">
