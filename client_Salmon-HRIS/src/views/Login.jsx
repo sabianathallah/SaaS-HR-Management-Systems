@@ -11,6 +11,7 @@ export default function Login() {
 
   const[email, setEmail] = useState("")
   const[password, setPassword] = useState("")
+  const[showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
 
   async function handleLogin(event) {
@@ -130,14 +131,23 @@ export default function Login() {
               <label className="block text-amber-900 font-semibold mb-2" htmlFor="password">
                 Password
               </label>
-              <input
-                className="w-full px-4 py-3 rounded-lg border-2 border-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all"
-                type="password"
-                id="password"
-                placeholder="Masukkan password Anda"
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <div className="relative">
+                <input
+                  className="w-full px-4 py-3 rounded-lg border-2 border-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all pr-12"
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  placeholder="Masukkan password Anda"
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-amber-600 hover:text-amber-800 text-xl"
+                >
+                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                </button>
+              </div>
             </div>
 
             <Button nameProp="Masuk" type="submit" variant="primary" />

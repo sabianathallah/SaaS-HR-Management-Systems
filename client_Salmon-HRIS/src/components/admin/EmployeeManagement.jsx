@@ -17,6 +17,7 @@ const EmployeeManagement = () => {
     name: '',
     email: '',
     password: '',
+    confirmPassword: '',
     phoneNumber: '',
     role: 'EMPLOYEE',
     position: '',
@@ -24,6 +25,9 @@ const EmployeeManagement = () => {
     joinDate: '',
     isActive: true,
   });
+  
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     fetchEmployees();
@@ -81,6 +85,12 @@ const EmployeeManagement = () => {
       return;
     }
     
+    // Validate password confirmation
+    if (formData.password !== formData.confirmPassword) {
+      alert('⚠️ Password dan konfirmasi password tidak cocok!');
+      return;
+    }
+    
     // Check if email already exists in current employee list
     const emailExists = employees.some(emp => 
       emp.email.toLowerCase() === formData.email.toLowerCase()
@@ -93,9 +103,11 @@ const EmployeeManagement = () => {
     
     try {
       const token = localStorage.getItem('access_token');
+      // Don't send confirmPassword to API
+      const { confirmPassword, ...dataToSend } = formData;
       await axios.post(
         `${import.meta.env.VITE_BASE_URL}/register`,
-        formData,
+        dataToSend,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -129,6 +141,12 @@ const EmployeeManagement = () => {
       return;
     }
     
+    // Validate password confirmation if password is being changed
+    if (formData.password && formData.password !== formData.confirmPassword) {
+      alert('⚠️ Password dan konfirmasi password tidak cocok!');
+      return;
+    }
+    
     // Check if email already exists in other employees (exclude current employee)
     const emailExists = employees.some(emp => 
       emp.email.toLowerCase() === formData.email.toLowerCase() && 
@@ -142,9 +160,11 @@ const EmployeeManagement = () => {
     
     try {
       const token = localStorage.getItem('access_token');
+      // Don't send confirmPassword to API
+      const { confirmPassword, ...dataToSend } = formData;
       await axios.put(
         `${import.meta.env.VITE_BASE_URL}/users/admin/${selectedEmployee.id}`,
-        formData,
+        dataToSend,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -196,6 +216,7 @@ const EmployeeManagement = () => {
       name: employee.name,
       email: employee.email,
       password: '',
+      confirmPassword: '',
       phoneNumber: employee.phoneNumber || '',
       role: employee.role,
       position: employee.position || '',
@@ -211,6 +232,7 @@ const EmployeeManagement = () => {
       name: '',
       email: '',
       password: '',
+      confirmPassword: '',
       phoneNumber: '',
       role: 'EMPLOYEE',
       position: '',
@@ -219,6 +241,8 @@ const EmployeeManagement = () => {
       isActive: true,
     });
     setSelectedEmployee(null);
+    setShowPassword(false);
+    setShowConfirmPassword(false);
   };
 
   const handleExportCSV = () => {
@@ -435,14 +459,53 @@ const EmployeeManagement = () => {
 
           {/* Row 2: Password & Phone */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormInput
-              label="Password"
-              type="password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              required
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Password *
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                </button>
+              </div>
+            </div>
             
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Confirm Password *
+              </label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={formData.confirmPassword}
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 3: Phone Number */}
+          <div className="grid grid-cols-1 gap-4">
             <FormInput
               label="Phone Number"
               type="text"
@@ -451,7 +514,7 @@ const EmployeeManagement = () => {
             />
           </div>
 
-          {/* Row 3: Position & Department */}
+          {/* Row 4: Position & Department */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormInput
               label="Position"
@@ -468,7 +531,7 @@ const EmployeeManagement = () => {
             />
           </div>
 
-          {/* Row 4: Role & Join Date */}
+          {/* Row 5: Role & Join Date */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormSelect
               label="Role"
@@ -534,15 +597,53 @@ const EmployeeManagement = () => {
             />
           </div>
 
-          {/* Row 2: Password & Phone */}
+          {/* Row 2: Password & Confirm Password */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormInput
-              label="New Password (leave empty to keep current)"
-              type="password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                New Password (leave empty to keep current)
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                </button>
+              </div>
+            </div>
             
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Confirm New Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={formData.confirmPassword}
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 3: Phone Number */}
+          <div className="grid grid-cols-1 gap-4">
             <FormInput
               label="Phone Number"
               type="text"
@@ -551,7 +652,7 @@ const EmployeeManagement = () => {
             />
           </div>
 
-          {/* Row 3: Position & Department */}
+          {/* Row 4: Position & Department */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormInput
               label="Position"
@@ -568,7 +669,7 @@ const EmployeeManagement = () => {
             />
           </div>
 
-          {/* Row 4: Role & Join Date */}
+          {/* Row 5: Role & Join Date */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormSelect
               label="Role"
