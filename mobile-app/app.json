@@ -1,0 +1,67 @@
+{
+  "expo": {
+    "name": "Salmon HRIS Mobile",
+    "slug": "salmon-hris-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "salmon-hris",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.salmon.hris",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app requires camera access for attendance photo capture.",
+        "NSLocationWhenInUseUsageDescription": "This app requires location access for attendance tracking."
+      }
+    },
+    "android": {
+      "package": "com.salmon.hris",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO"
+      ]
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "extra": {
+      "apiUrl": "http://192.168.1.20:3000"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera for attendance photo",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location for attendance tracking",
+          "isIosBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos for uploading attachments."
+        }
+      ],
+      [
+        "expo-document-picker"
+      ]
+    ],
+    "experiments": {
+      "tsconfigPaths": true
+    }
+  }
+}
