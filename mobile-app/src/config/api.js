@@ -3,7 +3,11 @@ import Constants from 'expo-constants';
 // API Configuration - prioritize app.json extra.apiUrl
 const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.1.20:3000';
 
+console.log('🔧 ========== API CONFIGURATION ==========');
 console.log('🔧 API_BASE_URL:', API_BASE_URL);
+console.log('🔧 From expo config:', Constants.expoConfig?.extra?.apiUrl);
+console.log('🔧 Platform:', Constants.platform);
+console.log('🔧 ========================================');
 
 export default {
   API_BASE_URL,

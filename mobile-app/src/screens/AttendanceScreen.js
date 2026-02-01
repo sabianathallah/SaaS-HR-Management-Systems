@@ -34,7 +34,8 @@ export default function AttendanceScreen({ navigation }) {
     setLoading(true);
     try {
       const response = await attendanceService.getAttendanceHistory();
-      if (response.success) {
+      // Backend returns {data, message} not {success, data}
+      if (response.data) {
         setAttendanceHistory(response.data || []);
       }
     } catch (error) {
@@ -52,7 +53,8 @@ export default function AttendanceScreen({ navigation }) {
         statisticsMonth,
         statisticsYear
       );
-      if (response.success) {
+      // Backend returns {data, message} not {success, data}
+      if (response.data) {
         setAttendanceStatistics(response.data);
       }
     } catch (error) {

@@ -60,10 +60,11 @@ export default function LeaveScreen() {
         leaveService.getLeaveBalance(),
       ]);
 
-      if (requestsRes.success) {
+      // Backend returns {data, message} not {success, data}
+      if (requestsRes.data) {
         setLeaveRequests(requestsRes.data || []);
       }
-      if (balanceRes.success) {
+      if (balanceRes.data) {
         setLeaveBalance(balanceRes.data);
       }
     } catch (error) {
@@ -77,7 +78,8 @@ export default function LeaveScreen() {
     setLoading(true);
     try {
       const response = await overtimeService.getOvertimeRequests();
-      if (response.success) {
+      // Backend returns {data, message} not {success, data}
+      if (response.data) {
         setOvertimeRequests(response.data || []);
       }
     } catch (error) {
@@ -90,7 +92,8 @@ export default function LeaveScreen() {
   const fetchOvertimeHistory = async () => {
     try {
       const response = await overtimeService.getOvertimeHistory();
-      if (response.success) {
+      // Backend returns {data, message} not {success, data}
+      if (response.data) {
         setOvertimeHistory(response.data || []);
       }
     } catch (error) {
@@ -147,7 +150,8 @@ export default function LeaveScreen() {
         leaveForm.attachment
       );
 
-      if (response.success) {
+      // Backend returns {data, message} not {success, data}
+      if (response.data || response.message) {
         Alert.alert('Berhasil', 'Pengajuan cuti/izin berhasil dikirim');
         setShowLeaveForm(false);
         setLeaveForm({
@@ -207,7 +211,8 @@ export default function LeaveScreen() {
         overtimeForm.reason
       );
 
-      if (response.success) {
+      // Backend returns {data, message} not {success, data}
+      if (response.data || response.message) {
         Alert.alert('Berhasil', 'Pengajuan overtime berhasil dikirim');
         setShowOvertimeForm(false);
         setOvertimeForm({

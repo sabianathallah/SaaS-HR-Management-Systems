@@ -27,22 +27,36 @@ export default function DashboardScreen({ navigation }) {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
+      console.log('📱 DashboardScreen: Fetching dashboard data...');
+      
       const [attendanceRes, notifRes] = await Promise.all([
         attendanceService.getTodayAttendance(),
         notificationService.getNotifications('all'),
       ]);
 
-      if (attendanceRes.success) {
+      console.log('📱 DashboardScreen: Attendance response:', attendanceRes);
+      console.log('📱 DashboardScreen: Notifications response:', notifRes);
+
+      // Backend returns {data, message} not {success, data}
+      if (attendanceRes.data) {
+        console.log('✅ DashboardScreen: Attendance data:', attendanceRes.data);
         setTodayAttendance(attendanceRes.data);
+      } else {
+        console.log('⚠️ DashboardScreen: No attendance data');
       }
 
-      if (notifRes.success) {
+      // Backend returns {data, message, meta} not {success, data}
+      if (notifRes.data) {
         const allNotifs = notifRes.data || [];
+        console.log('✅ DashboardScreen: Notifications count:', allNotifs.length);
         setNotifications(allNotifs.slice(0, 5));
         setUnreadCount(allNotifs.filter(n => !n.isRead).length);
+      } else {
+        console.log('⚠️ DashboardScreen: No notifications data');
       }
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+      console.error('❌ DashboardScreen: Error fetching data:', error);
+      console.error('❌ DashboardScreen: Error details:', error.response?.data || error.message);
     } finally {
       setLoading(false);
     }

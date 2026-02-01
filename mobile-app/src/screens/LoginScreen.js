@@ -29,31 +29,49 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
 
     setLoading(true);
     try {
-      console.log('🔐 Attempting login with:', email);
+      console.log('🔐 LoginScreen: Attempting login...');
+      console.log('🔐 Email:', email);
+      
       const response = await authService.login(email, password);
       
-      console.log('✅ Login response:', response);
+      console.log('✅ LoginScreen: Login response received');
+      console.log('✅ Response keys:', Object.keys(response));
+      console.log('✅ Has access_token:', !!response.access_token);
+      console.log('✅ Has user:', !!response.user);
       
       // Backend returns: { access_token, user }
       if (response.access_token && response.user) {
+        console.log('💾 LoginScreen: Saving token and user...');
+        
         // Save token and user data
         await storageService.saveToken(response.access_token);
         await storageService.saveUser(response.user);
         
-        console.log('✅ Saved token and user');
+        console.log('✅ LoginScreen: Token and user saved');
+        console.log('✅ User:', response.user.name, '-', response.user.email);
+        
+        // Verify saved
+        const savedToken = await storageService.getToken();
+        const savedUser = await storageService.getUser();
+        console.log('🔍 Verification - Token saved:', !!savedToken);
+        console.log('🔍 Verification - User saved:', !!savedUser);
         
         // Trigger App.js to update isLoggedIn state
         if (onLoginSuccess) {
+          console.log('📞 LoginScreen: Calling onLoginSuccess callback');
           onLoginSuccess();
         }
         
-        console.log('✅ Called onLoginSuccess callback');
+        console.log('🎉 LoginScreen: Login complete!');
       } else {
+        console.error('❌ LoginScreen: Invalid response format');
+        console.error('❌ Response:', response);
         Alert.alert('Error', 'Login gagal: Format response tidak valid');
       }
     } catch (error) {
-      console.error('❌ Login error:', error);
+      console.error('❌ LoginScreen: Login error:', error);
       console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error message:', error.message);
       Alert.alert(
         'Error',
         error.response?.data?.message || error.message || 'Terjadi kesalahan saat login'

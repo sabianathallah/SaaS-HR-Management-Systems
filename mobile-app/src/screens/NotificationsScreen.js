@@ -28,7 +28,8 @@ export default function NotificationsScreen() {
     setLoading(true);
     try {
       const response = await notificationService.getNotifications(filter);
-      if (response.success) {
+      // Backend returns {data, message, meta} not {success, data}
+      if (response.data) {
         const data = response.data || [];
         setNotifications(data);
         setUnreadCount(data.filter(n => !n.isRead).length);

@@ -44,13 +44,21 @@ export default function ProfileScreen({ navigation, onLogout }) {
   const fetchProfile = async () => {
     setLoading(true);
     try {
+      console.log('📱 ProfileScreen: Fetching profile...');
       const response = await profileService.getProfile();
-      if (response.success) {
+      console.log('📱 ProfileScreen: Response:', response);
+      
+      // Backend returns {data, message} not {success, data}
+      if (response.data) {
+        console.log('✅ ProfileScreen: Profile data:', response.data);
         setProfile(response.data);
         setProfileForm({ name: response.data.name });
+      } else {
+        console.log('⚠️ ProfileScreen: No profile data in response');
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('❌ ProfileScreen: Error fetching profile:', error);
+      console.error('❌ ProfileScreen: Error details:', error.response?.data || error.message);
     } finally {
       setLoading(false);
     }
@@ -65,7 +73,8 @@ export default function ProfileScreen({ navigation, onLogout }) {
     setLoading(true);
     try {
       const response = await profileService.updateProfile(profileForm);
-      if (response.success) {
+      // Backend returns {data, message} not {success, data}
+      if (response.data || response.message) {
         Alert.alert('Berhasil', 'Profile berhasil diupdate');
         setShowEditProfile(false);
         fetchProfile();
@@ -101,7 +110,8 @@ export default function ProfileScreen({ navigation, onLogout }) {
         passwordForm.confirmPassword
       );
 
-      if (response.success) {
+      // Backend returns {data, message} not {success, data}
+      if (response.data || response.message) {
         Alert.alert('Berhasil', 'Password berhasil diubah');
         setShowChangePassword(false);
         setPasswordForm({
