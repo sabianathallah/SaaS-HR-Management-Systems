@@ -1,258 +1,274 @@
 # Salmon HRIS Mobile App
 
-Mobile application for Salmon HR Management System built with **React Native** and **Expo SDK 54** (Latest).
+Mobile application untuk Salmon HR Management System menggunakan React Native & Expo.
 
-## 🎉 Latest Update
+## 📱 Tech Stack
 
-**✅ Upgraded to Expo SDK 54** - Latest version with React Native 0.76.6!
+- React Native
+- Expo SDK
+- React Navigation
+- Axios untuk API calls
+- AsyncStorage untuk local storage
 
-See [EXPO_SDK_54_UPGRADE.md](./EXPO_SDK_54_UPGRADE.md) for details.
+## 🚀 Quick Start
 
-## 🚀 Features
+### Prerequisites
+- Node.js (v14 atau lebih baru)
+- npm atau yarn
+- Expo Go app di smartphone (untuk testing)
 
-- **Authentication** - Login & Logout
-- **Dashboard** - Overview of today's attendance and notifications
-- **Attendance Management**
-  - Clock In/Out with camera and GPS
-  - View attendance history
-  - Attendance statistics (daily, weekly, monthly)
-- **Leave Management**
-  - Submit leave requests (Annual Leave, Sick Leave, Permission)
-  - View leave balance
-  - Track leave request status
-  - Cancel pending requests
-- **Overtime Management**
-  - Request overtime
-  - View overtime history
-  - Cancel pending overtime requests
-- **Notifications**
-  - Real-time notifications
-  - Mark as read/unread
-  - Filter notifications
-- **Profile Management**
-  - View profile information
-  - Edit profile
-  - Change password
+### Installation
 
-## 📋 Prerequisites
+```bash
+# Install dependencies
+npm install
 
-- Node.js (v16 or higher)
-- npm or yarn
-- Expo CLI
-- iOS Simulator (for Mac) or Android Emulator
+# Start development server
+npm start
 
-## 🛠️ Installation
+# Or start with specific options
+npx expo start          # Normal mode
+npx expo start --clear  # Clear cache
+npx expo start --tunnel # Tunnel mode (untuk network berbeda)
+```
 
-1. **Navigate to mobile-app directory**
-   ```bash
-   cd mobile-app
-   ```
+### Running on Device
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+#### iOS Simulator (Mac only)
+```bash
+npx expo start
+# Press 'i' untuk open iOS simulator
+```
 
-3. **Configure API URL**
-   
-   Create `.env` file from `.env.example`:
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Edit `.env` and set your backend API URL:
-   ```
-   API_BASE_URL=http://localhost:3000/api
-   ```
-   
-   **Important:** 
-   - For iOS Simulator: Use `http://localhost:3000/api`
-   - For Android Emulator: Use `http://10.0.2.2:3000/api`
-   - For Physical Device: Use your computer's IP address (e.g., `http://192.168.1.100:3000/api`)
+#### Android Emulator
+```bash
+npx expo start
+# Press 'a' untuk open Android emulator
+```
 
-## 🚀 Running the App
+#### Physical Device
+1. Install **Expo Go** app dari App Store / Play Store
+2. Run `npx expo start`
+3. Scan QR code dengan Expo Go app
 
-1. **Start Metro Bundler**
-   ```bash
-   npm start
-   ```
-
-2. **Run on iOS Simulator (Mac only)**
-   ```bash
-   npm run ios
-   ```
-
-3. **Run on Android Emulator**
-   ```bash
-   npm run android
-   ```
-
-4. **Run on Web Browser**
-   ```bash
-   npm run web
-   ```
-
-## 📱 Testing on Physical Device
-
-1. Install **Expo Go** app from App Store (iOS) or Play Store (Android)
-2. Run `npm start`
-3. Scan the QR code with your device
-4. Make sure your device and computer are on the same network
-
-## 🏗️ Project Structure
+## 📁 Project Structure
 
 ```
 mobile-app/
-├── App.js                      # Main app entry point
-├── app.json                    # Expo configuration
-├── babel.config.js            # Babel configuration
-├── package.json               # Dependencies
+├── App.js                 # Root component, navigation setup
+├── app.json              # Expo configuration
+├── babel.config.js       # Babel configuration (REQUIRED)
+├── package.json          # Dependencies & scripts
+│
+├── assets/               # Images, fonts, static files
+│
 └── src/
     ├── config/
-    │   └── api.js             # API endpoints configuration
+    │   └── api.js        # API endpoints & base URL
+    │
     ├── screens/
-    │   ├── LoginScreen.js     # Login screen
-    │   ├── DashboardScreen.js # Dashboard screen
-    │   ├── AttendanceScreen.js # Attendance management
-    │   ├── LeaveScreen.js     # Leave & overtime management
-    │   ├── NotificationsScreen.js # Notifications
-    │   ├── ProfileScreen.js   # Profile & settings
-    │   └── CameraScreen.js    # Camera for attendance
+    │   ├── LoginScreen.js
+    │   ├── DashboardScreen.js
+    │   ├── AttendanceScreen.js
+    │   ├── LeaveScreen.js
+    │   ├── NotificationsScreen.js
+    │   ├── ProfileScreen.js
+    │   └── CameraScreen.js
+    │
     ├── services/
-    │   ├── api.js             # Axios instance with interceptors
-    │   ├── storage.js         # AsyncStorage helper
-    │   └── index.js           # API service functions
+    │   ├── api.js        # Axios instance & interceptors
+    │   ├── index.js      # API service methods
+    │   └── storage.js    # AsyncStorage helpers
+    │
     └── utils/
-        ├── dateFormatter.js   # Date formatting utilities
-        └── helpers.js         # Helper functions
+        ├── dateFormatter.js  # Date formatting utilities
+        └── helpers.js        # General helper functions
 ```
 
-## 🔧 API Integration
+## ⚙️ Configuration
 
-The app connects to the backend server through REST API. Make sure your backend server is running before using the app.
+### API URL
 
-### Backend Setup
+Edit `app.json` untuk mengubah API URL:
 
-1. Make sure the backend server is running:
-   ```bash
-   cd ../server
-   npm start
-   ```
+```json
+{
+  "expo": {
+    "extra": {
+      "apiUrl": "http://YOUR_IP:3000"
+    }
+  }
+}
+```
 
-2. The server should be running on `http://localhost:3000`
+**Platform-specific URLs:**
+- **iOS Simulator:** `http://localhost:3000`
+- **Android Emulator:** `http://10.0.2.2:3000`
+- **Physical Device:** `http://YOUR_MAC_IP:3000` (harus WiFi yang sama)
+- **Tunnel Mode:** Auto-configured (recommended)
 
-### API Endpoints Used
+### Setelah Ubah Config
 
-- `POST /api/login` - User login
-- `GET /api/profile` - Get user profile
-- `GET /api/attendance/today` - Get today's attendance
-- `POST /api/attendance/clock-in` - Clock in with photo & GPS
-- `POST /api/attendance/clock-out` - Clock out with photo & GPS
-- `GET /api/leave-requests` - Get leave requests
-- `POST /api/leave-requests` - Create leave request
-- `GET /api/overtime` - Get overtime requests
-- `POST /api/overtime` - Create overtime request
-- `GET /api/notifications` - Get notifications
+**WAJIB restart Expo dengan clear cache:**
+```bash
+npx expo start --clear
+```
 
-## 📝 Demo Credentials
+## 👥 Test Users
 
 ```
-Email: employee@salmon.com
+Admin:
+Email: admin@company.com
+Password: admin123
+
+Employee 1:
+Email: budi@company.com
+Password: password123
+
+Employee 2:
+Email: ani@company.com
 Password: password123
 ```
 
-## 🎨 Features Highlights
+## 🔧 Important Files
 
-### Camera & GPS Integration
-- Uses device camera for attendance photo
-- Captures GPS coordinates for location tracking
-- Front/back camera toggle
-- Real-time location display
+### REQUIRED Files (JANGAN DIHAPUS):
 
-### Offline Support
-- Token storage using AsyncStorage
-- Persists user session
+1. **`App.js`** - Main app entry point
+2. **`app.json`** - Expo configuration
+3. **`babel.config.js`** - Required untuk Expo transpile code
+4. **`package.json`** - Dependencies management
+5. **`.gitignore`** - Git ignore rules
 
-### User Experience
-- Pull-to-refresh on all screens
-- Loading indicators
-- Error handling with user-friendly messages
-- Smooth navigation with bottom tabs
-- Modal forms for data entry
+### Optional Files:
 
-## 🔒 Permissions Required
+- **`.expo/`** - Expo cache (auto-generated, git ignored)
+- **`node_modules/`** - Dependencies (auto-generated, git ignored)
+- **`package-lock.json`** - Lockfile untuk dependencies
 
-- **Camera** - For attendance photo capture
-- **Location** - For GPS tracking during attendance
-- **Storage** - For file attachments (leave documents)
+## 📝 Features
 
-## 📦 Main Dependencies
+### Authentication
+- Login dengan email & password
+- Token-based authentication
+- Auto-logout on 401
 
-- **expo** - ~54.0.0 (Latest SDK)
-- **react-native** - 0.76.6 (Latest)
-- **react** - 18.3.1
-- **react-navigation** - v7.x (Latest)
-- **axios** - HTTP client
-- **expo-camera** - Camera access (v16 - New CameraView API)
-- **expo-location** - GPS/Location services
-- **expo-document-picker** - File picker
-- **@react-native-async-storage/async-storage** - Local storage
-- **react-native-paper** - UI components
+### Dashboard
+- Today's attendance status
+- Recent notifications
+- Quick actions (Clock In/Out)
+
+### Attendance
+- Clock In/Out dengan foto & GPS
+- Attendance history
+- Monthly statistics
+
+### Leave Management
+- Submit leave requests
+- View leave balance
+- Cancel pending requests
+- Leave history
+
+### Overtime
+- Submit overtime requests
+- Overtime history
+- Track approved hours
+
+### Notifications
+- Real-time notifications
+- Mark as read/unread
+- Filter by status
+
+### Profile
+- View profile info
+- Update profile
+- Change password
 
 ## 🐛 Troubleshooting
 
-### Connection Issues
+### Data tidak muncul?
 
-If you can't connect to the backend:
-
-1. Check if backend server is running
-2. Verify the API_BASE_URL in `.env`
-3. For Android Emulator, use `10.0.2.2` instead of `localhost`
-4. For physical device, use your computer's local IP address
-
-### Camera/GPS Not Working
-
-1. Make sure you've granted camera and location permissions
-2. For iOS Simulator, some features may be limited
-3. Test on a physical device for full functionality
-
-### Build Errors
-
-1. Clear cache: `expo start -c`
-2. Delete node_modules and reinstall: 
+1. **Check backend server running:**
    ```bash
-   rm -rf node_modules
-   npm install
+   curl http://localhost:3000/test-ip
    ```
 
-## 📱 Building for Production
+2. **Check API URL di app.json sesuai platform**
 
-### Android APK
+3. **Clear cache & restart:**
+   ```bash
+   rm -rf .expo node_modules/.cache
+   npx expo start --clear
+   ```
+
+4. **Di app: Logout → Close app → Reopen → Login ulang**
+
+### "Network Error"?
+
+- Server backend tidak running
+- API URL salah
+- Firewall blocking
+- Device tidak di network yang sama (untuk physical device)
+
+**Solution:** Use tunnel mode
 ```bash
-expo build:android
+npx expo start --tunnel
 ```
 
-### iOS IPA
+### "Module not found"?
+
 ```bash
-expo build:ios
+# Reinstall dependencies
+rm -rf node_modules package-lock.json
+npm install
 ```
 
-## 🤝 Contributing
+### Metro Bundler error?
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+```bash
+# Clear all caches
+rm -rf .expo node_modules/.cache
+npx expo start --clear
+```
+
+## 📦 Build untuk Production
+
+### iOS (Mac only):
+```bash
+npx eas build --platform ios
+```
+
+### Android:
+```bash
+npx eas build --platform android
+```
+
+### Setup EAS Build:
+```bash
+npm install -g eas-cli
+eas login
+eas build:configure
+```
+
+## 🔐 Security Notes
+
+- Token disimpan di AsyncStorage (secure)
+- API calls menggunakan Bearer token authentication
+- Auto-logout on 401 Unauthorized
+- Sensitive data di-hash sebelum dikirim ke backend
+
+## 📱 Minimum Requirements
+
+- **iOS:** 13.0+
+- **Android:** 5.0+ (API level 21+)
+
+## 🆘 Support
+
+Untuk issues atau questions:
+1. Check Metro Bundler console logs
+2. Check backend server logs
+3. Review error messages di app
 
 ## 📄 License
 
-This project is part of Salmon HRIS System.
-
-## 📞 Support
-
-For support and questions, please contact the development team.
-
----
-
-**Made with ❤️ by Salmon Dev Team**
+Internal company use only.
