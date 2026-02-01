@@ -19,7 +19,7 @@ const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
 // Bottom Tab Navigator for Employee
-function EmployeeTabs() {
+function EmployeeTabs({ onLogout }) {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -49,7 +49,9 @@ function EmployeeTabs() {
       <Tab.Screen name="Attendance" component={AttendanceScreen} />
       <Tab.Screen name="Leave" component={LeaveScreen} />
       <Tab.Screen name="Notifications" component={NotificationsScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Profile">
+        {(props) => <ProfileScreen {...props} onLogout={onLogout} />}
+      </Tab.Screen>
     </Tab.Navigator>
   );
 }
@@ -99,7 +101,9 @@ export default function App() {
           </Stack.Screen>
         ) : (
           <>
-            <Stack.Screen name="Main" component={EmployeeTabs} />
+            <Stack.Screen name="Main">
+              {(props) => <EmployeeTabs {...props} onLogout={handleLogout} />}
+            </Stack.Screen>
             <Stack.Screen 
               name="Camera" 
               component={CameraScreen}

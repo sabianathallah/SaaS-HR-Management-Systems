@@ -13,7 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { profileService } from '../services';
 import { storageService } from '../services/storage';
 
-export default function ProfileScreen({ navigation }) {
+export default function ProfileScreen({ navigation, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState({
     name: '',
@@ -127,8 +127,15 @@ export default function ProfileScreen({ navigation }) {
           text: 'Logout',
           style: 'destructive',
           onPress: async () => {
-            await storageService.clearAll();
-            navigation.replace('Login');
+            try {
+              await storageService.clearAll();
+              if (onLogout) {
+                onLogout();
+              }
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Gagal logout. Silakan coba lagi.');
+            }
           },
         },
       ]
