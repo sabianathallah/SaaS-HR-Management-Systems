@@ -12,6 +12,8 @@ import OvertimeManagement from '../components/admin/OvertimeManagement';
 import ReportAnalytics from '../components/admin/ReportAnalytics';
 import OfficeLocationManagement from '../components/admin/OfficeLocationManagement';
 import AuditLogViewer from '../components/admin/AuditLogViewer';
+import WorkLocationManagement from '../components/admin/WorkLocationManagement';
+import HybridScheduleManagement from '../components/admin/HybridScheduleManagement';
 
 const AdminPage = () => {
   const navigate = useNavigate();
@@ -41,6 +43,8 @@ const AdminPage = () => {
     { id: 'shift', label: 'Shift & Schedule', icon: '⏰' },
     { id: 'overtime', label: 'Overtime Management', icon: '⏱️' },
     { id: 'location', label: 'Office Locations', icon: '📍' },
+    { id: 'work-location', label: 'Work Location Requests', icon: '🏢' },
+    { id: 'hybrid-schedule', label: 'Hybrid Schedules', icon: '🔄' },
     { id: 'reports', label: 'Reports & Analytics', icon: '📈' },
     { id: 'audit', label: 'Audit Logs', icon: '📝' },
   ];
@@ -119,6 +123,8 @@ const AdminPage = () => {
           {activeTab === 'shift' && <ShiftScheduleManagement />}
           {activeTab === 'overtime' && <OvertimeManagement />}
           {activeTab === 'location' && <OfficeLocationManagement />}
+          {activeTab === 'work-location' && <WorkLocationManagement />}
+          {activeTab === 'hybrid-schedule' && <HybridScheduleManagement />}
           {activeTab === 'reports' && <ReportAnalytics />}
           {activeTab === 'audit' && <AuditLogViewer />}
         </div>

@@ -18,6 +18,7 @@ import OrganizationPage from './views/admin/OrganizationPage.jsx'
 import ReportsPage from './views/admin/ReportsPage.jsx'
 import NotificationsPage from './views/admin/NotificationsPage.jsx'
 import SettingsPage from './views/admin/SettingsPage.jsx'
+import WorkLocationPage from './views/admin/WorkLocationPage.jsx'
 
 
 export default function App() {
@@ -57,6 +58,7 @@ export default function App() {
             <Route path="shift" element={<ShiftPage />} />
             <Route path="overtime" element={<OvertimePage />} />
             <Route path="organization" element={<OrganizationPage />} />
+            <Route path="work-location" element={<WorkLocationPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="settings" element={<SettingsPage />} />

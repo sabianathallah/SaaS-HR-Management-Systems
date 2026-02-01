@@ -1,4 +1,4 @@
-const { Attendance, User, WorkSchedule, Shift, OfficeLocation } = require('../models');
+const { Attendance, User, WorkSchedule, Shift, OfficeLocation, WorkLocationChangeRequest, HybridSchedule } = require('../models');
 const { Op } = require('sequelize');
 const { getTodayRange, calculateWorkDuration } = require('../helpers/utils');
 const { 
@@ -7,6 +7,7 @@ const {
   calculateAttendanceSummaryByPeriod
 } = require('../helpers/attendance');
 const { validateAttendanceLocation } = require('../helpers/geolocation');
+const { shouldValidateGPS, getWorkLocationInfo } = require('../helpers/workLocation');
 const AuditLogger = require('../helpers/auditLogger');
 
 class AttendanceController {
@@ -53,6 +54,11 @@ class AttendanceController {
         }]
       });
 
+      // Check effective work location type for today
+      const currentDate = new Date();
+      const workLocationInfo = await getWorkLocationInfo(userId, currentDate);
+      const requiresGPS = workLocationInfo.requiresGPS;
+
       // Default values for location validation
       let locationValidation = {
         status: 'not_checked',
@@ -60,16 +66,23 @@ class AttendanceController {
         officeLocationId: null
       };
 
-      // GPS Validation - hanya untuk shift NON-FLEXIBLE
+      // GPS Validation - check berdasarkan work location type & shift
       const isFlexibleShift = user?.shift?.name?.toLowerCase() === 'flexible';
       
-      if (!isFlexibleShift) {
-        // Validasi GPS required untuk shift non-flexible
+      // GPS required jika:
+      // 1. Bukan flexible shift DAN
+      // 2. Work location type adalah ONSITE
+      if (!isFlexibleShift && requiresGPS) {
+        // Validasi GPS required untuk onsite attendance
         if (!latitude || !longitude) {
           return res.status(400).json({
-            message: "GPS location is required for office attendance",
+            message: "GPS location is required for onsite attendance",
             error: "GPS_REQUIRED",
-            hint: "Please enable location access on your device"
+            hint: "Please enable location access on your device",
+            workLocationInfo: {
+              type: workLocationInfo.locationType,
+              source: workLocationInfo.source
+            }
           });
         }
 
@@ -137,13 +150,23 @@ class AttendanceController {
       // Include office location info in response
       let locationInfo;
       
-      if (isFlexibleShift) {
+      if (isFlexibleShift || !requiresGPS) {
+        // WFH/Remote/Flexible shift - location not required
         locationInfo = {
-          message: 'WFH/Flexible shift - location not required'
+          workLocationType: workLocationInfo.locationType,
+          workLocationSource: workLocationInfo.source,
+          message: workLocationInfo.locationType === 'WFH' 
+            ? 'Working from home - location not required'
+            : workLocationInfo.locationType === 'REMOTE'
+            ? 'Remote work - location not required'
+            : 'Flexible shift - location not required',
+          requiresGPS: false
         };
       } else if (locationValidation.isValid && locationValidation.officeLocationId) {
         // Jika di dalam radius kantor
         locationInfo = {
+          workLocationType: workLocationInfo.locationType,
+          workLocationSource: workLocationInfo.source,
           type: 'office',
           validationStatus: locationValidation.status,
           message: locationValidation.message,
@@ -154,6 +177,8 @@ class AttendanceController {
       } else if (latitude && longitude) {
         // Jika di luar radius (punya koordinat tapi tidak valid)
         locationInfo = {
+          workLocationType: workLocationInfo.locationType,
+          workLocationSource: workLocationInfo.source,
           type: 'remote',
           validationStatus: locationValidation.status,
           message: locationValidation.message || 'Clock-in from remote location',
@@ -167,6 +192,8 @@ class AttendanceController {
         };
       } else {
         locationInfo = {
+          workLocationType: workLocationInfo.locationType,
+          workLocationSource: workLocationInfo.source,
           type: 'unknown',
           message: 'No location data available'
         };

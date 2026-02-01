@@ -67,6 +67,13 @@ const AdminLayout = () => {
       description: 'Office Locations & Settings'
     },
     { 
+      id: 'work-location', 
+      label: 'Work Location', 
+      icon: '🏢',
+      path: '/admin/work-location',
+      description: 'Location Change Requests'
+    },
+    { 
       id: 'reports', 
       label: 'Reports', 
       icon: '📊',

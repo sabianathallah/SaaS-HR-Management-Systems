@@ -10,3 +10,5 @@ export { default as OvertimeManagement } from './OvertimeManagement';
 export { default as OfficeLocationManagement } from './OfficeLocationManagement';
 export { default as ReportAnalytics } from './ReportAnalytics';
 export { default as AuditLogViewer } from './AuditLogViewer';
+export { default as WorkLocationManagement } from './WorkLocationManagement';
+export { default as HybridScheduleManagement } from './HybridScheduleManagement';

@@ -113,6 +113,34 @@ Route prefix: `/profile`
 - **PUT** `/profile` - Update my profile
 - **PUT** `/profile/photo` - Update profile photo
 
+### 15. Work Location Change Request (Employee) 🆕
+Route prefix: `/work-location-changes`
+- **POST** `/work-location-changes` - Create work location change request
+- **GET** `/work-location-changes` - Get my work location change requests
+- **PATCH** `/work-location-changes/:id/cancel` - Cancel pending request
+
+### 16. Work Location Change Request (Admin) 🆕
+Route prefix: `/work-location-changes/admin`
+- **GET** `/work-location-changes/admin` - Get all work location change requests
+- **GET** `/work-location-changes/admin/pending` - Get pending requests
+- **GET** `/work-location-changes/admin/statistics` - Get statistics
+- **PATCH** `/work-location-changes/admin/:id/approve` - Approve request
+- **PATCH** `/work-location-changes/admin/:id/reject` - Reject request (requires rejectionReason)
+
+### 17. Hybrid Schedule (Employee) 🆕
+Route prefix: `/hybrid-schedules`
+- **GET** `/hybrid-schedules` - Get my hybrid schedule
+- **PUT** `/hybrid-schedules` - Create/update my hybrid schedule
+- **DELETE** `/hybrid-schedules` - Delete my hybrid schedule
+
+### 18. Hybrid Schedule (Admin) 🆕
+Route prefix: `/hybrid-schedules/admin`
+- **GET** `/hybrid-schedules/admin` - Get all hybrid schedules
+- **GET** `/hybrid-schedules/admin/statistics` - Get statistics
+- **GET** `/hybrid-schedules/admin/user/:userId` - Get schedule by user ID
+- **PUT** `/hybrid-schedules/admin/user/:userId` - Create/update schedule for user
+- **DELETE** `/hybrid-schedules/admin/user/:userId` - Delete schedule for user
+
 ## 📝 Catatan Penting
 
 ### HTTP Methods yang Digunakan:

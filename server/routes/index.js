@@ -14,6 +14,10 @@ const report_isAdminRouter = require('./report_isAdmin')
 const notificationRouter = require('./notification')
 const officeLocationAdminRouter = require('./officeLocationAdmin')
 const profileRouter = require('./profile')
+const workLocationChangeRequestRouter = require('./workLocationChangeRequest')
+const workLocationChangeRequest_isAdminRouter = require('./workLocationChangeRequest_isAdmin')
+const hybridScheduleRouter = require('./hybridSchedule')
+const hybridSchedule_isAdminRouter = require('./hybridSchedule_isAdmin')
 
 const isAdmin = require("../middlewares/authorization");
 const authentication = require('../middlewares/authentication')
@@ -61,6 +65,10 @@ router.use('/audit-logs', isAdmin, auditLogRouter)
 router.use('/reports', isAdmin, report_isAdminRouter)
 router.use('/notifications', notificationRouter)
 router.use('/office-locations/admin', isAdmin, officeLocationAdminRouter)
+router.use('/work-location-changes/admin', isAdmin, workLocationChangeRequest_isAdminRouter)
+router.use('/work-location-changes', workLocationChangeRequestRouter)
+router.use('/hybrid-schedules/admin', isAdmin, hybridSchedule_isAdminRouter)
+router.use('/hybrid-schedules', hybridScheduleRouter)
 
 
 router.use(errorHandler)

@@ -31,6 +31,27 @@ module.exports = (sequelize, DataTypes) => {
         as: 'auditLogs',
         onDelete: 'SET NULL'
       });
+
+      // User has many WorkLocationChangeRequests
+      User.hasMany(models.WorkLocationChangeRequest, {
+        foreignKey: 'UserId',
+        as: 'workLocationChangeRequests',
+        onDelete: 'CASCADE'
+      });
+
+      // User has many WorkLocationChangeRequests they approved
+      User.hasMany(models.WorkLocationChangeRequest, {
+        foreignKey: 'approvedBy',
+        as: 'approvedWorkLocationChanges',
+        onDelete: 'SET NULL'
+      });
+
+      // User has many HybridSchedules
+      User.hasMany(models.HybridSchedule, {
+        foreignKey: 'UserId',
+        as: 'hybridSchedules',
+        onDelete: 'CASCADE'
+      });
     }
   }
   User.init({

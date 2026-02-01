@@ -9,6 +9,7 @@ import Button from '../components/button-reusable.jsx'
 import CameraCapture from '../components/CameraCapture.jsx'
 import GPSLocation from '../components/GPSLocation.jsx'
 import Modal from '../components/Modal.jsx'
+import WorkLocationRequest from '../components/WorkLocationRequest.jsx'
 
 export default function EmployeePage() {
   const navigate = useNavigate()
@@ -2385,6 +2386,16 @@ export default function EmployeePage() {
               🏖️ Cuti & Izin
             </button>
             <button
+              onClick={() => setActiveTab('work-location')}
+              className={`px-6 py-3 font-semibold transition-colors ${
+                activeTab === 'work-location'
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-600 hover:text-blue-600'
+              }`}
+            >
+              📍 Work Location
+            </button>
+            <button
               onClick={() => setActiveTab('notifications')}
               className={`px-6 py-3 font-semibold transition-colors relative ${
                 activeTab === 'notifications'
@@ -2417,6 +2428,15 @@ export default function EmployeePage() {
           {activeTab === 'dashboard' && renderDashboard()}
           {activeTab === 'attendance' && renderAttendance()}
           {activeTab === 'leave' && renderLeave()}
+          {activeTab === 'work-location' && (
+            <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-6 border border-gray-200">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">Work Location Request</h2>
+                <p className="text-gray-600">Ajukan permintaan perubahan lokasi kerja sementara</p>
+              </div>
+              <WorkLocationRequest />
+            </div>
+          )}
           {activeTab === 'notifications' && renderNotifications()}
           {activeTab === 'profile' && renderProfile()}
         </div>
