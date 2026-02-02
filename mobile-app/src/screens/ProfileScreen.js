@@ -167,7 +167,7 @@ export default function ProfileScreen({ navigation, onLogout }) {
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
-                {profile.name ? profile.name.charAt(0).toUpperCase() : '👤'}
+                {profile.name ? profile.name.charAt(0).toUpperCase() : 'U'}
               </Text>
             </View>
             <Text style={styles.profileName}>{profile.name}</Text>
@@ -198,7 +198,6 @@ export default function ProfileScreen({ navigation, onLogout }) {
             style={styles.menuItem}
             onPress={() => setShowEditProfile(true)}
           >
-            <Text style={styles.menuIcon}>✏️</Text>
             <Text style={styles.menuText}>Edit Profile</Text>
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
@@ -207,7 +206,6 @@ export default function ProfileScreen({ navigation, onLogout }) {
             style={styles.menuItem}
             onPress={() => setShowChangePassword(true)}
           >
-            <Text style={styles.menuIcon}>🔐</Text>
             <Text style={styles.menuText}>Ubah Password</Text>
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
@@ -216,7 +214,6 @@ export default function ProfileScreen({ navigation, onLogout }) {
             style={[styles.menuItem, styles.menuItemDanger]}
             onPress={handleLogout}
           >
-            <Text style={styles.menuIcon}>🚪</Text>
             <Text style={[styles.menuText, styles.menuTextDanger]}>Logout</Text>
             <Text style={styles.menuArrow}>›</Text>
           </TouchableOpacity>
@@ -298,7 +295,7 @@ export default function ProfileScreen({ navigation, onLogout }) {
                   style={styles.eyeIcon}
                   onPress={() => setShowOldPassword(!showOldPassword)}
                 >
-                  <Text>{showOldPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                  <Text>{showOldPassword ? 'Hide' : 'Show'}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -317,7 +314,7 @@ export default function ProfileScreen({ navigation, onLogout }) {
                   style={styles.eyeIcon}
                   onPress={() => setShowNewPassword(!showNewPassword)}
                 >
-                  <Text>{showNewPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                  <Text>{showNewPassword ? 'Hide' : 'Show'}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -336,7 +333,7 @@ export default function ProfileScreen({ navigation, onLogout }) {
                   style={styles.eyeIcon}
                   onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
-                  <Text>{showConfirmPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                  <Text>{showConfirmPassword ? 'Hide' : 'Show'}</Text>
                 </TouchableOpacity>
               </View>
             </View>

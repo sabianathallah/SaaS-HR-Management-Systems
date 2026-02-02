@@ -22,7 +22,15 @@ export default function DashboardScreen({ navigation }) {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+    
+    // Add listener to refresh when screen comes into focus (after clock-in/out)
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('📱 Dashboard screen focused - refreshing data');
+      fetchDashboardData();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -149,7 +157,7 @@ export default function DashboardScreen({ navigation }) {
                 </>
               ) : (
                 <TouchableOpacity style={styles.clockButton} onPress={handleClockOut}>
-                  <Text style={styles.clockButtonText}>📸 Clock Out</Text>
+                  <Text style={styles.clockButtonText}>Clock Out</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -159,7 +167,7 @@ export default function DashboardScreen({ navigation }) {
                 Anda belum clock-in hari ini
               </Text>
               <TouchableOpacity style={styles.clockButton} onPress={handleClockIn}>
-                <Text style={styles.clockButtonText}>📸 Clock In</Text>
+                <Text style={styles.clockButtonText}>Clock In</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -173,21 +181,18 @@ export default function DashboardScreen({ navigation }) {
               style={styles.quickActionButton}
               onPress={() => navigation.navigate('Attendance')}
             >
-              <Text style={styles.quickActionIcon}>📅</Text>
               <Text style={styles.quickActionText}>Attendance</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.quickActionButton}
               onPress={() => navigation.navigate('Leave')}
             >
-              <Text style={styles.quickActionIcon}>📝</Text>
               <Text style={styles.quickActionText}>Leave</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.quickActionButton}
               onPress={() => navigation.navigate('Notifications')}
             >
-              <Text style={styles.quickActionIcon}>🔔</Text>
               <Text style={styles.quickActionText}>Notifications</Text>
               {unreadCount > 0 && (
                 <View style={styles.badge}>
@@ -199,7 +204,6 @@ export default function DashboardScreen({ navigation }) {
               style={styles.quickActionButton}
               onPress={() => navigation.navigate('Profile')}
             >
-              <Text style={styles.quickActionIcon}>👤</Text>
               <Text style={styles.quickActionText}>Profile</Text>
             </TouchableOpacity>
           </View>

@@ -147,13 +147,13 @@ export default function NotificationsScreen() {
             style={styles.actionButton}
             onPress={markAllAsRead}
           >
-            <Text style={styles.actionButtonText}>✓ Tandai Semua</Text>
+            <Text style={styles.actionButtonText}>Tandai Semua</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButton, styles.actionButtonDanger]}
             onPress={clearReadNotifications}
           >
-            <Text style={styles.actionButtonText}>🗑️ Bersihkan</Text>
+            <Text style={styles.actionButtonText}>Bersihkan</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -191,13 +191,12 @@ export default function NotificationsScreen() {
                 style={styles.deleteButton}
                 onPress={() => deleteNotification(notif.id)}
               >
-                <Text style={styles.deleteButtonText}>🗑️</Text>
+                <Text style={styles.deleteButtonText}>Delete</Text>
               </TouchableOpacity>
             </TouchableOpacity>
           ))
         ) : (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>📭</Text>
             <Text style={styles.emptyText}>Tidak ada notifikasi</Text>
           </View>
         )}

@@ -328,7 +328,7 @@ export default function LeaveScreen() {
                 onPress={() => setShowLeaveForm(!showLeaveForm)}
               >
                 <Text style={styles.formToggleText}>
-                  {showLeaveForm ? '❌ Tutup Form' : '➕ Ajukan Cuti/Izin'}
+                  {showLeaveForm ? 'Tutup Form' : 'Ajukan Cuti/Izin'}
                 </Text>
               </TouchableOpacity>
 
@@ -342,9 +342,9 @@ export default function LeaveScreen() {
                     onValueChange={(value) => setLeaveForm({ ...leaveForm, leaveType: value })}
                     style={styles.picker}
                   >
-                    <Picker.Item label="🏖️ Cuti Tahunan" value="ANNUAL_LEAVE" />
-                    <Picker.Item label="🤒 Sakit" value="SICK_LEAVE" />
-                    <Picker.Item label="📝 Izin" value="PERMISSION" />
+                    <Picker.Item label="Cuti Tahunan" value="ANNUAL_LEAVE" />
+                    <Picker.Item label="Sakit" value="SICK_LEAVE" />
+                    <Picker.Item label="Izin" value="PERMISSION" />
                   </Picker>
 
                   <Text style={styles.label}>Tanggal Mulai</Text>
@@ -366,7 +366,7 @@ export default function LeaveScreen() {
                   {leaveForm.startDate && leaveForm.endDate && (
                     <View style={styles.durationInfo}>
                       <Text style={styles.durationText}>
-                        📅 Durasi: {calculateDaysBetween(leaveForm.startDate, leaveForm.endDate)} hari
+                        Durasi: {calculateDaysBetween(leaveForm.startDate, leaveForm.endDate)} hari
                       </Text>
                     </View>
                   )}
@@ -386,7 +386,7 @@ export default function LeaveScreen() {
 
                   <TouchableOpacity style={styles.attachButton} onPress={pickDocument}>
                     <Text style={styles.attachButtonText}>
-                      📎 {leaveForm.attachment ? leaveForm.attachment.name : 'Lampirkan File (Opsional)'}
+                      {leaveForm.attachment ? leaveForm.attachment.name : 'Lampirkan File (Opsional)'}
                     </Text>
                   </TouchableOpacity>
 
@@ -455,7 +455,7 @@ export default function LeaveScreen() {
                 onPress={() => setShowOvertimeForm(!showOvertimeForm)}
               >
                 <Text style={styles.formToggleText}>
-                  {showOvertimeForm ? '❌ Tutup Form' : '➕ Request Overtime'}
+                  {showOvertimeForm ? 'Tutup Form' : 'Request Overtime'}
                 </Text>
               </TouchableOpacity>
 
@@ -558,7 +558,7 @@ export default function LeaveScreen() {
                 }}
               >
                 <Text style={styles.formToggleText}>
-                  {showOvertimeHistory ? '📋 Sembunyikan Riwayat' : '📋 Lihat Riwayat Overtime'}
+                  {showOvertimeHistory ? 'Sembunyikan Riwayat' : 'Lihat Riwayat Overtime'}
                 </Text>
               </TouchableOpacity>
 

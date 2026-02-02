@@ -92,7 +92,6 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={styles.logo}>🏢</Text>
           <Text style={styles.title}>Salmon HRIS</Text>
           <Text style={styles.subtitle}>Employee Management System</Text>
         </View>
@@ -126,7 +125,7 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
                 style={styles.eyeIcon}
                 onPress={() => setShowPassword(!showPassword)}
               >
-                <Text>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                <Text>{showPassword ? 'Hide' : 'Show'}</Text>
               </TouchableOpacity>
             </View>
           </View>

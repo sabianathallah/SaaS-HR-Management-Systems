@@ -33,7 +33,11 @@ export default function CameraScreen({ route, navigation }) {
   const takePicture = async () => {
     if (!cameraRef.current) return;
     if (!location) {
-      Alert.alert('Error', 'Lokasi GPS belum tersedia');
+      Alert.alert(
+        'GPS Tidak Tersedia',
+        'Lokasi GPS belum tersedia. Pastikan GPS Anda aktif dan izin lokasi telah diberikan.',
+        [{ text: 'OK' }]
+      );
       return;
     }
 
@@ -44,25 +48,56 @@ export default function CameraScreen({ route, navigation }) {
         base64: false,
       });
 
+      console.log('📸 Photo taken:', photo.uri);
+      console.log('📍 GPS Location:', { latitude: location.latitude, longitude: location.longitude });
+
       // Submit attendance
       const response = action === 'clock-in'
         ? await attendanceService.clockIn(photo, location.latitude, location.longitude)
         : await attendanceService.clockOut(photo, location.latitude, location.longitude);
 
-      if (response.success) {
-        Alert.alert(
-          'Berhasil',
-          action === 'clock-in' ? 'Clock in berhasil!' : 'Clock out berhasil!',
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
-        );
-      } else {
-        Alert.alert('Error', response.message || 'Gagal melakukan attendance');
-      }
+      console.log('✅ Attendance response:', response);
+
+      // Response from backend always has message property on success
+      const successMessage = action === 'clock-in' 
+        ? 'Clock-in berhasil!\n\nAbsensi Anda telah tercatat.' 
+        : 'Clock-out berhasil!\n\nTerima kasih atas kerja keras Anda hari ini.';
+
+      Alert.alert(
+        'Berhasil!',
+        successMessage,
+        [{ 
+          text: 'OK', 
+          onPress: () => navigation.navigate('Dashboard')
+        }]
+      );
     } catch (error) {
       console.error('Camera error:', error);
+      
+      // Better error handling with specific messages
+      let errorTitle = 'Gagal';
+      let errorMessage = 'Terjadi kesalahan saat melakukan absensi';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+        
+        // Customize error messages
+        if (errorMessage.includes('Already clocked in')) {
+          errorTitle = 'Sudah Clock-In';
+          errorMessage = 'Anda sudah melakukan clock-in hari ini.\n\nSilakan lakukan clock-out jika ingin mengakhiri absensi.';
+        } else if (errorMessage.includes('No clock-in')) {
+          errorTitle = 'Belum Clock-In';
+          errorMessage = 'Anda belum melakukan clock-in hari ini.\n\nSilakan clock-in terlebih dahulu sebelum clock-out.';
+        } else if (errorMessage.includes('already clocked out')) {
+          errorTitle = 'Sudah Clock-Out';
+          errorMessage = 'Anda sudah melakukan clock-out hari ini.';
+        }
+      }
+      
       Alert.alert(
-        'Error',
-        error.response?.data?.message || 'Terjadi kesalahan'
+        errorTitle,
+        errorMessage,
+        [{ text: 'OK' }]
       );
     } finally {
       setLoading(false);
@@ -106,13 +141,28 @@ export default function CameraScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <CameraView style={styles.camera} facing={facing} ref={cameraRef} />
+      
+      {/* Loading Overlay */}
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#ffffff" />
+            <Text style={styles.loadingText}>
+              {action === 'clock-in' ? 'Memproses Clock-In...' : 'Memproses Clock-Out...'}
+            </Text>
+            <Text style={styles.loadingSubtext}>Mohon tunggu sebentar</Text>
+          </View>
+        </View>
+      )}
+
       <View style={styles.overlay} pointerEvents="box-none">
         <View style={styles.header} pointerEvents="box-none">
           <TouchableOpacity
             style={styles.closeButton}
             onPress={() => navigation.goBack()}
+            disabled={loading}
           >
-            <Text style={styles.closeButtonText}>✕</Text>
+            <Text style={styles.closeButtonText}>X</Text>
           </TouchableOpacity>
           <Text style={styles.title}>
             {action === 'clock-in' ? 'Clock In' : 'Clock Out'}
@@ -121,7 +171,7 @@ export default function CameraScreen({ route, navigation }) {
 
         <View style={styles.info} pointerEvents="box-none">
           <Text style={styles.infoText}>
-            📍 GPS: {location ? '✓ Aktif' : '⏳ Menunggu...'}
+            GPS: {location ? 'Aktif' : 'Menunggu...'}
           </Text>
           {location && (
             <Text style={styles.infoTextSmall}>
@@ -134,17 +184,18 @@ export default function CameraScreen({ route, navigation }) {
           <TouchableOpacity
             style={styles.flipButton}
             onPress={toggleCameraType}
+            disabled={loading}
           >
-            <Text style={styles.flipButtonText}>🔄</Text>
+            <Text style={styles.flipButtonText}>Flip</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.captureButton, loading && styles.captureButtonDisabled]}
+            style={[styles.captureButton, (loading || !location) && styles.captureButtonDisabled]}
             onPress={takePicture}
             disabled={loading || !location}
           >
             {loading ? (
-              <ActivityIndicator color="#ffffff" />
+              <ActivityIndicator color="#2563eb" size="small" />
             ) : (
               <View style={styles.captureButtonInner} />
             )}
@@ -168,6 +219,37 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingContainer: {
+    backgroundColor: 'rgba(37, 99, 235, 0.95)',
+    padding: 30,
+    borderRadius: 20,
+    alignItems: 'center',
+    minWidth: 200,
+  },
+  loadingText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  loadingSubtext: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
   },
   overlay: {
     position: 'absolute',

@@ -108,13 +108,13 @@ export default function AttendanceScreen({ navigation }) {
               style={styles.actionButton}
               onPress={() => navigation.navigate('Camera', { action: 'clock-in' })}
             >
-              <Text style={styles.actionButtonText}>📸 Clock In</Text>
+              <Text style={styles.actionButtonText}>Clock In</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionButton, styles.actionButtonDanger]}
               onPress={() => navigation.navigate('Camera', { action: 'clock-out' })}
             >
-              <Text style={styles.actionButtonText}>📸 Clock Out</Text>
+              <Text style={styles.actionButtonText}>Clock Out</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -126,7 +126,7 @@ export default function AttendanceScreen({ navigation }) {
             onPress={toggleStatistics}
           >
             <Text style={styles.toggleButtonText}>
-              {showStatistics ? '📊 Sembunyikan Statistik' : '📊 Lihat Statistik'}
+              {showStatistics ? 'Sembunyikan Statistik' : 'Lihat Statistik'}
             </Text>
           </TouchableOpacity>
 
