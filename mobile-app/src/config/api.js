@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 
 // API Configuration - prioritize app.json extra.apiUrl
-const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://192.168.1.20:3000';
+const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://172.20.10.2:3000';
 
 console.log('🔧 ========== API CONFIGURATION ==========');
 console.log('🔧 API_BASE_URL:', API_BASE_URL);
@@ -25,8 +25,8 @@ export default {
     ATTENDANCE_TODAY: '/attendances/today-attendance',
     ATTENDANCE_HISTORY: '/attendances/my-attendance',
     ATTENDANCE_STATISTICS: '/attendances/my-statistics',
-    CLOCK_IN: '/attendances/check-in',
-    CLOCK_OUT: '/attendances/check-out',
+    CLOCK_IN: '/attendances/clock-in',
+    CLOCK_OUT: '/attendances/clock-out',
     
     // Leave
     LEAVE_REQUESTS: '/leave-requests/my-requests',

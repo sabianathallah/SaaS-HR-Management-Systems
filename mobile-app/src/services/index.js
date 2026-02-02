@@ -95,7 +95,7 @@ export const attendanceService = {
     formData.append('latitude', latitude.toString());
     formData.append('longitude', longitude.toString());
     
-    const response = await api.post(config.API_ENDPOINTS.CLOCK_OUT, formData, {
+    const response = await api.put(config.API_ENDPOINTS.CLOCK_OUT, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

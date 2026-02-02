@@ -7,23 +7,20 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { Camera } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { attendanceService } from '../services';
 
 export default function CameraScreen({ route, navigation }) {
   const { action } = route.params; // 'clock-in' or 'clock-out'
-  const [hasPermission, setHasPermission] = useState(null);
-  const [type, setType] = useState(Camera.Constants.Type.front);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [facing, setFacing] = useState('front');
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState(null);
   const cameraRef = useRef(null);
 
   useEffect(() => {
     (async () => {
-      const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(cameraStatus === 'granted');
-      
       const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
       
       if (locationStatus === 'granted') {
@@ -73,14 +70,10 @@ export default function CameraScreen({ route, navigation }) {
   };
 
   const toggleCameraType = () => {
-    setType(current => 
-      current === Camera.Constants.Type.back 
-        ? Camera.Constants.Type.front 
-        : Camera.Constants.Type.back
-    );
+    setFacing(current => (current === 'back' ? 'front' : 'back'));
   };
 
-  if (hasPermission === null) {
+  if (!permission) {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color="#2563eb" />
@@ -88,7 +81,7 @@ export default function CameraScreen({ route, navigation }) {
     );
   }
 
-  if (hasPermission === false) {
+  if (!permission.granted) {
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>
@@ -96,10 +89,7 @@ export default function CameraScreen({ route, navigation }) {
         </Text>
         <TouchableOpacity
           style={styles.button}
-          onPress={async () => {
-            const { status } = await Camera.requestCameraPermissionsAsync();
-            setHasPermission(status === 'granted');
-          }}
+          onPress={requestPermission}
         >
           <Text style={styles.buttonText}>Izinkan Akses Kamera</Text>
         </TouchableOpacity>
@@ -115,55 +105,54 @@ export default function CameraScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <Camera style={styles.camera} type={type} ref={cameraRef}>
-        <View style={styles.overlay}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => navigation.goBack()}
-            >
-              <Text style={styles.closeButtonText}>✕</Text>
-            </TouchableOpacity>
-            <Text style={styles.title}>
-              {action === 'clock-in' ? 'Clock In' : 'Clock Out'}
-            </Text>
-          </View>
-
-          <View style={styles.info}>
-            <Text style={styles.infoText}>
-              📍 GPS: {location ? '✓ Aktif' : '⏳ Menunggu...'}
-            </Text>
-            {location && (
-              <Text style={styles.infoTextSmall}>
-                Lat: {location.latitude.toFixed(6)}, Lng: {location.longitude.toFixed(6)}
-              </Text>
-            )}
-          </View>
-
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={styles.flipButton}
-              onPress={toggleCameraType}
-            >
-              <Text style={styles.flipButtonText}>🔄</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.captureButton, loading && styles.captureButtonDisabled]}
-              onPress={takePicture}
-              disabled={loading || !location}
-            >
-              {loading ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <View style={styles.captureButtonInner} />
-              )}
-            </TouchableOpacity>
-
-            <View style={styles.placeholder} />
-          </View>
+      <CameraView style={styles.camera} facing={facing} ref={cameraRef} />
+      <View style={styles.overlay} pointerEvents="box-none">
+        <View style={styles.header} pointerEvents="box-none">
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.closeButtonText}>✕</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>
+            {action === 'clock-in' ? 'Clock In' : 'Clock Out'}
+          </Text>
         </View>
-      </Camera>
+
+        <View style={styles.info} pointerEvents="box-none">
+          <Text style={styles.infoText}>
+            📍 GPS: {location ? '✓ Aktif' : '⏳ Menunggu...'}
+          </Text>
+          {location && (
+            <Text style={styles.infoTextSmall}>
+              Lat: {location.latitude.toFixed(6)}, Lng: {location.longitude.toFixed(6)}
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.footer} pointerEvents="box-none">
+          <TouchableOpacity
+            style={styles.flipButton}
+            onPress={toggleCameraType}
+          >
+            <Text style={styles.flipButtonText}>🔄</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.captureButton, loading && styles.captureButtonDisabled]}
+            onPress={takePicture}
+            disabled={loading || !location}
+          >
+            {loading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <View style={styles.captureButtonInner} />
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.placeholder} />
+        </View>
+      </View>
     </View>
   );
 }
@@ -172,15 +161,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   camera: {
-    flex: 1,
-    width: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   overlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'transparent',
     justifyContent: 'space-between',
   },
