@@ -1,12 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router'
-import logoNavbar from '../assets/logo-navbar.png'
-import backgroundImage from '../assets/background.png'
 
-export default function LandingPage() {
+function LandingPage() {
   const navigate = useNavigate()
   const [scrolled, setScrolled] = useState(false)
-  const [activeTab, setActiveTab] = useState('attendance')
 
   useEffect(() => {
     const handleScroll = () => {
@@ -16,430 +13,150 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  const features = [
-    {
-      id: 'attendance',
-      icon: '🕐',
-      title: 'Attendance Management',
-      description: 'Kelola absensi karyawan dengan GPS tracking, foto selfie, dan support WFH/WFO hybrid',
-      details: [
-        'Clock in/out dengan GPS & selfie verification',
-        'Support hybrid work (WFO/WFH)',
-        'Real-time attendance monitoring',
-        'Automated late detection',
-        'Flexible shift scheduling'
-      ]
-    },
-    {
-      id: 'leave',
-      icon: '📅',
-      title: 'Leave Management',
-      description: 'Sistem cuti yang transparan dengan approval workflow dan quota tracking otomatis',
-      details: [
-        'Multiple leave types (Annual, Sick, Emergency)',
-        'Real-time quota tracking',
-        'Multi-level approval workflow',
-        'Leave history & analytics',
-        'Automated notifications'
-      ]
-    },
-    {
-      id: 'overtime',
-      icon: '⏰',
-      title: 'Overtime Management',
-      description: 'Tracking lembur yang akurat dengan approval system dan kalkulasi kompensasi',
-      details: [
-        'Easy overtime request submission',
-        'Approval workflow management',
-        'Accurate duration tracking',
-        'Overtime analytics & reports',
-        'Compensation calculation ready'
-      ]
-    },
-    {
-      id: 'organization',
-      icon: '🏢',
-      title: 'Organization Structure',
-      description: 'Kelola struktur organisasi, departemen, dan posisi dengan mudah',
-      details: [
-        'Department & position management',
-        'Hierarchical organization view',
-        'Employee assignment',
-        'Office location management',
-        'Shift schedule configuration'
-      ]
-    },
-    {
-      id: 'analytics',
-      icon: '📊',
-      title: 'Reports & Analytics',
-      description: 'Dashboard analytics lengkap untuk pengambilan keputusan berbasis data',
-      details: [
-        'Real-time dashboard insights',
-        'Attendance statistics & trends',
-        'Leave & overtime reports',
-        'Export to Excel/PDF',
-        'Custom date range filtering'
-      ]
-    },
-    {
-      id: 'notification',
-      icon: '🔔',
-      title: 'Smart Notifications',
-      description: 'Sistem notifikasi real-time untuk semua aktivitas penting',
-      details: [
-        'Real-time push notifications',
-        'Email notifications',
-        'Request status updates',
-        'Approval reminders',
-        'Customizable notification settings'
-      ]
-    }
-  ]
-
-  const stats = [
-    { number: '99.9%', label: 'Uptime Guarantee' },
-    { number: '< 100ms', label: 'Response Time' },
-    { number: '1000+', label: 'Happy Companies' },
-    { number: '24/7', label: 'Support Available' }
-  ]
-
-  const testimonials = [
-    {
-      name: 'Budi Santoso',
-      position: 'HR Manager',
-      company: 'PT Maju Jaya',
-      text: 'Salmon HRIS mengubah cara kami mengelola HR. Semua jadi lebih efisien dan transparan!',
-      rating: 5
-    },
-    {
-      name: 'Sarah Ahmad',
-      position: 'CEO',
-      company: 'Tech Startup Indonesia',
-      text: 'Dashboard analytics-nya sangat membantu kami dalam pengambilan keputusan strategis.',
-      rating: 5
-    },
-    {
-      name: 'David Chen',
-      position: 'Operations Director',
-      company: 'Global Services Ltd',
-      text: 'Support untuk hybrid work sangat membantu di era new normal. Highly recommended!',
-      rating: 5
-    }
-  ]
-
-  const pricingPlans = [
-    {
-      name: 'Starter',
-      price: 'Gratis',
-      period: 'selamanya',
-      description: 'Cocok untuk startup & small team',
-      features: [
-        'Hingga 10 karyawan',
-        'Basic attendance tracking',
-        'Leave management',
-        'Email support',
-        'Mobile app access'
-      ],
-      cta: 'Coba Gratis',
-      popular: false
-    },
-    {
-      name: 'Professional',
-      price: '99K',
-      period: 'per user/bulan',
-      description: 'Untuk bisnis yang sedang berkembang',
-      features: [
-        'Unlimited employees',
-        'Full attendance features',
-        'Overtime management',
-        'Reports & analytics',
-        'Priority support',
-        'API access',
-        'Custom integrations'
-      ],
-      cta: 'Mulai Sekarang',
-      popular: true
-    },
-    {
-      name: 'Enterprise',
-      price: 'Custom',
-      period: 'hubungi kami',
-      description: 'Solusi enterprise dengan kebutuhan khusus',
-      features: [
-        'Semua fitur Professional',
-        'Dedicated account manager',
-        'Custom development',
-        'SLA guarantee',
-        'On-premise deployment',
-        'Advanced security',
-        'Training & onboarding'
-      ],
-      cta: 'Hubungi Sales',
-      popular: false
-    }
-  ]
-
   return (
-    <div 
-      className="min-h-screen"
-      style={{
-        backgroundImage: `url(${backgroundImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        backgroundAttachment: 'fixed'
-      }}
-    >
-      {/* Background Overlay untuk membuat konten lebih terbaca - SAMA KAYAK EMPLOYEE PAGE */}
-      <div className="min-h-screen" style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>
-      
-      {/* Content wrapper */}
-      <div className="relative z-10">
-      {/* Navbar */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? 'bg-white/95 backdrop-blur-lg shadow-lg' : 'bg-white/90 backdrop-blur-md'
-      } border-b border-gray-200`}>
-        <div className="max-w-7xl mx-auto px-6 py-4">
+    <div className="min-h-screen bg-white">
+      {/* NAVBAR */}
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white shadow-sm border-b border-gray-200' : 'bg-white/80 backdrop-blur-lg'}`}>
+        <div className="max-w-[1280px] mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img src={logoNavbar} alt="Salmon HRIS" className="h-10" />
-              <span className="text-xl font-bold text-black">
-                Salmon HRIS
+            <div className="flex items-center gap-2 cursor-pointer group" onClick={() => navigate('/')}>
+              <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">S</span>
+              </div>
+              <span className="text-xl font-bold text-gray-900">
+                Salmon<span className="text-violet-600">HRIS</span>
               </span>
             </div>
             
             <div className="hidden md:flex items-center gap-8">
-              <a href="/" className="font-bold text-gray-800 hover:text-teal-600 transition-colors">Home</a>
-              <a href="/features" className="font-bold text-gray-800 hover:text-teal-600 transition-colors">Fitur</a>
-              <a href="#pricing" className="font-bold text-gray-800 hover:text-teal-600 transition-colors">Harga</a>
+              <a href="#features" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">Fitur</a>
+              <a href="#pricing" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">Pricing</a>
+              <a href="/features" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">Resources</a>
             </div>
 
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={() => navigate('/login')}
-                className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 rounded-lg font-bold transition-all shadow-lg text-white"
-              >
-                Login
-              </button>
+            <div className="flex items-center gap-3">
+              <button onClick={() => navigate('/login')} className="px-5 py-2 text-gray-700 hover:text-gray-900 font-medium transition-colors">Login</button>
+              <button onClick={() => navigate('/login')} className="px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-semibold transition-all">Request Demo</button>
             </div>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="pt-32 pb-20 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6">
-              {/* Badge */}
-              <div className="inline-block px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 border-2 border-white rounded-full shadow-2xl">
-                <span className="text-white text-sm font-bold drop-shadow-md">
-                  🚀 Platform HR Management Terpercaya
-                </span>
-              </div>
+      {/* HERO SECTION */}
+      <section className="min-h-[90vh] flex items-center pt-20 pb-16 px-6">
+        <div className="max-w-[1280px] mx-auto w-full">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div className="space-y-8">
+              <div className="inline-block px-4 py-1.5 bg-violet-50 text-violet-700 rounded-full text-sm font-semibold">All-in-One HR Platform</div>
               
-              {/* Hero Title */}
-              <div className="bg-gradient-to-br from-white via-teal-50/50 to-cyan-50/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border-2 border-teal-400">
-                <h1 className="text-5xl md:text-6xl font-extrabold leading-tight">
-                  <span className="text-gray-900 drop-shadow-sm">HR lebih rapi,</span><br />
-                  <span className="text-teal-600 drop-shadow-md">
-                    tim lebih produktif
-                  </span>,<br />
-                  <span className="text-gray-900 drop-shadow-sm">keputusan lebih pasti</span>
-                </h1>
-              </div>
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 leading-tight">
+                Kelola HR Tanpa<span className="block text-violet-600">Ribet & Manual</span>
+              </h1>
               
-              {/* Description */}
-              <div className="bg-gradient-to-br from-white via-teal-50/30 to-cyan-50/30 backdrop-blur-sm p-6 rounded-xl shadow-xl border-2 border-teal-400">
-                <p className="text-xl text-gray-900 leading-relaxed font-bold drop-shadow-sm">
-                  Salmon HRIS membantu bisnis mengelola SDM secara end-to-end—mulai dari absensi, payroll, 
-                  hingga performance—dalam satu sistem yang simpel, transparan, dan siap dipakai untuk pengambilan keputusan.
-                </p>
-              </div>
-              
-              <div className="flex flex-wrap gap-4 pt-4">
-                <button 
-                  onClick={() => navigate('/login')}
-                  className="px-8 py-4 bg-teal-600 hover:bg-teal-700 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-2xl text-white border-2 border-teal-800"
-                >
-                  Coba Gratis Sekarang
-                </button>
-                <button 
-                  onClick={() => document.getElementById('features').scrollIntoView({ behavior: 'smooth' })}
-                  className="px-8 py-4 bg-white/95 backdrop-blur-sm border-2 border-teal-600 rounded-xl font-bold text-lg hover:bg-teal-50 transition-all text-teal-700 shadow-xl"
-                >
-                  Lihat Demo
-                </button>
+              <p className="text-xl text-gray-600 leading-relaxed">Payroll, attendance, dan data karyawan dalam satu dashboard terintegrasi. Hemat waktu, kurangi error, fokus ke growth.</p>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button onClick={() => navigate('/login')} className="px-8 py-4 bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-semibold text-lg transition-all shadow-lg shadow-violet-600/30">Request Demo</button>
+                <button onClick={() => navigate('/features')} className="px-8 py-4 border-2 border-gray-300 hover:border-gray-400 text-gray-700 rounded-lg font-semibold text-lg transition-all">Lihat Fitur</button>
               </div>
 
-              {/* Benefits badges */}
-              <div className="flex items-center gap-4 pt-6 text-sm font-bold flex-wrap">
-                <div className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-3 rounded-lg border-2 border-white shadow-lg">
-                  <span className="text-white font-bold text-lg">✓</span> 
-                  <span className="text-white drop-shadow-md">Gratis 30 hari trial</span>
+              <div className="flex items-center gap-6 pt-4">
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                  <span className="text-sm text-gray-600 font-medium">Free 30-day trial</span>
                 </div>
-                <div className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-3 rounded-lg border-2 border-white shadow-lg">
-                  <span className="text-white font-bold text-lg">✓</span> 
-                  <span className="text-white drop-shadow-md">No credit card required</span>
-                </div>
-                <div className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-3 rounded-lg border-2 border-white shadow-lg">
-                  <span className="text-white font-bold text-lg">✓</span> 
-                  <span className="text-white drop-shadow-md">Setup dalam 5 menit</span>
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                  <span className="text-sm text-gray-600 font-medium">No credit card required</span>
                 </div>
               </div>
             </div>
 
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-teal-500 to-cyan-600 rounded-3xl blur-3xl opacity-20 animate-pulse"></div>
-              <div className="relative bg-gradient-to-br from-white via-teal-50 to-cyan-50 backdrop-blur-sm p-8 rounded-3xl border-2 border-teal-400 shadow-2xl">
-                <div className="space-y-4">
-                  <div className="bg-white p-6 rounded-2xl border-2 border-teal-500 shadow-lg">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-12 h-12 bg-teal-600 rounded-full flex items-center justify-center text-2xl shadow-lg">📊</div>
-                      <div>
-                        <div className="font-bold text-gray-900 text-lg drop-shadow-sm">Real-time Dashboard</div>
-                        <div className="text-sm text-gray-800 font-semibold">Monitor semua aktivitas</div>
+              <div className="relative bg-gradient-to-br from-violet-50 to-indigo-50 rounded-2xl p-8 shadow-2xl border border-gray-200">
+                <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                  {/* Dashboard Header with better contrast */}
+                  <div className="bg-gradient-to-r from-violet-600 to-indigo-600 p-6 text-white">
+                    <h3 className="text-lg font-bold mb-4">Dashboard Overview</h3>
+                    <div className="grid grid-cols-3 gap-3">
+                      {/* Card dengan background lebih solid */}
+                      <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 border border-white/30">
+                        <div className="text-2xl font-bold text-white">1,234</div>
+                        <div className="text-xs text-white/90 font-medium">Employees</div>
                       </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 text-center">
-                      <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-3 rounded-lg border-2 border-green-500 shadow-sm">
-                        <div className="text-2xl font-bold text-green-700 drop-shadow-sm">94%</div>
-                        <div className="text-xs text-gray-900 font-bold">Attendance</div>
+                      <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 border border-white/30">
+                        <div className="text-2xl font-bold text-white">94.5%</div>
+                        <div className="text-xs text-white/90 font-medium">Attendance</div>
                       </div>
-                      <div className="bg-gradient-to-br from-teal-50 to-cyan-50 p-3 rounded-lg border-2 border-teal-500 shadow-sm">
-                        <div className="text-2xl font-bold text-teal-700 drop-shadow-sm">12</div>
-                        <div className="text-xs text-gray-900 font-bold">Pending</div>
-                      </div>
-                      <div className="bg-gradient-to-br from-cyan-50 to-blue-50 p-3 rounded-lg border-2 border-cyan-500 shadow-sm">
-                        <div className="text-2xl font-bold text-cyan-700 drop-shadow-sm">250</div>
-                        <div className="text-xs text-gray-900 font-bold">Employees</div>
+                      <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 border border-white/30">
+                        <div className="text-2xl font-bold text-white">23</div>
+                        <div className="text-xs text-white/90 font-medium">Pending</div>
                       </div>
                     </div>
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-xl border-2 border-teal-500 shadow-lg">
-                      <div className="text-3xl mb-2">🕐</div>
-                      <div className="font-bold text-gray-900 drop-shadow-sm">Smart Attendance</div>
-                      <div className="text-xs text-gray-800 font-semibold">GPS + Selfie</div>
+
+                  {/* Dashboard Content */}
+                  <div className="p-6 space-y-3">
+                    {/* Payroll Card */}
+                    <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-100">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="font-bold text-gray-900">Payroll Processed</div>
+                          <div className="text-sm text-gray-600">December 2025</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-gray-900">$124,500</div>
+                        <div className="text-xs text-green-600 font-semibold">✓ On time</div>
+                      </div>
                     </div>
-                    <div className="bg-white p-4 rounded-xl border-2 border-cyan-500 shadow-lg">
-                      <div className="text-3xl mb-2">📱</div>
-                      <div className="font-bold text-gray-900 drop-shadow-sm">Mobile Ready</div>
-                      <div className="text-xs text-gray-800 font-semibold">iOS & Android</div>
+
+                    {/* Attendance Card */}
+                    <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-100">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                          <span className="text-white text-lg">⏰</span>
+                        </div>
+                        <div>
+                          <div className="font-bold text-gray-900">Today's Attendance</div>
+                          <div className="text-sm text-gray-600">189 checked in</div>
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold text-blue-600">94.5%</div>
+                    </div>
+
+                    {/* Leave Requests Card */}
+                    <div className="flex items-center justify-between p-4 bg-violet-50 rounded-lg border border-violet-100">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-violet-500 rounded-full flex items-center justify-center">
+                          <span className="text-white text-lg">📋</span>
+                        </div>
+                        <div>
+                          <div className="font-bold text-gray-900">Pending Requests</div>
+                          <div className="text-sm text-gray-600">Leave & Overtime</div>
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold text-violet-600">23</div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Stats Section */}
-      <section className="py-16 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-gradient-to-br from-white via-teal-50 to-cyan-50 backdrop-blur-sm rounded-2xl shadow-2xl p-12 border-2 border-teal-400">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-              {stats.map((stat, index) => (
-                <div key={index} className="text-center bg-white/80 p-6 rounded-xl shadow-lg">
-                  <div className="text-4xl md:text-5xl font-bold mb-2 text-teal-600 drop-shadow-md">{stat.number}</div>
-                  <div className="text-gray-800 font-bold">{stat.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits Section */}
-      <section id="benefits" className="py-20 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              {/* Benefits header */}
-              <div className="bg-gradient-to-br from-white via-teal-50 to-cyan-50 backdrop-blur-sm p-6 rounded-2xl border-2 border-teal-400 shadow-2xl mb-6">
-                <h2 className="text-4xl md:text-5xl font-extrabold">
-                  <span className="text-gray-900 drop-shadow-sm">Kenapa Memilih </span>
-                  <span className="text-teal-600 drop-shadow-md">Salmon HRIS?</span>
-                </h2>
-              </div>
-              
-              <div className="space-y-6">
-                <div className="flex gap-4 bg-gradient-to-br from-white via-teal-50/30 to-cyan-50/30 backdrop-blur-sm p-5 rounded-xl border-2 border-teal-500 shadow-xl hover:shadow-2xl transition-all">
-                  <div className="flex-shrink-0 w-14 h-14 bg-teal-600 rounded-lg flex items-center justify-center shadow-lg">
-                    <span className="text-3xl">⚡</span>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold mb-2 text-gray-900 drop-shadow-sm">Setup Cepat & Mudah</h3>
-                    <p className="text-gray-800 font-semibold">Mulai dalam 5 menit tanpa perlu technical knowledge. Wizard setup kami akan guide step by step.</p>
-                  </div>
+                {/* Floating Stats - Better positioned */}
+                <div className="absolute -right-4 -bottom-4 bg-white rounded-xl shadow-2xl p-4 border-2 border-violet-100">
+                  <div className="text-xs text-gray-600 font-semibold mb-1">Active Users</div>
+                  <div className="text-3xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">50K+</div>
+                  <div className="text-xs text-green-600 font-bold mt-1">↑ 23% growth</div>
                 </div>
 
-                <div className="flex gap-4 bg-gradient-to-br from-white via-teal-50/30 to-cyan-50/30 backdrop-blur-sm p-5 rounded-xl border-2 border-cyan-500 shadow-xl hover:shadow-2xl transition-all">
-                  <div className="flex-shrink-0 w-14 h-14 bg-cyan-600 rounded-lg flex items-center justify-center shadow-lg">
-                    <span className="text-3xl">🔒</span>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold mb-2 text-gray-900 drop-shadow-sm">Keamanan Data Terjamin</h3>
-                    <p className="text-gray-800 font-semibold">Enkripsi end-to-end, backup otomatis, dan compliance dengan standar internasional.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4 bg-gradient-to-br from-white via-teal-50/30 to-cyan-50/30 backdrop-blur-sm p-5 rounded-xl border-2 border-emerald-500 shadow-xl hover:shadow-2xl transition-all">
-                  <div className="flex-shrink-0 w-14 h-14 bg-emerald-600 rounded-lg flex items-center justify-center shadow-lg">
-                    <span className="text-3xl">📱</span>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold mb-2 text-gray-900 drop-shadow-sm">Mobile First Experience</h3>
-                    <p className="text-gray-800 font-semibold">Akses dari mana saja dengan mobile app yang smooth. Perfect untuk remote teams.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4 bg-gradient-to-br from-white via-teal-50/30 to-cyan-50/30 backdrop-blur-sm p-5 rounded-xl border-2 border-teal-500 shadow-xl hover:shadow-2xl transition-all">
-                  <div className="flex-shrink-0 w-14 h-14 bg-teal-600 rounded-lg flex items-center justify-center shadow-lg">
-                    <span className="text-3xl">🤝</span>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold mb-2 text-gray-900 drop-shadow-sm">Support 24/7</h3>
-                    <p className="text-gray-800 font-semibold">Tim support kami siap membantu kapan saja. Response time rata-rata &lt; 5 menit.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-teal-500 to-cyan-600 rounded-3xl blur-3xl opacity-20"></div>
-              <div className="relative space-y-4">
-                <div className="bg-gradient-to-br from-white via-green-50 to-emerald-50 backdrop-blur-sm p-6 rounded-2xl border-2 border-green-500 transform hover:scale-105 transition-transform shadow-2xl">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="font-bold text-gray-900 text-lg drop-shadow-sm">Attendance Rate</span>
-                    <span className="text-green-700 font-bold text-xl drop-shadow-sm">+15% ↑</span>
-                  </div>
-                  <div className="h-4 bg-gray-200 rounded-full overflow-hidden border-2 border-green-600">
-                    <div className="h-full bg-green-600 w-[94%] rounded-full shadow-lg"></div>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-white via-teal-50 to-cyan-50 backdrop-blur-sm p-6 rounded-2xl border-2 border-teal-500 transform hover:scale-105 transition-transform shadow-2xl">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="font-bold text-gray-900 text-lg drop-shadow-sm">HR Productivity</span>
-                    <span className="text-teal-700 font-bold text-xl drop-shadow-sm">+40% ↑</span>
-                  </div>
-                  <div className="h-4 bg-gray-200 rounded-full overflow-hidden border-2 border-teal-600">
-                    <div className="h-full bg-teal-600 w-[89%] rounded-full shadow-lg"></div>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-white via-cyan-50 to-blue-50 backdrop-blur-sm p-6 rounded-2xl border-2 border-cyan-500 transform hover:scale-105 transition-transform shadow-2xl">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="font-bold text-gray-900 text-lg drop-shadow-sm">Employee Satisfaction</span>
-                    <span className="text-cyan-700 font-bold text-xl drop-shadow-sm">+25% ↑</span>
-                  </div>
-                  <div className="h-4 bg-gray-200 rounded-full overflow-hidden border-2 border-cyan-600">
-                    <div className="h-full bg-cyan-600 w-[92%] rounded-full shadow-lg"></div>
-                  </div>
+                <div className="absolute -left-4 top-1/4 bg-white rounded-xl shadow-2xl p-4 border-2 border-indigo-100">
+                  <div className="text-xs text-gray-600 font-semibold mb-1">Time Saved</div>
+                  <div className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">80%</div>
+                  <div className="text-xs text-gray-500 font-semibold mt-1">vs manual</div>
                 </div>
               </div>
             </div>
@@ -447,183 +164,110 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="py-20 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            {/* Pricing header */}
-            <div className="bg-gradient-to-br from-white via-teal-50 to-cyan-50 backdrop-blur-sm px-8 py-6 rounded-2xl border-2 border-teal-400 shadow-2xl mb-6 inline-block">
-              <h2 className="text-4xl md:text-5xl font-extrabold">
-                <span className="text-gray-900 drop-shadow-sm">Harga yang </span>
-                <span className="text-teal-600 drop-shadow-md">Fleksibel</span>
-              </h2>
-            </div>
-            <div className="bg-white/95 backdrop-blur-sm px-6 py-4 rounded-xl border-2 border-gray-300 inline-block shadow-xl">
-              <p className="text-xl text-gray-900 font-bold">Pilih paket yang sesuai dengan kebutuhan bisnis Anda</p>
-            </div>
+      {/* PAIN POINTS */}
+      <section className="py-20 px-6 bg-gray-50">
+        <div className="max-w-[1200px] mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Masalah HR yang Sering Kejadian</h2>
+            <p className="text-lg text-gray-600">Familiar dengan situasi ini?</p>
           </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {pricingPlans.map((plan, index) => (
-              <div 
-                key={index}
-                className={`relative bg-gradient-to-br from-white via-teal-50/30 to-cyan-50/30 backdrop-blur-sm p-8 rounded-2xl border-2 ${
-                  plan.popular ? 'border-teal-500 scale-105 shadow-2xl ring-4 ring-teal-400/50' : 'border-teal-400'
-                } transition-all hover:scale-105 shadow-xl`}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-teal-600 px-6 py-2 rounded-full text-sm font-bold text-white shadow-xl border-2 border-white">
-                      🔥 Most Popular
-                    </span>
-                  </div>
-                )}
-                
-                <div className="text-center mb-6">
-                  <h3 className="text-2xl font-bold mb-2 text-gray-900 drop-shadow-sm">{plan.name}</h3>
-                  <div className="mb-2">
-                    <span className="text-5xl font-bold text-teal-600 drop-shadow-md">{plan.price}</span>
-                    {plan.period && <span className="text-gray-800 ml-2 font-bold">/ {plan.period}</span>}
-                  </div>
-                  <p className="text-gray-800 text-sm font-bold">{plan.description}</p>
-                </div>
-
-                <ul className="space-y-3 mb-8">
-                  {plan.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="text-green-600 mt-1 font-bold text-lg">✓</span>
-                      <span className="text-gray-900 font-semibold">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <button 
-                  onClick={() => navigate('/login')}
-                  className={`w-full py-4 rounded-xl font-bold transition-all text-white shadow-xl border-2 ${
-                    plan.popular 
-                      ? 'bg-teal-600 hover:bg-teal-700 border-teal-800' 
-                      : 'bg-teal-600 hover:bg-teal-700 border-teal-800'
-                  }`}
-                >
-                  {plan.cta}
-                </button>
-              </div>
-            ))}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all"><div className="text-4xl mb-4">❌</div><h3 className="text-lg font-bold text-gray-900 mb-2">Payroll Sering Salah</h3><p className="text-gray-600 text-sm">Hitung manual bikin error, revisi terus menerus</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all"><div className="text-4xl mb-4">❌</div><h3 className="text-lg font-bold text-gray-900 mb-2">Data Karyawan Tersebar</h3><p className="text-gray-600 text-sm">Excel, email, folder — susah cari data yang diperlukan</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all"><div className="text-4xl mb-4">❌</div><h3 className="text-lg font-bold text-gray-900 mb-2">Reporting Makan Waktu</h3><p className="text-gray-600 text-sm">Kumpulin data manual, bikin laporan berjam-jam</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all"><div className="text-4xl mb-4">❌</div><h3 className="text-lg font-bold text-gray-900 mb-2">Sistem Lama Tidak Scalable</h3><p className="text-gray-600 text-sm">Makin banyak karyawan, makin ribet prosesnya</p></div>
           </div>
         </div>
       </section>
 
-      {/* Testimonials Section */}
-      <section id="testimonials" className="py-20 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            {/* Testimonials header */}
-            <div className="bg-gradient-to-br from-white via-teal-50 to-cyan-50 backdrop-blur-sm px-8 py-6 rounded-2xl border-2 border-teal-400 shadow-2xl mb-6 inline-block">
-              <h2 className="text-4xl md:text-5xl font-extrabold">
-                <span className="text-gray-900 drop-shadow-sm">Dipercaya oleh </span>
-                <span className="text-teal-600 drop-shadow-md">1000+ Perusahaan</span>
-              </h2>
-            </div>
-            <div className="bg-white/95 backdrop-blur-sm px-6 py-4 rounded-xl border-2 border-gray-300 inline-block shadow-xl">
-              <p className="text-xl text-gray-900 font-bold">Lihat apa kata mereka tentang Salmon HRIS</p>
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <div key={index} className="bg-gradient-to-br from-white via-teal-50/30 to-cyan-50/30 backdrop-blur-sm p-8 rounded-2xl border-2 border-teal-500 hover:border-teal-600 transition-all shadow-2xl hover:shadow-3xl">
-                <div className="flex gap-1 mb-4">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <span key={i} className="text-yellow-500 text-2xl drop-shadow-md">⭐</span>
-                  ))}
-                </div>
-                
-                <p className="text-gray-900 mb-6 italic font-bold text-lg drop-shadow-sm">"{testimonial.text}"</p>
-                
-                <div className="flex items-center gap-3 bg-white p-3 rounded-lg border-2 border-teal-500 shadow-lg">
-                  <div className="w-14 h-14 bg-teal-600 rounded-full flex items-center justify-center font-bold text-white text-xl shadow-lg">
-                    {testimonial.name.charAt(0)}
-                  </div>
-                  <div>
-                    <div className="font-bold text-gray-900 text-lg drop-shadow-sm">{testimonial.name}</div>
-                    <div className="text-sm text-gray-800 font-bold">{testimonial.position}</div>
-                    <div className="text-xs text-gray-700 font-semibold">{testimonial.company}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
+      {/* SOLUTIONS */}
       <section className="py-20 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="bg-teal-600 p-12 rounded-3xl shadow-2xl border-4 border-teal-800">
-            <h2 className="text-4xl md:text-5xl font-extrabold mb-4 text-white drop-shadow-lg">
-              Siap Transformasi HR Anda?
-            </h2>
-            <p className="text-xl mb-8 text-white font-bold drop-shadow-md">
-              Mulai gratis hari ini. Tidak perlu kartu kredit. Setup dalam 5 menit.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <button 
-                onClick={() => navigate('/login')}
-                className="px-10 py-4 bg-white text-teal-700 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all transform hover:scale-105 shadow-2xl border-2 border-gray-200"
-              >
-                Mulai Gratis Sekarang →
-              </button>
-              <button 
-                className="px-10 py-4 bg-teal-800 border-2 border-white text-white rounded-xl font-bold text-lg hover:bg-teal-900 transition-all shadow-xl"
-              >
-                Jadwalkan Demo
-              </button>
-            </div>
-
-            <div className="flex flex-wrap justify-center gap-8 mt-8 text-sm font-bold text-white">
-              <div className="flex items-center gap-2 bg-teal-700 px-4 py-2 rounded-lg border-2 border-white shadow-lg">
-                <span className="text-xl">✓</span> Free 30-day trial
-              </div>
-              <div className="flex items-center gap-2 bg-teal-700 px-4 py-2 rounded-lg border-2 border-white shadow-lg">
-                <span className="text-xl">✓</span> Cancel anytime
-              </div>
-              <div className="flex items-center gap-2 bg-teal-700 px-4 py-2 rounded-lg border-2 border-white shadow-lg">
-                <span className="text-xl">✓</span> No credit card needed
-              </div>
-            </div>
+        <div className="max-w-[1200px] mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Solusi HR Modern untuk Tim yang Bertumbuh</h2>
+            <p className="text-lg text-gray-600">Sistem yang dirancang untuk efisiensi maksimal</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="relative bg-white p-8 rounded-2xl border-2 border-gray-100 hover:border-violet-200 transition-all"><div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center text-3xl mb-6 shadow-lg">⚡</div><h3 className="text-2xl font-bold text-gray-900 mb-3">Otomatis & Akurat</h3><p className="text-gray-600 leading-relaxed">Sistem auto-calculate payroll, attendance, overtime. Minim human error.</p></div>
+            <div className="relative bg-white p-8 rounded-2xl border-2 border-gray-100 hover:border-violet-200 transition-all"><div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center text-3xl mb-6 shadow-lg">🎯</div><h3 className="text-2xl font-bold text-gray-900 mb-3">Terpusat</h3><p className="text-gray-600 leading-relaxed">Semua data karyawan, absensi, cuti dalam satu dashboard yang mudah diakses.</p></div>
+            <div className="relative bg-white p-8 rounded-2xl border-2 border-gray-100 hover:border-violet-200 transition-all"><div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center text-3xl mb-6 shadow-lg">📈</div><h3 className="text-2xl font-bold text-gray-900 mb-3">Scalable</h3><p className="text-gray-600 leading-relaxed">Cocok untuk tim kecil sampai enterprise. Grow sesuai kebutuhan bisnis Anda.</p></div>
           </div>
         </div>
       </section>
 
-      {/* Footer - Simple Version */}
-      <footer className="bg-white border-t border-gray-200 py-8 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            {/* Logo & Copyright */}
-            <div className="flex items-center gap-2">
-              <img src={logoNavbar} alt="Salmon HRIS" className="h-8" />
-              <span className="font-bold text-gray-900">Salmon HRIS</span>
-            </div>
-
-            {/* Quick Links */}
-            <div className="flex flex-wrap gap-6 text-sm">
-              <a href="/features" className="text-gray-600 hover:text-teal-600 transition-colors font-medium">Fitur</a>
-              <a href="#pricing" className="text-gray-600 hover:text-teal-600 transition-colors font-medium">Harga</a>
-              <a href="#" className="text-gray-600 hover:text-teal-600 transition-colors font-medium">Tentang Kami</a>
-              <a href="#" className="text-gray-600 hover:text-teal-600 transition-colors font-medium">Kontak</a>
-              <a href="#" className="text-gray-600 hover:text-teal-600 transition-colors font-medium">Privacy Policy</a>
-            </div>
-
-            {/* Copyright */}
-            <p className="text-gray-500 text-sm">
-              © 2026 Salmon HRIS
-            </p>
+      {/* KEY FEATURES */}
+      <section id="features" className="py-20 px-6 bg-gray-50">
+        <div className="max-w-[1200px] mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Fitur Utama</h2>
+            <p className="text-lg text-gray-600">Semua yang Anda butuhkan untuk manage HR modern</p>
           </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform">💰</div><h3 className="text-xl font-bold text-gray-900 mb-2">Payroll Otomatis</h3><p className="text-gray-600">Auto-calculate gaji, tunjangan, potongan, dan pajak</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform">⏰</div><h3 className="text-xl font-bold text-gray-900 mb-2">Attendance Real-time</h3><p className="text-gray-600">GPS check-in, selfie verification, live monitoring</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform">👥</div><h3 className="text-xl font-bold text-gray-900 mb-2">Employee Database</h3><p className="text-gray-600">Semua data karyawan tersimpan rapi dan aman</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform">📊</div><h3 className="text-xl font-bold text-gray-900 mb-2">Reporting & Analytics</h3><p className="text-gray-600">Dashboard insight, export laporan ke Excel/PDF</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform">🔐</div><h3 className="text-xl font-bold text-gray-900 mb-2">Role & Permission</h3><p className="text-gray-600">Atur akses berdasarkan jabatan dan departemen</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform">☁️</div><h3 className="text-xl font-bold text-gray-900 mb-2">Cloud-based System</h3><p className="text-gray-600">Akses dari mana saja, kapan saja, device apa saja</p></div>
+          </div>
+          <div className="text-center mt-12"><button onClick={() => navigate('/features')} className="px-8 py-3 border-2 border-violet-600 text-violet-600 hover:bg-violet-600 hover:text-white rounded-lg font-semibold transition-all">Lihat Semua Fitur →</button></div>
+        </div>
+      </section>
+
+      {/* HOW IT WORKS */}
+      <section className="py-20 px-6">
+        <div className="max-w-[1200px] mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Cara Kerja</h2>
+            <p className="text-lg text-gray-600">Simple dan straightforward</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="flex flex-col items-center text-center"><div className="w-16 h-16 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mb-6 shadow-lg">1</div><h3 className="text-xl font-bold text-gray-900 mb-3">Daftar & Setup</h3><p className="text-gray-600">Registrasi gratis, setup organisasi & departemen dalam 5 menit</p></div>
+            <div className="flex flex-col items-center text-center"><div className="w-16 h-16 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mb-6 shadow-lg">2</div><h3 className="text-xl font-bold text-gray-900 mb-3">Input Data Karyawan</h3><p className="text-gray-600">Import data via Excel atau input manual, atur role & akses</p></div>
+            <div className="flex flex-col items-center text-center"><div className="w-16 h-16 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mb-6 shadow-lg">3</div><h3 className="text-xl font-bold text-gray-900 mb-3">Kelola & Monitor HR</h3><p className="text-gray-600">Pantau attendance, approve request, lihat analytics real-time</p></div>
+          </div>
+        </div>
+      </section>
+
+      {/* SOCIAL PROOF */}
+      <section className="py-20 px-6 bg-gray-50">
+        <div className="max-w-[1200px] mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Dipercaya oleh Tim yang Bertumbuh</h2>
+            <p className="text-lg text-gray-600">Digunakan oleh ratusan HR & business owner di Indonesia</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+            <div className="text-center"><div className="text-4xl md:text-5xl font-bold text-violet-600 mb-2">500+</div><div className="text-gray-600 font-medium">Companies</div></div>
+            <div className="text-center"><div className="text-4xl md:text-5xl font-bold text-violet-600 mb-2">50K+</div><div className="text-gray-600 font-medium">Active Users</div></div>
+            <div className="text-center"><div className="text-4xl md:text-5xl font-bold text-violet-600 mb-2">99.9%</div><div className="text-gray-600 font-medium">Uptime</div></div>
+            <div className="text-center"><div className="text-4xl md:text-5xl font-bold text-violet-600 mb-2">4.9/5</div><div className="text-gray-600 font-medium">User Rating</div></div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA CLOSING */}
+      <section className="py-20 px-6 bg-gradient-to-br from-violet-600 to-indigo-700">
+        <div className="max-w-[800px] mx-auto text-center">
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">Siap Bikin HR Lebih Rapi?</h2>
+          <p className="text-xl text-white/90 mb-10">Coba demo gratis hari ini. Lihat sendiri bagaimana Salmon HRIS bisa transform HR operations Anda.</p>
+          <button onClick={() => navigate('/login')} className="px-10 py-4 bg-white text-violet-700 hover:bg-gray-50 rounded-lg font-bold text-lg transition-all shadow-2xl">Request Demo →</button>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="bg-gray-900 text-white py-12 px-6">
+        <div className="max-w-[1200px] mx-auto">
+          <div className="grid md:grid-cols-4 gap-8 mb-8">
+            <div><h4 className="font-bold mb-4">Product</h4><ul className="space-y-2 text-gray-400"><li><a href="/features" className="hover:text-white transition-colors">Features</a></li><li><a href="#pricing" className="hover:text-white transition-colors">Pricing</a></li></ul></div>
+            <div><h4 className="font-bold mb-4">Company</h4><ul className="space-y-2 text-gray-400"><li><a href="#" className="hover:text-white transition-colors">About</a></li><li><a href="#" className="hover:text-white transition-colors">Contact</a></li></ul></div>
+            <div><h4 className="font-bold mb-4">Legal</h4><ul className="space-y-2 text-gray-400"><li><a href="#" className="hover:text-white transition-colors">Privacy</a></li><li><a href="#" className="hover:text-white transition-colors">Terms</a></li></ul></div>
+            <div><h4 className="font-bold mb-4">Contact</h4><ul className="space-y-2 text-gray-400"><li>support@salmonhris.com</li></ul></div>
+          </div>
+          <div className="border-t border-gray-800 pt-8 text-center"><p className="text-gray-400 text-sm">© 2026 Salmon HRIS. All rights reserved.</p></div>
         </div>
       </footer>
-      </div>
-      </div>
     </div>
   )
 }
+
+export default LandingPage
