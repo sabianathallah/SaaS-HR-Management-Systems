@@ -52,6 +52,62 @@ module.exports = (sequelize, DataTypes) => {
         as: 'hybridSchedules',
         onDelete: 'CASCADE'
       });
+
+      // User has many EmployeeSalaryComponents
+      User.hasMany(models.EmployeeSalaryComponent, {
+        foreignKey: 'UserId',
+        as: 'salaryComponents',
+        onDelete: 'CASCADE'
+      });
+
+      // User has many Payrolls (as employee)
+      User.hasMany(models.Payroll, {
+        foreignKey: 'UserId',
+        as: 'payrolls',
+        onDelete: 'CASCADE'
+      });
+
+      // User has many PayrollPeriods they generated
+      User.hasMany(models.PayrollPeriod, {
+        foreignKey: 'generatedBy',
+        as: 'generatedPayrollPeriods',
+        onDelete: 'SET NULL'
+      });
+
+      // User has many PayrollPeriods they approved
+      User.hasMany(models.PayrollPeriod, {
+        foreignKey: 'approvedBy',
+        as: 'approvedPayrollPeriods',
+        onDelete: 'SET NULL'
+      });
+
+      // User has many PayrollPeriods they processed
+      User.hasMany(models.PayrollPeriod, {
+        foreignKey: 'processedBy',
+        as: 'processedPayrollPeriods',
+        onDelete: 'SET NULL'
+      });
+
+      // User has many PayrollAdjustments they created
+      User.hasMany(models.PayrollAdjustment, {
+        foreignKey: 'createdBy',
+        as: 'createdAdjustments',
+        onDelete: 'CASCADE'
+      });
+
+      // User has many PayrollAdjustments they approved
+      User.hasMany(models.PayrollAdjustment, {
+        foreignKey: 'approvedBy',
+        as: 'approvedAdjustments',
+        onDelete: 'SET NULL'
+      });
+
+      // User has many PayrollHistories
+      User.hasMany(models.PayrollHistory, {
+        foreignKey: 'performedBy',
+        as: 'payrollHistories',
+        onDelete: 'CASCADE'
+      });
     }
   }
   User.init({
@@ -159,6 +215,59 @@ module.exports = (sequelize, DataTypes) => {
           }
         }
       }
+    },
+    employmentStatus: {
+      type: DataTypes.ENUM('probation', 'permanent', 'contract', 'internship'),
+      allowNull: false,
+      defaultValue: 'probation'
+    },
+    bankName: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    bankAccountNumber: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    bankAccountHolderName: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    baseSalary: {
+      type: DataTypes.DECIMAL(15, 2),
+      allowNull: true,
+      defaultValue: 0,
+      validate: {
+        min: {
+          args: [0],
+          msg: 'Base salary cannot be negative'
+        }
+      }
+    },
+    maritalStatus: {
+      type: DataTypes.ENUM('single', 'married', 'divorced', 'widowed'),
+      allowNull: false,
+      defaultValue: 'single'
+    },
+    numberOfDependents: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      validate: {
+        min: {
+          args: [0],
+          msg: 'Number of dependents cannot be negative'
+        },
+        max: {
+          args: [10],
+          msg: 'Number of dependents cannot exceed 10'
+        }
+      }
+    },
+    taxIdentificationNumber: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'NPWP - Nomor Pokok Wajib Pajak'
     }
   }, {
     sequelize,

@@ -3,7 +3,6 @@ import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 
 import LandingPage from './views/LandingPage.jsx'
-import FeaturesPage from './views/FeaturesPage.jsx'
 import Login from './views/Login.jsx'
 import EmployeePage from './views/EmployeePage.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
@@ -22,6 +21,12 @@ import NotificationsPage from './views/admin/NotificationsPage.jsx'
 import SettingsPage from './views/admin/SettingsPage.jsx'
 import WorkLocationPage from './views/admin/WorkLocationPage.jsx'
 
+// Payroll Pages
+import PayrollPeriodList from './views/PayrollPeriodList.jsx'
+import PayrollPeriodDetail from './views/PayrollPeriodDetail.jsx'
+import MyPayslips from './views/MyPayslips.jsx'
+import PayslipDetail from './views/PayslipDetail.jsx'
+
 
 export default function App() {
 
@@ -30,7 +35,6 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/features" element={<FeaturesPage />} />
           <Route path="/login" element={<Login />} />
           
           {/* Employee Protected Route */}
@@ -65,7 +69,29 @@ export default function App() {
             <Route path="reports" element={<ReportsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            
+            {/* Payroll Routes - Admin */}
+            <Route path="payroll/periods" element={<PayrollPeriodList />} />
+            <Route path="payroll/periods/:periodId" element={<PayrollPeriodDetail />} />
           </Route>
+          
+          {/* Payroll Routes - Employee (Standalone, not nested in AdminLayout) */}
+          <Route 
+            path='/payroll/my-payslips' 
+            element={
+              <ProtectedRoute allowedRoles={['EMPLOYEE', 'ADMIN']}>
+                <MyPayslips />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path='/payroll/payslips/:payrollId' 
+            element={
+              <ProtectedRoute allowedRoles={['EMPLOYEE', 'ADMIN']}>
+                <PayslipDetail />
+              </ProtectedRoute>
+            } 
+          />
           
           <Route path="*" element={<Navigate to="/login" />} />
         </Routes>

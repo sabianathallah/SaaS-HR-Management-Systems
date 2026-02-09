@@ -57,10 +57,6 @@ const AttendanceManagement = () => {
         axios.get(`${import.meta.env.VITE_BASE_URL}/office-locations/admin`, config),
       ]);
 
-      console.log('📊 Attendance Data Sample:', attendanceRes.data.data[0]); // Debug log
-      console.log('📊 office_location field:', attendanceRes.data.data[0]?.office_location);
-      console.log('📊 OfficeLocation field:', attendanceRes.data.data[0]?.OfficeLocation);
-
       setAttendances(attendanceRes.data.data || []);
       setEmployees(employeeRes.data.data || []);
       

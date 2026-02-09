@@ -18,6 +18,10 @@ const workLocationChangeRequestRouter = require('./workLocationChangeRequest')
 const workLocationChangeRequest_isAdminRouter = require('./workLocationChangeRequest_isAdmin')
 const hybridScheduleRouter = require('./hybridSchedule')
 const hybridSchedule_isAdminRouter = require('./hybridSchedule_isAdmin')
+const payrollRouter = require('./payroll')
+const payroll_isAdminRouter = require('./payroll_isAdmin')
+const payrollSettings_isAdminRouter = require('./payrollSettings_isAdmin')
+const webhookRouter = require('./webhook')
 
 const isAdmin = require("../middlewares/authorization");
 const authentication = require('../middlewares/authentication')
@@ -30,6 +34,9 @@ const AuditLogger = require('../helpers/auditLogger')
 
 router.post('/login', LoginController.login)
 router.post('/register', authentication, isAdmin, RegisterController.register)
+
+// Webhooks (no authentication - called by external services)
+router.use('/webhook', webhookRouter)
 
 // 🧪 Test endpoint untuk verify IP detection (dapat dihapus di production)
 router.get('/test-ip', (req, res) => {
@@ -69,6 +76,9 @@ router.use('/work-location-changes/admin', isAdmin, workLocationChangeRequest_is
 router.use('/work-location-changes', workLocationChangeRequestRouter)
 router.use('/hybrid-schedules/admin', isAdmin, hybridSchedule_isAdminRouter)
 router.use('/hybrid-schedules', hybridScheduleRouter)
+router.use('/payroll_isAdmin', isAdmin, payroll_isAdminRouter)
+router.use('/payrollSettings_isAdmin', isAdmin, payrollSettings_isAdminRouter)
+router.use('/payroll', payrollRouter)
 
 
 router.use(errorHandler)

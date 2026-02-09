@@ -60,6 +60,13 @@ const AdminLayout = () => {
       description: 'Overtime Requests'
     },
     { 
+      id: 'payroll', 
+      label: 'Payroll', 
+      icon: '💰',
+      path: '/admin/payroll/periods',
+      description: 'Salary & Payments'
+    },
+    { 
       id: 'location', 
       label: 'Organization', 
       icon: '⚖️',
