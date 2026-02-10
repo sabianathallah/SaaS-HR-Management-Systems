@@ -1,12 +1,66 @@
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
-// API Configuration - prioritize app.json extra.apiUrl
-const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://172.20.10.2:3000';
+/**
+ * 🚀 SMART API URL CONFIGURATION
+ * 
+ * Prioritas URL (dari tertinggi):
+ * 1. app.json extra.apiUrl (untuk production/custom URL)
+ * 2. localhost untuk iOS Simulator
+ * 3. 10.0.2.2 untuk Android Emulator
+ * 4. Auto-detect dari Expo manifest untuk physical device
+ * 
+ * 💡 SOLUSI GANTI JARINGAN:
+ * - Gunakan: npx expo start --tunnel (RECOMMENDED)
+ * - Atau: npx expo start --lan
+ * - Ngrok: Set URL di app.json extra.apiUrl
+ */
+
+const getApiUrl = () => {
+  // Priority 1: Custom URL dari app.json
+  if (Constants.expoConfig?.extra?.apiUrl) {
+    console.log('📍 Using custom API URL from app.json');
+    return Constants.expoConfig.extra.apiUrl;
+  }
+  
+  // Priority 2: iOS Simulator - use computer's IP
+  if (Platform.OS === 'ios' && !Constants.isDevice) {
+    console.log('📱 iOS Simulator detected');
+    // iOS Simulator bisa akses localhost, tapi kalo ga jalan pake IP host
+    const host = Constants.expoConfig?.hostUri?.split(':').shift();
+    if (host) {
+      return `http://${host}:3000`;
+    }
+    return 'http://localhost:3000';
+  }
+  
+  // Priority 3: Android Emulator
+  if (Platform.OS === 'android' && !Constants.isDevice) {
+    console.log('🤖 Android Emulator detected');
+    return 'http://10.0.2.2:3000';
+  }
+  
+  // Priority 4: Physical Device - Auto-detect from Expo manifest
+  if (Constants.expoConfig?.hostUri) {
+    const host = Constants.expoConfig.hostUri.split(':').shift();
+    const apiUrl = `http://${host}:3000`;
+    console.log('📡 Physical device - auto-detected from Expo');
+    return apiUrl;
+  }
+  
+  // Fallback - gunakan tunnel atau LAN mode
+  console.warn('⚠️  Could not auto-detect IP. Use: npx expo start --tunnel');
+  return 'http://localhost:3000';
+};
+
+const API_BASE_URL = getApiUrl();
 
 console.log('🔧 ========== API CONFIGURATION ==========');
 console.log('🔧 API_BASE_URL:', API_BASE_URL);
-console.log('🔧 From expo config:', Constants.expoConfig?.extra?.apiUrl);
-console.log('🔧 Platform:', Constants.platform);
+console.log('🔧 Platform:', Platform.OS);
+console.log('🔧 Is Device:', Constants.isDevice);
+console.log('🔧 Expo Host:', Constants.expoConfig?.hostUri);
+console.log('🔧 Custom URL:', Constants.expoConfig?.extra?.apiUrl || 'Not set');
 console.log('🔧 ========================================');
 
 export default {

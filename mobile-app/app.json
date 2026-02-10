@@ -33,7 +33,9 @@
       "bundler": "metro"
     },
     "extra": {
-      "apiUrl": "http://192.168.100.145:3000"
+      "eas": {
+        "projectId": "your-project-id"
+      }
     },
     "plugins": [
       [
