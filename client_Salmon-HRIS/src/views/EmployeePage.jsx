@@ -66,6 +66,12 @@ export default function EmployeePage() {
     reason: ''
   })
   
+  // Payslip State
+  const [payslips, setPayslips] = useState([])
+  const [payslipSummary, setPayslipSummary] = useState(null)
+  const [selectedPayslip, setSelectedPayslip] = useState(null)
+  const [showPayslipDetail, setShowPayslipDetail] = useState(false)
+  
   // Profile State
   const [profile, setProfile] = useState({
     name: '',
@@ -158,6 +164,8 @@ export default function EmployeePage() {
       fetchAttendanceHistory()
     } else if (activeTab === 'leave') {
       fetchLeaveData()
+    } else if (activeTab === 'payslips') {
+      fetchPayslipsData()
     } else if (activeTab === 'notifications') {
       fetchAllNotifications()
     } else if (activeTab === 'profile') {
@@ -788,6 +796,100 @@ export default function EmployeePage() {
     } catch (error) {
       handleApiError(error, 'Gagal membatalkan pengajuan overtime')
     }
+  }
+
+  // ==================== PAYSLIP FUNCTIONS ====================
+  const fetchPayslipsData = async () => {
+    setLoading(true)
+    try {
+      const token = localStorage.getItem('access_token')
+      
+      // Fetch payslips and summary
+      const [payslipsRes, summaryRes] = await Promise.all([
+        axios.get(`${baseUrl}/payroll/my-payslips`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        axios.get(`${baseUrl}/payroll/my-payslips/summary`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ])
+      
+      setPayslips(payslipsRes.data.data || [])
+      setPayslipSummary(summaryRes.data.data || null)
+    } catch (error) {
+      handleApiError(error, 'Gagal memuat data payslip')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const viewPayslipDetail = async (payrollId) => {
+    try {
+      const token = localStorage.getItem('access_token')
+      const { data } = await axios.get(`${baseUrl}/payroll/my-payslips/${payrollId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      setSelectedPayslip(data.data)
+      setShowPayslipDetail(true)
+    } catch (error) {
+      handleApiError(error, 'Gagal memuat detail payslip')
+    }
+  }
+
+  const handleDownloadPayslip = async (payrollId, periodName) => {
+    try {
+      const token = localStorage.getItem('access_token')
+      const response = await axios.get(`${baseUrl}/payroll/my-payslips/${payrollId}/download`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob'
+      })
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `Payslip_${periodName.replace(/\s+/g, '_')}.html`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      
+      toast.success('Payslip berhasil diunduh')
+    } catch (error) {
+      handleApiError(error, 'Gagal mengunduh payslip')
+    }
+  }
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0
+    }).format(amount || 0)
+  }
+
+  const getPayslipStatusColor = (status) => {
+    const colors = {
+      draft: 'bg-gray-200 text-gray-800',
+      pending: 'bg-yellow-200 text-yellow-800',
+      approved: 'bg-blue-200 text-blue-800',
+      processing: 'bg-orange-200 text-orange-800',
+      paid: 'bg-green-200 text-green-800',
+      failed: 'bg-red-200 text-red-800'
+    }
+    return colors[status] || 'bg-gray-200 text-gray-800'
+  }
+
+  const getPayslipStatusLabel = (status) => {
+    const labels = {
+      draft: 'Draft',
+      pending: 'Pending',
+      approved: 'Approved',
+      processing: 'Processing',
+      paid: '✅ Paid',
+      failed: 'Failed'
+    }
+    return labels[status] || status
   }
 
   // ==================== PROFILE FUNCTIONS ====================
@@ -2302,6 +2404,382 @@ export default function EmployeePage() {
     </div>
   )
 
+  const renderPayslips = () => (
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">💰 My Payslips</h2>
+
+        {/* Summary Cards */}
+        {payslipSummary && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            {/* Latest Salary */}
+            <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <div className="bg-green-500 text-white p-3 rounded-lg">
+                  💵
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Latest Salary</p>
+                  <p className="text-lg font-bold text-green-600">
+                    {formatCurrency(payslipSummary.latestSalary)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* YTD Earnings */}
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <div className="bg-blue-500 text-white p-3 rounded-lg">
+                  📈
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">YTD Earnings</p>
+                  <p className="text-lg font-bold text-blue-600">
+                    {formatCurrency(payslipSummary.ytdEarnings)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* YTD Tax */}
+            <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <div className="bg-orange-500 text-white p-3 rounded-lg">
+                  🏦
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">YTD Tax Paid</p>
+                  <p className="text-lg font-bold text-orange-600">
+                    {formatCurrency(payslipSummary.ytdTax)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Total Payslips */}
+            <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <div className="bg-purple-500 text-white p-3 rounded-lg">
+                  📄
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Total Payslips</p>
+                  <p className="text-lg font-bold text-purple-600">
+                    {payslipSummary.totalPayslips}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Payslips List */}
+        <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-700 mb-4">Payslip History</h3>
+
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="mt-2 text-gray-600">Loading payslips...</p>
+            </div>
+          ) : payslips.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500 text-lg">No payslips available yet</p>
+              <p className="text-gray-400 text-sm mt-2">Your payslips will appear here after payroll processing</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {payslips.map((payslip) => (
+                <div 
+                  key={payslip.id}
+                  className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow border border-gray-200"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                    {/* Period Info */}
+                    <div className="md:col-span-3">
+                      <p className="font-bold text-gray-800 text-lg">
+                        {payslip.period?.periodName || 'Unknown Period'}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Payment: {payslip.period?.paymentDate 
+                          ? new Date(payslip.period.paymentDate).toLocaleDateString('id-ID', { 
+                              day: 'numeric', 
+                              month: 'short', 
+                              year: 'numeric' 
+                            })
+                          : '-'}
+                      </p>
+                    </div>
+
+                    {/* Gross Salary */}
+                    <div className="md:col-span-2">
+                      <p className="text-xs text-gray-500">Gross Salary</p>
+                      <p className="font-semibold text-gray-700">
+                        {formatCurrency(payslip.totalEarnings)}
+                      </p>
+                    </div>
+
+                    {/* Deductions */}
+                    <div className="md:col-span-2">
+                      <p className="text-xs text-gray-500">Deductions</p>
+                      <p className="font-semibold text-red-600">
+                        -{formatCurrency(payslip.totalDeductions)}
+                      </p>
+                    </div>
+
+                    {/* Net Salary */}
+                    <div className="md:col-span-2">
+                      <p className="text-xs text-gray-500">Net Salary</p>
+                      <p className="font-bold text-green-600 text-lg">
+                        {formatCurrency(payslip.netSalary)}
+                      </p>
+                    </div>
+
+                    {/* Status */}
+                    <div className="md:col-span-1">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPayslipStatusColor(payslip.status)}`}>
+                        {getPayslipStatusLabel(payslip.status)}
+                      </span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="md:col-span-2 flex space-x-2 justify-end">
+                      <button
+                        onClick={() => viewPayslipDetail(payslip.id)}
+                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+                      >
+                        👁️ View
+                      </button>
+                      {payslip.status === 'paid' && (
+                        <button
+                          onClick={() => handleDownloadPayslip(payslip.id, payslip.period?.periodName)}
+                          className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium"
+                        >
+                          ⬇️ Download
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bank Transfer Info */}
+                  {payslip.status === 'paid' && payslip.paidAt && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="flex items-center text-xs text-gray-600">
+                        <span className="mr-2">🏦</span>
+                        <span>
+                          Transferred to {payslip.bankName} - {payslip.bankAccountNumber} on{' '}
+                          {new Date(payslip.paidAt).toLocaleString('id-ID', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Info Box */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+          <p className="text-sm text-blue-800">
+            💡 <strong>Tip:</strong> Download your payslips every month for your records. 
+            You can use them for loan applications, visa applications, or annual tax reporting (SPT).
+          </p>
+        </div>
+      </div>
+
+      {/* Payslip Detail Modal */}
+      {showPayslipDetail && selectedPayslip && (
+        <Modal
+          title="Payslip Detail"
+          onClose={() => {
+            setShowPayslipDetail(false)
+            setSelectedPayslip(null)
+          }}
+        >
+          <div className="space-y-4">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4">
+              <h3 className="text-xl font-bold text-gray-800 mb-2">
+                {selectedPayslip.period?.periodName}
+              </h3>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">
+                  Payment Date: {selectedPayslip.period?.paymentDate 
+                    ? new Date(selectedPayslip.period.paymentDate).toLocaleDateString('id-ID', { 
+                        day: 'numeric', 
+                        month: 'long', 
+                        year: 'numeric' 
+                      })
+                    : '-'}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPayslipStatusColor(selectedPayslip.status)}`}>
+                  {getPayslipStatusLabel(selectedPayslip.status)}
+                </span>
+              </div>
+            </div>
+
+            {/* Employee Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-gray-500">Employee Name</p>
+                <p className="font-semibold text-gray-800">{selectedPayslip.employeeName}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Position</p>
+                <p className="font-semibold text-gray-800">{selectedPayslip.employeePosition || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Department</p>
+                <p className="font-semibold text-gray-800">{selectedPayslip.employeeDepartment || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Working Days</p>
+                <p className="font-semibold text-gray-800">
+                  {selectedPayslip.workingDays} / {selectedPayslip.totalDaysInPeriod} days
+                </p>
+              </div>
+            </div>
+
+            {/* Earnings & Deductions */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Earnings */}
+              <div className="bg-green-50 rounded-lg p-4">
+                <h4 className="font-bold text-green-700 mb-3">💰 EARNINGS</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Base Salary</span>
+                    <span className="font-medium">{formatCurrency(selectedPayslip.proratedSalary)}</span>
+                  </div>
+                  {selectedPayslip.overtimeHours > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Overtime ({selectedPayslip.overtimeHours}h)</span>
+                      <span className="font-medium">{formatCurrency(selectedPayslip.overtimePay)}</span>
+                    </div>
+                  )}
+                  {selectedPayslip.totalAllowances > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Allowances</span>
+                      <span className="font-medium">{formatCurrency(selectedPayslip.totalAllowances)}</span>
+                    </div>
+                  )}
+                  {selectedPayslip.totalBonuses > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Bonuses</span>
+                      <span className="font-medium">{formatCurrency(selectedPayslip.totalBonuses)}</span>
+                    </div>
+                  )}
+                  <div className="border-t pt-2 flex justify-between font-bold text-green-700">
+                    <span>Total Earnings</span>
+                    <span>{formatCurrency(selectedPayslip.totalEarnings)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Deductions */}
+              <div className="bg-red-50 rounded-lg p-4">
+                <h4 className="font-bold text-red-700 mb-3">📉 DEDUCTIONS</h4>
+                <div className="space-y-2">
+                  {selectedPayslip.bpjsHealthEmployee > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">BPJS Health</span>
+                      <span className="font-medium">{formatCurrency(selectedPayslip.bpjsHealthEmployee)}</span>
+                    </div>
+                  )}
+                  {selectedPayslip.bpjsEmploymentEmployee > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">BPJS Employment</span>
+                      <span className="font-medium">{formatCurrency(selectedPayslip.bpjsEmploymentEmployee)}</span>
+                    </div>
+                  )}
+                  {selectedPayslip.incomeTax > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Income Tax (PPh21)</span>
+                      <span className="font-medium">{formatCurrency(selectedPayslip.incomeTax)}</span>
+                    </div>
+                  )}
+                  {selectedPayslip.otherDeductions > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Other Deductions</span>
+                      <span className="font-medium">{formatCurrency(selectedPayslip.otherDeductions)}</span>
+                    </div>
+                  )}
+                  <div className="border-t pt-2 flex justify-between font-bold text-red-700">
+                    <span>Total Deductions</span>
+                    <span>{formatCurrency(selectedPayslip.totalDeductions)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Net Salary */}
+            <div className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg p-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm opacity-90">NET SALARY</p>
+                  <p className="text-xs opacity-75 mt-1">Amount to be transferred</p>
+                </div>
+                <p className="text-3xl font-bold">
+                  {formatCurrency(selectedPayslip.netSalary)}
+                </p>
+              </div>
+            </div>
+
+            {/* Bank Info */}
+            {selectedPayslip.status === 'paid' && (
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-xs text-gray-500 mb-2">Transferred to:</p>
+                <p className="font-bold text-gray-800">
+                  {selectedPayslip.bankName} - {selectedPayslip.bankAccountNumber}
+                </p>
+                <p className="text-sm text-gray-600">
+                  a.n. {selectedPayslip.bankAccountHolderName}
+                </p>
+                {selectedPayslip.paidAt && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Payment Date: {new Date(selectedPayslip.paidAt).toLocaleString('id-ID', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex space-x-3 pt-4">
+              {selectedPayslip.status === 'paid' && (
+                <Button
+                  nameProp="⬇️ Download Payslip"
+                  onClick={() => handleDownloadPayslip(selectedPayslip.id, selectedPayslip.period?.periodName)}
+                  variant="success"
+                />
+              )}
+              <Button
+                nameProp="Close"
+                onClick={() => {
+                  setShowPayslipDetail(false)
+                  setSelectedPayslip(null)
+                }}
+                variant="secondary"
+              />
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  )
+
   return (
     <div 
       className="min-h-screen"
@@ -2396,6 +2874,16 @@ export default function EmployeePage() {
               📍 Work Location
             </button>
             <button
+              onClick={() => setActiveTab('payslips')}
+              className={`px-6 py-3 font-semibold transition-colors ${
+                activeTab === 'payslips'
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-600 hover:text-blue-600'
+              }`}
+            >
+              💰 Payslips
+            </button>
+            <button
               onClick={() => setActiveTab('notifications')}
               className={`px-6 py-3 font-semibold transition-colors relative ${
                 activeTab === 'notifications'
@@ -2437,6 +2925,7 @@ export default function EmployeePage() {
               <WorkLocationRequest />
             </div>
           )}
+          {activeTab === 'payslips' && renderPayslips()}
           {activeTab === 'notifications' && renderNotifications()}
           {activeTab === 'profile' && renderProfile()}
         </div>

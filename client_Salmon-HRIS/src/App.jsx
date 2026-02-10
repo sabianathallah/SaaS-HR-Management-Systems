@@ -21,11 +21,13 @@ import NotificationsPage from './views/admin/NotificationsPage.jsx'
 import SettingsPage from './views/admin/SettingsPage.jsx'
 import WorkLocationPage from './views/admin/WorkLocationPage.jsx'
 
-// Payroll Pages
-import PayrollPeriodList from './views/PayrollPeriodList.jsx'
-import PayrollPeriodDetail from './views/PayrollPeriodDetail.jsx'
-import MyPayslips from './views/MyPayslips.jsx'
-import PayslipDetail from './views/PayslipDetail.jsx'
+// Payroll Pages - Admin Only
+import PayrollPeriodList from './components/admin/PayrollPeriodList.jsx'
+import PayrollPeriodDetail from './components/admin/PayrollPeriodDetail.jsx'
+
+// Payroll Pages - Employee & Admin
+import MyPayslips from './components/MyPayslips.jsx'
+import PayslipDetail from './components/PayslipDetail.jsx'
 
 
 export default function App() {

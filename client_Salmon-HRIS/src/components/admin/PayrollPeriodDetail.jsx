@@ -42,7 +42,7 @@ import {
   PlayArrow as GenerateIcon
 } from '@mui/icons-material';
 import { format } from 'date-fns';
-import axiosInstance from '../config/axios';
+import axiosInstance from '../../config/axios';
 
 const PayrollPeriodDetail = () => {
   const { periodId } = useParams();
