@@ -8,23 +8,25 @@ import {
   StyleSheet,
   RefreshControl,
   Alert,
+  Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Picker } from '@react-native-picker/picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { leaveService, overtimeService } from '../services';
+import { leaveService } from '../services';
 import { formatDate, calculateDaysBetween } from '../utils/dateFormatter';
 import { getLeaveTypeLabel, getStatusLabel, getStatusColor } from '../utils/helpers';
 
 export default function LeaveScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeSection, setActiveSection] = useState('leave'); // 'leave' or 'overtime'
-
-  // Leave State
-  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [allLeaveRequests, setAllLeaveRequests] = useState([]);
+  const [displayedLeaveRequests, setDisplayedLeaveRequests] = useState([]);
   const [leaveBalance, setLeaveBalance] = useState(null);
   const [showLeaveForm, setShowLeaveForm] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const ITEMS_PER_PAGE = 5;
   const [leaveForm, setLeaveForm] = useState({
     leaveType: 'ANNUAL_LEAVE',
     startDate: '',
@@ -33,24 +35,26 @@ export default function LeaveScreen() {
     attachment: null,
   });
 
-  // Overtime State
-  const [overtimeRequests, setOvertimeRequests] = useState([]);
-  const [overtimeHistory, setOvertimeHistory] = useState([]);
-  const [showOvertimeForm, setShowOvertimeForm] = useState(false);
-  const [showOvertimeHistory, setShowOvertimeHistory] = useState(false);
-  const [overtimeForm, setOvertimeForm] = useState({
-    overtimeDate: '',
-    requestedHours: '',
-    reason: '',
-  });
+  useEffect(() => {
+    fetchLeaveData();
+  }, []);
 
   useEffect(() => {
-    if (activeSection === 'leave') {
-      fetchLeaveData();
-    } else {
-      fetchOvertimeData();
+    applyPagination();
+  }, [currentPage, allLeaveRequests]);
+
+  const applyPagination = () => {
+    const endIndex = currentPage * ITEMS_PER_PAGE;
+    const paginated = allLeaveRequests.slice(0, endIndex);
+    setDisplayedLeaveRequests(paginated);
+    setHasMore(endIndex < allLeaveRequests.length);
+  };
+
+  const loadMore = () => {
+    if (hasMore && !loading) {
+      setCurrentPage(prev => prev + 1);
     }
-  }, [activeSection]);
+  };
 
   const fetchLeaveData = async () => {
     setLoading(true);
@@ -60,73 +64,25 @@ export default function LeaveScreen() {
         leaveService.getLeaveBalance(),
       ]);
 
-      // Backend returns {data, message} not {success, data}
       if (requestsRes.data) {
-        setLeaveRequests(requestsRes.data || []);
+        setAllLeaveRequests(requestsRes.data || []);
+        setCurrentPage(1);
       }
       if (balanceRes.data) {
         setLeaveBalance(balanceRes.data);
       }
     } catch (error) {
       console.error('Error fetching leave data:', error);
+      Alert.alert('Error', 'Gagal memuat data cuti');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchOvertimeData = async () => {
-    setLoading(true);
-    try {
-      const response = await overtimeService.getOvertimeRequests();
-      // Backend returns {data, message} not {success, data}
-      if (response.data) {
-        setOvertimeRequests(response.data || []);
-      }
-    } catch (error) {
-      console.error('Error fetching overtime data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchOvertimeHistory = async () => {
-    try {
-      const response = await overtimeService.getOvertimeHistory();
-      // Backend returns {data, message} not {success, data}
-      if (response.data) {
-        setOvertimeHistory(response.data || []);
-      }
-    } catch (error) {
-      console.error('Error fetching overtime history:', error);
     }
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    if (activeSection === 'leave') {
-      await fetchLeaveData();
-    } else {
-      await fetchOvertimeData();
-      if (showOvertimeHistory) {
-        await fetchOvertimeHistory();
-      }
-    }
+    await fetchLeaveData();
     setRefreshing(false);
-  };
-
-  const pickDocument = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'image/*'],
-        copyToCacheDirectory: true,
-      });
-
-      if (result.type === 'success') {
-        setLeaveForm({ ...leaveForm, attachment: result });
-      }
-    } catch (error) {
-      console.error('Error picking document:', error);
-    }
   };
 
   const handleLeaveSubmit = async () => {
@@ -135,38 +91,33 @@ export default function LeaveScreen() {
       return;
     }
 
-    if (leaveForm.reason.trim().length < 10) {
+    if (leaveForm.reason.length < 10) {
       Alert.alert('Error', 'Alasan minimal 10 karakter');
       return;
     }
 
-    setLoading(true);
     try {
-      const response = await leaveService.createLeaveRequest(
+      await leaveService.createLeaveRequest(
         leaveForm.leaveType,
         leaveForm.startDate,
         leaveForm.endDate,
         leaveForm.reason,
         leaveForm.attachment
       );
-
-      // Backend returns {data, message} not {success, data}
-      if (response.data || response.message) {
-        Alert.alert('Berhasil', 'Pengajuan cuti/izin berhasil dikirim');
-        setShowLeaveForm(false);
-        setLeaveForm({
-          leaveType: 'ANNUAL_LEAVE',
-          startDate: '',
-          endDate: '',
-          reason: '',
-          attachment: null,
-        });
-        fetchLeaveData();
-      }
+      
+      Alert.alert('Berhasil', 'Pengajuan cuti berhasil disubmit');
+      setShowLeaveForm(false);
+      setLeaveForm({
+        leaveType: 'ANNUAL_LEAVE',
+        startDate: '',
+        endDate: '',
+        reason: '',
+        attachment: null,
+      });
+      fetchLeaveData();
     } catch (error) {
-      Alert.alert('Error', error.response?.data?.message || 'Gagal mengajukan cuti/izin');
-    } finally {
-      setLoading(false);
+      console.error('Error submitting leave:', error);
+      Alert.alert('Error', error.response?.data?.message || 'Gagal submit pengajuan cuti');
     }
   };
 
@@ -192,396 +143,239 @@ export default function LeaveScreen() {
     );
   };
 
-  const handleOvertimeSubmit = async () => {
-    if (!overtimeForm.overtimeDate || !overtimeForm.requestedHours || !overtimeForm.reason) {
-      Alert.alert('Error', 'Semua field harus diisi');
-      return;
-    }
-
-    if (overtimeForm.reason.trim().length < 10) {
-      Alert.alert('Error', 'Alasan minimal 10 karakter');
-      return;
-    }
-
-    setLoading(true);
+  const pickDocument = async () => {
     try {
-      const response = await overtimeService.createOvertimeRequest(
-        overtimeForm.overtimeDate,
-        overtimeForm.requestedHours,
-        overtimeForm.reason
-      );
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/jpeg', 'image/png'],
+        copyToCacheDirectory: true,
+      });
 
-      // Backend returns {data, message} not {success, data}
-      if (response.data || response.message) {
-        Alert.alert('Berhasil', 'Pengajuan overtime berhasil dikirim');
-        setShowOvertimeForm(false);
-        setOvertimeForm({
-          overtimeDate: '',
-          requestedHours: '',
-          reason: '',
-        });
-        fetchOvertimeData();
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setLeaveForm({ ...leaveForm, attachment: result.assets[0] });
       }
     } catch (error) {
-      Alert.alert('Error', error.response?.data?.message || 'Gagal mengajukan overtime');
-    } finally {
-      setLoading(false);
+      console.error('Error picking document:', error);
+      Alert.alert('Error', 'Gagal memilih file');
     }
-  };
-
-  const handleCancelOvertime = async (id) => {
-    Alert.alert(
-      'Konfirmasi',
-      'Apakah Anda yakin ingin membatalkan overtime ini?',
-      [
-        { text: 'Tidak', style: 'cancel' },
-        {
-          text: 'Ya',
-          onPress: async () => {
-            try {
-              await overtimeService.cancelOvertimeRequest(id);
-              Alert.alert('Berhasil', 'Overtime berhasil dibatalkan');
-              fetchOvertimeData();
-            } catch (error) {
-              Alert.alert('Error', 'Gagal membatalkan overtime');
-            }
-          },
-        },
-      ]
-    );
   };
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
       
-      {/* Header */}
+      {/* Header with Logo */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Cuti & Overtime</Text>
-      </View>
-
-      {/* Section Tabs */}
-      <View style={styles.tabs}>
-        <TouchableOpacity
-          style={[styles.tab, activeSection === 'leave' && styles.tabActive]}
-          onPress={() => setActiveSection('leave')}
-        >
-          <Text style={[styles.tabText, activeSection === 'leave' && styles.tabTextActive]}>
-            Cuti & Izin
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeSection === 'overtime' && styles.tabActive]}
-          onPress={() => setActiveSection('overtime')}
-        >
-          <Text style={[styles.tabText, activeSection === 'overtime' && styles.tabTextActive]}>
-            Overtime
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Image 
+            source={require('../../assets/salmon-logo.png')} 
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>Salmon HRIS</Text>
+            <Text style={styles.headerSubtitle}>Leave Management</Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView
-        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#4DB8B8']} />
         }
       >
-        {activeSection === 'leave' ? (
-          <>
-            {/* Leave Balance */}
-            {leaveBalance && (
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Saldo Cuti</Text>
-                <View style={styles.balanceGrid}>
-                  <View style={styles.balanceItem}>
-                    <Text style={styles.balanceLabel}>Total Jatah</Text>
-                    <Text style={[styles.balanceValue, { color: '#2563eb' }]}>
-                      {leaveBalance.annualLeaveQuota || 0}
-                    </Text>
-                  </View>
-                  <View style={styles.balanceItem}>
-                    <Text style={styles.balanceLabel}>Terpakai</Text>
-                    <Text style={[styles.balanceValue, { color: '#dc2626' }]}>
-                      {leaveBalance.usedLeaveQuota || 0}
-                    </Text>
-                  </View>
-                  <View style={styles.balanceItem}>
-                    <Text style={styles.balanceLabel}>Sisa</Text>
-                    <Text style={[styles.balanceValue, { color: '#16a34a' }]}>
-                      {leaveBalance.remainingLeaveQuota || 0}
-                    </Text>
-                  </View>
-                  <View style={styles.balanceItem}>
-                    <Text style={styles.balanceLabel}>Pending</Text>
-                    <Text style={[styles.balanceValue, { color: '#ca8a04' }]}>
-                      {leaveBalance.pendingLeaveDays || 0}
-                    </Text>
-                  </View>
-                </View>
+        {leaveBalance && (
+          <View style={styles.balanceCard}>
+            <Text style={styles.balanceTitle}>Saldo Cuti Anda</Text>
+            <View style={styles.balanceGrid}>
+              <View style={styles.balanceItem}>
+                <Text style={styles.balanceValue}>{leaveBalance.remainingLeaveQuota || 0}</Text>
+                <Text style={styles.balanceLabel}>Sisa Cuti</Text>
+                <Text style={styles.balanceSubLabel}>dari {leaveBalance.annualLeaveQuota || 12}</Text>
+              </View>
+              <View style={styles.balanceItem}>
+                <Text style={styles.balanceValue}>{leaveBalance.usedLeaveQuota || 0}</Text>
+                <Text style={styles.balanceLabel}>Terpakai</Text>
+                <Text style={styles.balanceSubLabel}>hari cuti</Text>
+              </View>
+              <View style={styles.balanceItem}>
+                <Text style={styles.balanceValue}>{leaveBalance.pendingLeaveDays || 0}</Text>
+                <Text style={styles.balanceLabel}>Pending</Text>
+                <Text style={styles.balanceSubLabel}>menunggu</Text>
+              </View>
+            </View>
+            
+            {leaveBalance.pendingLeaveDays > 0 && (
+              <View style={styles.pendingInfo}>
+                <Text style={styles.pendingInfoText}>
+                  💡 Sisa tersedia setelah pending: {leaveBalance.availableAfterPending || 0} hari
+                </Text>
               </View>
             )}
+          </View>
+        )}
 
-            {/* Leave Form */}
-            <View style={styles.card}>
-              <TouchableOpacity
-                style={styles.formToggle}
-                onPress={() => setShowLeaveForm(!showLeaveForm)}
+        {!showLeaveForm && (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => setShowLeaveForm(true)}
+          >
+            <Text style={styles.addButtonText}>+ Ajukan Cuti/Izin</Text>
+          </TouchableOpacity>
+        )}
+
+        {showLeaveForm && (
+          <View style={styles.formCard}>
+            <Text style={styles.formTitle}>Ajukan Cuti/Izin</Text>
+
+            <Text style={styles.label}>Jenis Cuti</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={leaveForm.leaveType}
+                onValueChange={(value) => setLeaveForm({ ...leaveForm, leaveType: value })}
+                style={styles.picker}
               >
-                <Text style={styles.formToggleText}>
-                  {showLeaveForm ? 'Tutup Form' : 'Ajukan Cuti/Izin'}
-                </Text>
-              </TouchableOpacity>
-
-              {showLeaveForm && (
-                <View style={styles.form}>
-                  <Text style={styles.formTitle}>Form Pengajuan</Text>
-
-                  <Text style={styles.label}>Jenis Cuti/Izin</Text>
-                  <Picker
-                    selectedValue={leaveForm.leaveType}
-                    onValueChange={(value) => setLeaveForm({ ...leaveForm, leaveType: value })}
-                    style={styles.picker}
-                  >
-                    <Picker.Item label="Cuti Tahunan" value="ANNUAL_LEAVE" />
-                    <Picker.Item label="Sakit" value="SICK_LEAVE" />
-                    <Picker.Item label="Izin" value="PERMISSION" />
-                  </Picker>
-
-                  <Text style={styles.label}>Tanggal Mulai</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="YYYY-MM-DD"
-                    value={leaveForm.startDate}
-                    onChangeText={(value) => setLeaveForm({ ...leaveForm, startDate: value })}
-                  />
-
-                  <Text style={styles.label}>Tanggal Selesai</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="YYYY-MM-DD"
-                    value={leaveForm.endDate}
-                    onChangeText={(value) => setLeaveForm({ ...leaveForm, endDate: value })}
-                  />
-
-                  {leaveForm.startDate && leaveForm.endDate && (
-                    <View style={styles.durationInfo}>
-                      <Text style={styles.durationText}>
-                        Durasi: {calculateDaysBetween(leaveForm.startDate, leaveForm.endDate)} hari
-                      </Text>
-                    </View>
-                  )}
-
-                  <Text style={styles.label}>Alasan (Min. 10 karakter)</Text>
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    placeholder="Jelaskan alasan..."
-                    value={leaveForm.reason}
-                    onChangeText={(value) => setLeaveForm({ ...leaveForm, reason: value })}
-                    multiline
-                    numberOfLines={4}
-                  />
-                  <Text style={styles.charCount}>
-                    {leaveForm.reason.length}/10 karakter
-                  </Text>
-
-                  <TouchableOpacity style={styles.attachButton} onPress={pickDocument}>
-                    <Text style={styles.attachButtonText}>
-                      {leaveForm.attachment ? leaveForm.attachment.name : 'Lampirkan File (Opsional)'}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-                    onPress={handleLeaveSubmit}
-                    disabled={loading}
-                  >
-                    <Text style={styles.submitButtonText}>
-                      {loading ? 'Mengirim...' : 'Kirim Pengajuan'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+                <Picker.Item label="🏖️ Cuti Tahunan (Annual Leave)" value="ANNUAL_LEAVE" />
+                <Picker.Item label="🤒 Sakit (Sick Leave)" value="SICK_LEAVE" />
+                <Picker.Item label="📝 Izin (Permission)" value="PERMISSION" />
+              </Picker>
             </View>
+            
+            <Text style={styles.helpText}>
+              {leaveForm.leaveType === 'ANNUAL_LEAVE' && 'Jenis ini akan mengurangi kuota cuti tahunan Anda'}
+              {leaveForm.leaveType === 'SICK_LEAVE' && 'Jenis ini tidak mengurangi kuota cuti (untuk kondisi sakit)'}
+              {leaveForm.leaveType === 'PERMISSION' && 'Jenis ini tidak mengurangi kuota cuti (untuk keperluan pribadi)'}
+            </Text>
 
-            {/* Leave History */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Riwayat Pengajuan</Text>
-              {leaveRequests.length > 0 ? (
-                leaveRequests.map((leave) => (
-                  <View key={leave.id} style={styles.leaveItem}>
-                    <View style={styles.leaveHeader}>
-                      <Text style={styles.leaveType}>{getLeaveTypeLabel(leave.leaveType)}</Text>
-                      <View
-                        style={[
-                          styles.statusBadge,
-                          { backgroundColor: getStatusColor(leave.status).bg },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.statusText,
-                            { color: getStatusColor(leave.status).text },
-                          ]}
-                        >
-                          {getStatusLabel(leave.status)}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={styles.leaveDate}>
-                      {formatDate(leave.startDate)} - {formatDate(leave.endDate)}
-                    </Text>
-                    <Text style={styles.leaveDuration}>{leave.totalDays} hari</Text>
-                    {leave.status === 'PENDING' && (
-                      <TouchableOpacity
-                        style={styles.cancelButton}
-                        onPress={() => handleCancelLeave(leave.id)}
-                      >
-                        <Text style={styles.cancelButtonText}>Batalkan</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.emptyText}>Belum ada pengajuan</Text>
-              )}
-            </View>
-          </>
-        ) : (
-          <>
-            {/* Overtime Form */}
-            <View style={styles.card}>
+            <Text style={styles.label}>Tanggal Mulai (YYYY-MM-DD)</Text>
+            <TextInput
+              style={styles.input}
+              value={leaveForm.startDate}
+              onChangeText={(text) => setLeaveForm({ ...leaveForm, startDate: text })}
+              placeholder="2026-02-15"
+            />
+
+            <Text style={styles.label}>Tanggal Selesai (YYYY-MM-DD)</Text>
+            <TextInput
+              style={styles.input}
+              value={leaveForm.endDate}
+              onChangeText={(text) => setLeaveForm({ ...leaveForm, endDate: text })}
+              placeholder="2026-02-17"
+            />
+
+            <Text style={styles.label}>Alasan (minimal 10 karakter)</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={leaveForm.reason}
+              onChangeText={(text) => setLeaveForm({ ...leaveForm, reason: text })}
+              placeholder="Tuliskan alasan pengajuan cuti..."
+              multiline
+              numberOfLines={4}
+            />
+
+            <TouchableOpacity style={styles.attachButton} onPress={pickDocument}>
+              <Text style={styles.attachButtonText}>
+                {leaveForm.attachment ? '✓ File terlampir' : '📎 Lampirkan File (Opsional)'}
+              </Text>
+            </TouchableOpacity>
+
+            {leaveForm.attachment && (
+              <Text style={styles.attachmentName}>{leaveForm.attachment.name}</Text>
+            )}
+
+            <View style={styles.formButtons}>
               <TouchableOpacity
-                style={styles.formToggle}
-                onPress={() => setShowOvertimeForm(!showOvertimeForm)}
-              >
-                <Text style={styles.formToggleText}>
-                  {showOvertimeForm ? 'Tutup Form' : 'Request Overtime'}
-                </Text>
-              </TouchableOpacity>
-
-              {showOvertimeForm && (
-                <View style={styles.form}>
-                  <Text style={styles.formTitle}>Form Overtime</Text>
-
-                  <Text style={styles.label}>Tanggal Overtime</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="YYYY-MM-DD"
-                    value={overtimeForm.overtimeDate}
-                    onChangeText={(value) => setOvertimeForm({ ...overtimeForm, overtimeDate: value })}
-                  />
-
-                  <Text style={styles.label}>Jam Overtime (0.5 - 12)</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="2.5"
-                    value={overtimeForm.requestedHours}
-                    onChangeText={(value) => setOvertimeForm({ ...overtimeForm, requestedHours: value })}
-                    keyboardType="decimal-pad"
-                  />
-
-                  <Text style={styles.label}>Alasan (Min. 10 karakter)</Text>
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    placeholder="Jelaskan alasan..."
-                    value={overtimeForm.reason}
-                    onChangeText={(value) => setOvertimeForm({ ...overtimeForm, reason: value })}
-                    multiline
-                    numberOfLines={4}
-                  />
-
-                  <TouchableOpacity
-                    style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-                    onPress={handleOvertimeSubmit}
-                    disabled={loading}
-                  >
-                    <Text style={styles.submitButtonText}>
-                      {loading ? 'Mengirim...' : 'Kirim Request'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-
-            {/* Overtime Requests */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Pengajuan Overtime</Text>
-              {overtimeRequests.length > 0 ? (
-                overtimeRequests.map((ot) => (
-                  <View key={ot.id} style={styles.overtimeItem}>
-                    <View style={styles.overtimeHeader}>
-                      <Text style={styles.overtimeDate}>{formatDate(ot.overtimeDate)}</Text>
-                      <View
-                        style={[
-                          styles.statusBadge,
-                          { backgroundColor: getStatusColor(ot.status).bg },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.statusText,
-                            { color: getStatusColor(ot.status).text },
-                          ]}
-                        >
-                          {ot.status}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={styles.overtimeHours}>
-                      Requested: {ot.requestedHours} jam | Approved: {ot.actualHours || '-'} jam
-                    </Text>
-                    {ot.status === 'pending' && (
-                      <TouchableOpacity
-                        style={styles.cancelButton}
-                        onPress={() => handleCancelOvertime(ot.id)}
-                      >
-                        <Text style={styles.cancelButtonText}>Batalkan</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.emptyText}>Belum ada pengajuan overtime</Text>
-              )}
-            </View>
-
-            {/* Overtime History Toggle */}
-            <View style={styles.card}>
-              <TouchableOpacity
-                style={styles.formToggle}
+                style={[styles.button, styles.cancelButton]}
                 onPress={() => {
-                  const newValue = !showOvertimeHistory;
-                  setShowOvertimeHistory(newValue);
-                  if (newValue && overtimeHistory.length === 0) {
-                    fetchOvertimeHistory();
-                  }
+                  setShowLeaveForm(false);
+                  setLeaveForm({
+                    leaveType: 'ANNUAL_LEAVE',
+                    startDate: '',
+                    endDate: '',
+                    reason: '',
+                    attachment: null,
+                  });
                 }}
               >
-                <Text style={styles.formToggleText}>
-                  {showOvertimeHistory ? 'Sembunyikan Riwayat' : 'Lihat Riwayat Overtime'}
-                </Text>
+                <Text style={styles.cancelButtonText}>Batal</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, styles.submitButton]}
+                onPress={handleLeaveSubmit}
+              >
+                <Text style={styles.submitButtonText}>Submit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
-              {showOvertimeHistory && (
-                <View style={styles.historyContainer}>
-                  {overtimeHistory.length > 0 ? (
-                    overtimeHistory.map((ot) => (
-                      <View key={ot.id} style={styles.historyItem}>
-                        <Text style={styles.historyDate}>{formatDate(ot.overtimeDate)}</Text>
-                        <Text style={styles.historyHours}>
-                          {ot.actualHours || ot.requestedHours} jam disetujui
-                        </Text>
-                        <Text style={styles.historyReason}>{ot.reason}</Text>
-                      </View>
-                    ))
-                  ) : (
-                    <Text style={styles.emptyText}>Belum ada riwayat overtime</Text>
+        <View style={styles.requestsSection}>
+          <Text style={styles.sectionTitle}>Riwayat Pengajuan Cuti</Text>
+          {displayedLeaveRequests.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>Belum ada pengajuan cuti</Text>
+            </View>
+          ) : (
+            <>
+              {displayedLeaveRequests.map((leave) => (
+                <View key={leave.id} style={styles.requestCard}>
+                  <View style={styles.requestHeader}>
+                    <Text style={styles.requestType}>{getLeaveTypeLabel(leave.leaveType)}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(leave.status).bg }]}>
+                      <Text style={[styles.statusText, { color: getStatusColor(leave.status).text }]}>
+                        {getStatusLabel(leave.status)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.requestDetails}>
+                    <Text style={styles.requestDate}>
+                      {formatDate(leave.startDate)} - {formatDate(leave.endDate)}
+                    </Text>
+                    <Text style={styles.requestDays}>
+                      {leave.totalDays} hari
+                    </Text>
+                  </View>
+
+                  <Text style={styles.requestReason}>{leave.reason}</Text>
+
+                  {leave.approvalNote && (
+                    <View style={styles.approvalNote}>
+                      <Text style={styles.approvalNoteLabel}>Catatan:</Text>
+                      <Text style={styles.approvalNoteText}>{leave.approvalNote}</Text>
+                    </View>
+                  )}
+
+                  {leave.status === 'PENDING' && (
+                    <TouchableOpacity
+                      style={styles.cancelRequestButton}
+                      onPress={() => handleCancelLeave(leave.id)}
+                    >
+                      <Text style={styles.cancelRequestButtonText}>Batalkan</Text>
+                    </TouchableOpacity>
                   )}
                 </View>
+              ))}
+              
+              {/* Load More Button */}
+              {hasMore && (
+                <TouchableOpacity
+                  style={styles.loadMoreButton}
+                  onPress={loadMore}
+                >
+                  <Text style={styles.loadMoreText}>Muat Lebih Banyak</Text>
+                </TouchableOpacity>
               )}
-            </View>
-          </>
-        )}
+              
+              {/* Pagination Info */}
+              <View style={styles.paginationInfo}>
+                <Text style={styles.paginationText}>
+                  Menampilkan {displayedLeaveRequests.length} dari {allLeaveRequests.length} pengajuan
+                </Text>
+              </View>
+            </>
+          )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -590,197 +384,258 @@ export default function LeaveScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f5f5f5',
   },
   header: {
     backgroundColor: '#ffffff',
-    padding: 20,
-    paddingTop: 60,
+    paddingTop: 50,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#e5e5e5',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logo: {
+    width: 50,
+    height: 50,
+    marginRight: 12,
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#1e293b',
+    color: '#333',
   },
-  tabs: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 2,
   },
-  tab: {
-    flex: 1,
-    padding: 16,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+  scrollContent: {
+    paddingBottom: 20,
   },
-  tabActive: {
-    borderBottomColor: '#2563eb',
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748b',
-  },
-  tabTextActive: {
-    color: '#2563eb',
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
-  card: {
-    backgroundColor: '#ffffff',
+  balanceCard: {
+    backgroundColor: '#fff',
+    margin: 16,
+    padding: 20,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
+    elevation: 3,
   },
-  cardTitle: {
+  balanceTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1e293b',
-    marginBottom: 12,
+    marginBottom: 16,
+    color: '#333',
   },
   balanceGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'space-between',
   },
   balanceItem: {
-    width: '48%',
-    backgroundColor: '#f8fafc',
-    padding: 12,
-    borderRadius: 8,
     alignItems: 'center',
+    flex: 1,
+  },
+  balanceValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#4DB8B8',
+    marginBottom: 4,
   },
   balanceLabel: {
     fontSize: 12,
-    color: '#64748b',
-    marginBottom: 4,
+    color: '#666',
+    textAlign: 'center',
   },
-  balanceValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  balanceSubLabel: {
+    fontSize: 10,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 2,
   },
-  formToggle: {
-    backgroundColor: '#2563eb',
+  pendingInfo: {
+    marginTop: 16,
     padding: 12,
+    backgroundColor: '#fef3c7',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#f59e0b',
+  },
+  pendingInfoText: {
+    fontSize: 12,
+    color: '#92400e',
+    textAlign: 'center',
+  },
+  addButton: {
+    backgroundColor: '#4DB8B8',
+    margin: 16,
+    marginTop: 0,
+    padding: 16,
     borderRadius: 8,
     alignItems: 'center',
   },
-  formToggleText: {
-    color: '#ffffff',
-    fontSize: 14,
+  addButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
   },
-  form: {
-    marginTop: 16,
+  formCard: {
+    backgroundColor: '#fff',
+    margin: 16,
+    marginTop: 0,
+    padding: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   formTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#1e293b',
-    marginBottom: 12,
+    marginBottom: 16,
+    color: '#333',
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#334155',
-    marginBottom: 4,
-    marginTop: 8,
+    marginBottom: 8,
+    color: '#333',
+    marginTop: 12,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#fff',
   },
   textArea: {
-    height: 80,
+    height: 100,
     textAlignVertical: 'top',
   },
-  picker: {
+  pickerContainer: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#ddd',
     borderRadius: 8,
-    backgroundColor: '#f8fafc',
+    overflow: 'hidden',
+    backgroundColor: '#fff',
   },
-  charCount: {
+  picker: {
+    height: 55,
+    width: '100%',
+  },
+  helpText: {
     fontSize: 12,
-    color: '#64748b',
+    color: '#666',
     marginTop: 4,
-  },
-  durationInfo: {
-    backgroundColor: '#fef3c7',
-    padding: 8,
-    borderRadius: 8,
-    marginVertical: 8,
-  },
-  durationText: {
-    fontSize: 13,
-    color: '#92400e',
+    marginBottom: 8,
+    fontStyle: 'italic',
   },
   attachButton: {
-    backgroundColor: '#f1f5f9',
-    padding: 12,
+    borderWidth: 1,
+    borderColor: '#4DB8B8',
     borderRadius: 8,
-    alignItems: 'center',
+    padding: 12,
     marginTop: 12,
+    alignItems: 'center',
+    borderStyle: 'dashed',
   },
   attachButtonText: {
-    color: '#1e293b',
+    color: '#4DB8B8',
     fontSize: 14,
   },
-  submitButton: {
-    backgroundColor: '#2563eb',
+  attachmentName: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  formButtons: {
+    flexDirection: 'row',
+    marginTop: 20,
+    gap: 12,
+  },
+  button: {
+    flex: 1,
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 16,
   },
-  submitButtonDisabled: {
-    backgroundColor: '#94a3b8',
+  cancelButton: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
-  submitButtonText: {
-    color: '#ffffff',
+  cancelButtonText: {
+    color: '#666',
     fontSize: 16,
     fontWeight: '600',
   },
-  leaveItem: {
-    backgroundColor: '#f8fafc',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
+  submitButton: {
+    backgroundColor: '#4DB8B8',
   },
-  leaveHeader: {
+  submitButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  requestsSection: {
+    margin: 16,
+    marginTop: 0,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#333',
+  },
+  emptyState: {
+    backgroundColor: '#fff',
+    padding: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#999',
+    fontSize: 14,
+  },
+  requestCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  requestHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  leaveType: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1e293b',
-  },
-  leaveDate: {
-    fontSize: 13,
-    color: '#64748b',
-    marginBottom: 4,
-  },
-  leaveDuration: {
-    fontSize: 12,
-    color: '#64748b',
+  requestType: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -791,67 +646,77 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  cancelButton: {
-    backgroundColor: '#dc2626',
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 8,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  overtimeItem: {
-    backgroundColor: '#f8fafc',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  overtimeHeader: {
+  requestDetails: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 8,
   },
-  overtimeDate: {
+  requestDate: {
     fontSize: 14,
+    color: '#666',
+  },
+  requestDays: {
+    fontSize: 14,
+    color: '#4DB8B8',
     fontWeight: '600',
-    color: '#1e293b',
   },
-  overtimeHours: {
-    fontSize: 13,
-    color: '#64748b',
+  requestReason: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
   },
-  historyContainer: {
-    marginTop: 12,
-  },
-  historyItem: {
-    backgroundColor: '#f8fafc',
+  approvalNote: {
+    backgroundColor: '#f9f9f9',
     padding: 12,
     borderRadius: 8,
-    marginBottom: 8,
+    marginTop: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#4DB8B8',
   },
-  historyDate: {
+  approvalNoteLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  approvalNoteText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  cancelRequestButton: {
+    marginTop: 12,
+    backgroundColor: '#fee',
+    padding: 10,
+    borderRadius: 6,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#fcc',
+  },
+  cancelRequestButtonText: {
+    color: '#c00',
     fontSize: 14,
     fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: 4,
   },
-  historyHours: {
-    fontSize: 13,
-    color: '#16a34a',
-    marginBottom: 4,
+  loadMoreButton: {
+    backgroundColor: '#4DB8B8',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 8,
   },
-  historyReason: {
-    fontSize: 12,
-    color: '#64748b',
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#94a3b8',
+  loadMoreText: {
+    color: '#ffffff',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  paginationInfo: {
     paddingVertical: 16,
+    alignItems: 'center',
+  },
+  paginationText: {
+    fontSize: 12,
+    color: '#94a3b8',
+    fontStyle: 'italic',
   },
 });

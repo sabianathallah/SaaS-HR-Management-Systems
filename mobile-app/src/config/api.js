@@ -36,8 +36,8 @@ export default {
     
     // Overtime - FIXED: plural routes matching backend
     OVERTIME_REQUESTS: '/overtimes/my-requests',
-    OVERTIME_HISTORY: '/overtimes/my-requests',
-    OVERTIME_CREATE: '/overtimes',
+    OVERTIME_HISTORY: '/overtimes/my-history',
+    OVERTIME_CREATE: '/overtimes/request',
     OVERTIME_CANCEL: (id) => `/overtimes/${id}`,
     
     // Notifications
@@ -46,5 +46,11 @@ export default {
     NOTIFICATIONS_MARK_ALL_READ: '/notifications/read-all',
     NOTIFICATIONS_CLEAR_READ: '/notifications/clear-read',
     NOTIFICATIONS_DELETE: (id) => `/notifications/${id}`,
+    
+    // Payroll
+    PAYROLL_PAYSLIPS: '/payroll/my-payslips',
+    PAYROLL_SUMMARY: '/payroll/my-payslips/summary',
+    PAYROLL_DETAIL: (id) => `/payroll/my-payslips/${id}`,
+    PAYROLL_DOWNLOAD: (id) => `/payroll/my-payslips/${id}/download`,
   },
 };

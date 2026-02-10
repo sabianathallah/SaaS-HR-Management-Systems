@@ -59,3 +59,44 @@ export const getStatusLabel = (status) => {
       return status;
   }
 };
+
+// Payroll/Payslip helpers
+export const formatCurrency = (amount) => {
+  if (!amount && amount !== 0) return 'Rp 0';
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
+
+export const getPayslipStatusColor = (status) => {
+  switch (status?.toUpperCase()) {
+    case 'PAID':
+      return { bg: '#dcfce7', text: '#166534' };
+    case 'PENDING':
+      return { bg: '#fef3c7', text: '#92400e' };
+    case 'PROCESSING':
+      return { bg: '#dbeafe', text: '#1e40af' };
+    case 'CANCELLED':
+      return { bg: '#fee2e2', text: '#991b1b' };
+    default:
+      return { bg: '#f3f4f6', text: '#374151' };
+  }
+};
+
+export const getPayslipStatusLabel = (status) => {
+  switch (status?.toUpperCase()) {
+    case 'PAID':
+      return '✓ Dibayar';
+    case 'PENDING':
+      return '⏳ Pending';
+    case 'PROCESSING':
+      return '⚙️ Diproses';
+    case 'CANCELLED':
+      return '✗ Dibatalkan';
+    default:
+      return status;
+  }
+};

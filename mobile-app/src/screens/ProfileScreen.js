@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Alert,
   Modal,
+  Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { profileService } from '../services';
@@ -156,9 +157,19 @@ export default function ProfileScreen({ navigation, onLogout }) {
     <View style={styles.container}>
       <StatusBar style="dark" />
       
-      {/* Header */}
+      {/* Header with Logo */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
+        <View style={styles.headerContent}>
+          <Image 
+            source={require('../../assets/salmon-logo.png')} 
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>Salmon HRIS</Text>
+            <Text style={styles.headerSubtitle}>Profile & Settings</Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView style={styles.content}>
@@ -365,19 +376,42 @@ export default function ProfileScreen({ navigation, onLogout }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f5f5f5',
   },
   header: {
     backgroundColor: '#ffffff',
-    padding: 20,
-    paddingTop: 60,
+    paddingTop: 50,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#e5e5e5',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logo: {
+    width: 50,
+    height: 50,
+    marginRight: 12,
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#1e293b',
+    color: '#333',
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 2,
   },
   content: {
     flex: 1,
@@ -408,7 +442,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#4DB8B8',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -548,7 +582,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalButtonPrimary: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#4DB8B8',
   },
   modalButtonSecondary: {
     backgroundColor: '#e2e8f0',

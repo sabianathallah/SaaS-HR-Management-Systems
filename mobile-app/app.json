@@ -33,7 +33,7 @@
       "bundler": "metro"
     },
     "extra": {
-      "apiUrl": "http://172.20.10.2:3000"
+      "apiUrl": "http://192.168.100.145:3000"
     },
     "plugins": [
       [

@@ -7,6 +7,7 @@ import {
   StyleSheet,
   RefreshControl,
   Alert,
+  Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { attendanceService, notificationService } from '../services';
@@ -97,10 +98,19 @@ export default function DashboardScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar style="dark" />
       
-      {/* Header */}
+      {/* Header with Logo */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Dashboard</Text>
-        <Text style={styles.headerSubtitle}>Employee Portal</Text>
+        <View style={styles.headerContent}>
+          <Image 
+            source={require('../../assets/salmon-logo.png')} 
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>Salmon HRIS</Text>
+            <Text style={styles.headerSubtitle}>Employee Dashboard</Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView
@@ -252,24 +262,42 @@ export default function DashboardScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f5f5f5',
   },
   header: {
     backgroundColor: '#ffffff',
-    padding: 20,
-    paddingTop: 60,
+    paddingTop: 50,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#e5e5e5',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logo: {
+    width: 50,
+    height: 50,
+    marginRight: 12,
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#1e293b',
+    color: '#333',
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: '#64748b',
-    marginTop: 4,
+    fontSize: 13,
+    color: '#666',
+    marginTop: 2,
   },
   content: {
     flex: 1,
@@ -342,7 +370,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   clockButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#4DB8B8',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -393,7 +421,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   seeAllText: {
-    color: '#2563eb',
+    color: '#4DB8B8',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -407,7 +435,7 @@ const styles = StyleSheet.create({
   notificationUnread: {
     backgroundColor: '#eff6ff',
     borderLeftWidth: 3,
-    borderLeftColor: '#2563eb',
+    borderLeftColor: '#4DB8B8',
   },
   notificationContent: {
     flex: 1,
@@ -431,7 +459,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#4DB8B8',
     marginLeft: 8,
   },
   emptyText: {

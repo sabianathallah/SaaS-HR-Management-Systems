@@ -11,6 +11,8 @@ import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import AttendanceScreen from './src/screens/AttendanceScreen';
 import LeaveScreen from './src/screens/LeaveScreen';
+import OvertimeScreen from './src/screens/OvertimeScreen';
+import PayslipScreen from './src/screens/PayslipScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import CameraScreen from './src/screens/CameraScreen';
@@ -32,6 +34,10 @@ function EmployeeTabs({ onLogout }) {
             iconName = focused ? 'calendar' : 'calendar-outline';
           } else if (route.name === 'Leave') {
             iconName = focused ? 'document-text' : 'document-text-outline';
+          } else if (route.name === 'Overtime') {
+            iconName = focused ? 'time' : 'time-outline';
+          } else if (route.name === 'Payslip') {
+            iconName = focused ? 'cash' : 'cash-outline';
           } else if (route.name === 'Notifications') {
             iconName = focused ? 'notifications' : 'notifications-outline';
           } else if (route.name === 'Profile') {
@@ -40,15 +46,18 @@ function EmployeeTabs({ onLogout }) {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#2563eb',
+        tabBarActiveTintColor: '#4DB8B8',
         tabBarInactiveTintColor: 'gray',
         headerShown: false,
+        tabBarLabelStyle: { fontSize: 11 },
+        tabBarStyle: { height: 60, paddingBottom: 8, paddingTop: 8 },
       })}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Attendance" component={AttendanceScreen} />
       <Tab.Screen name="Leave" component={LeaveScreen} />
-      <Tab.Screen name="Notifications" component={NotificationsScreen} />
+      <Tab.Screen name="Overtime" component={OvertimeScreen} />
+      <Tab.Screen name="Payslip" component={PayslipScreen} />
       <Tab.Screen name="Profile">
         {(props) => <ProfileScreen {...props} onLogout={onLogout} />}
       </Tab.Screen>
@@ -87,7 +96,7 @@ export default function App() {
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color="#4DB8B8" />
       </View>
     );
   }
@@ -104,6 +113,14 @@ export default function App() {
             <Stack.Screen name="Main">
               {(props) => <EmployeeTabs {...props} onLogout={handleLogout} />}
             </Stack.Screen>
+            <Stack.Screen 
+              name="Notifications" 
+              component={NotificationsScreen}
+              options={{ 
+                headerShown: false,
+                presentation: 'card'
+              }}
+            />
             <Stack.Screen 
               name="Camera" 
               component={CameraScreen}

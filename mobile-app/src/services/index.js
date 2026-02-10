@@ -140,7 +140,7 @@ export const leaveService = {
   },
   
   cancelLeaveRequest: async (id) => {
-    const response = await api.patch(config.API_ENDPOINTS.LEAVE_CANCEL(id));
+    const response = await api.delete(config.API_ENDPOINTS.LEAVE_CANCEL(id));
     return response.data;
   },
 };
@@ -167,7 +167,7 @@ export const overtimeService = {
   },
   
   cancelOvertimeRequest: async (id) => {
-    const response = await api.patch(config.API_ENDPOINTS.OVERTIME_CANCEL(id));
+    const response = await api.delete(config.API_ENDPOINTS.OVERTIME_CANCEL(id));
     return response.data;
   },
 };
@@ -198,6 +198,31 @@ export const notificationService = {
   
   deleteNotification: async (id) => {
     const response = await api.delete(config.API_ENDPOINTS.NOTIFICATIONS_DELETE(id));
+    return response.data;
+  },
+};
+
+// Payroll Service
+export const payrollService = {
+  getPayslips: async () => {
+    const response = await api.get(config.API_ENDPOINTS.PAYROLL_PAYSLIPS);
+    return response.data;
+  },
+  
+  getPayslipSummary: async () => {
+    const response = await api.get(config.API_ENDPOINTS.PAYROLL_SUMMARY);
+    return response.data;
+  },
+  
+  getPayslipDetail: async (payrollId) => {
+    const response = await api.get(config.API_ENDPOINTS.PAYROLL_DETAIL(payrollId));
+    return response.data;
+  },
+  
+  downloadPayslip: async (payrollId) => {
+    const response = await api.get(config.API_ENDPOINTS.PAYROLL_DOWNLOAD(payrollId), {
+      responseType: 'blob',
+    });
     return response.data;
   },
 };

@@ -111,7 +111,7 @@ export default function CameraScreen({ route, navigation }) {
   if (!permission) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color="#4DB8B8" />
       </View>
     );
   }
@@ -195,7 +195,7 @@ export default function CameraScreen({ route, navigation }) {
             disabled={loading || !location}
           >
             {loading ? (
-              <ActivityIndicator color="#2563eb" size="small" />
+              <ActivityIndicator color="#4DB8B8" size="small" />
             ) : (
               <View style={styles.captureButtonInner} />
             )}
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
-    borderColor: '#2563eb',
+    borderColor: '#4DB8B8',
   },
   captureButtonDisabled: {
     opacity: 0.5,
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#4DB8B8',
   },
   placeholder: {
     width: 50,
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   button: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#4DB8B8',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,

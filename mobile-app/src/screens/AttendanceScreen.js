@@ -7,6 +7,7 @@ import {
   StyleSheet,
   RefreshControl,
   Modal,
+  Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Picker } from '@react-native-picker/picker';
@@ -17,7 +18,8 @@ import { getStatusColor } from '../utils/helpers';
 export default function AttendanceScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [attendanceHistory, setAttendanceHistory] = useState([]);
+  const [allAttendanceHistory, setAllAttendanceHistory] = useState([]);
+  const [displayedAttendanceHistory, setDisplayedAttendanceHistory] = useState([]);
   const [selectedAttendance, setSelectedAttendance] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showStatistics, setShowStatistics] = useState(false);
@@ -25,10 +27,30 @@ export default function AttendanceScreen({ navigation }) {
   const [statisticsPeriod, setStatisticsPeriod] = useState('monthly');
   const [statisticsMonth, setStatisticsMonth] = useState(new Date().getMonth() + 1);
   const [statisticsYear, setStatisticsYear] = useState(new Date().getFullYear());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const ITEMS_PER_PAGE = 5;
 
   useEffect(() => {
     fetchAttendanceHistory();
   }, []);
+
+  useEffect(() => {
+    applyPagination();
+  }, [currentPage, allAttendanceHistory]);
+
+  const applyPagination = () => {
+    const endIndex = currentPage * ITEMS_PER_PAGE;
+    const paginated = allAttendanceHistory.slice(0, endIndex);
+    setDisplayedAttendanceHistory(paginated);
+    setHasMore(endIndex < allAttendanceHistory.length);
+  };
+
+  const loadMore = () => {
+    if (hasMore && !loading) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
 
   const fetchAttendanceHistory = async () => {
     setLoading(true);
@@ -36,7 +58,8 @@ export default function AttendanceScreen({ navigation }) {
       const response = await attendanceService.getAttendanceHistory();
       // Backend returns {data, message} not {success, data}
       if (response.data) {
-        setAttendanceHistory(response.data || []);
+        setAllAttendanceHistory(response.data || []);
+        setCurrentPage(1);
       }
     } catch (error) {
       console.error('Error fetching attendance history:', error);
@@ -90,9 +113,19 @@ export default function AttendanceScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar style="dark" />
       
-      {/* Header */}
+      {/* Header with Logo */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Attendance</Text>
+        <View style={styles.headerContent}>
+          <Image 
+            source={require('../../assets/salmon-logo.png')} 
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>Salmon HRIS</Text>
+            <Text style={styles.headerSubtitle}>Attendance Management</Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView
@@ -226,36 +259,55 @@ export default function AttendanceScreen({ navigation }) {
           
           {loading && !refreshing ? (
             <Text style={styles.emptyText}>Loading...</Text>
-          ) : attendanceHistory.length > 0 ? (
-            attendanceHistory.map((att) => (
-              <TouchableOpacity
-                key={att.id}
-                style={styles.attendanceItem}
-                onPress={() => viewDetail(att)}
-              >
-                <View style={styles.attendanceInfo}>
-                  <Text style={styles.attendanceDate}>{formatDate(att.date)}</Text>
-                  <Text style={styles.attendanceTime}>
-                    {formatTime(att.clockIn)} - {formatTime(att.clockOut)}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: getStatusColor(att.status).bg },
-                  ]}
+          ) : displayedAttendanceHistory.length > 0 ? (
+            <>
+              {displayedAttendanceHistory.map((att) => (
+                <TouchableOpacity
+                  key={att.id}
+                  style={styles.attendanceItem}
+                  onPress={() => viewDetail(att)}
                 >
-                  <Text
+                  <View style={styles.attendanceInfo}>
+                    <Text style={styles.attendanceDate}>{formatDate(att.date)}</Text>
+                    <Text style={styles.attendanceTime}>
+                      {formatTime(att.clockIn)} - {formatTime(att.clockOut)}
+                    </Text>
+                  </View>
+                  <View
                     style={[
-                      styles.statusText,
-                      { color: getStatusColor(att.status).text },
+                      styles.statusBadge,
+                      { backgroundColor: getStatusColor(att.status).bg },
                     ]}
                   >
-                    {att.status}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
+                    <Text
+                      style={[
+                        styles.statusText,
+                        { color: getStatusColor(att.status).text },
+                      ]}
+                    >
+                      {att.status}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+              
+              {/* Load More Button */}
+              {hasMore && (
+                <TouchableOpacity
+                  style={styles.loadMoreButton}
+                  onPress={loadMore}
+                >
+                  <Text style={styles.loadMoreText}>Muat Lebih Banyak</Text>
+                </TouchableOpacity>
+              )}
+              
+              {/* Pagination Info */}
+              <View style={styles.paginationInfo}>
+                <Text style={styles.paginationText}>
+                  Menampilkan {displayedAttendanceHistory.length} dari {allAttendanceHistory.length} data
+                </Text>
+              </View>
+            </>
           ) : (
             <Text style={styles.emptyText}>Belum ada riwayat attendance</Text>
           )}
@@ -336,19 +388,42 @@ export default function AttendanceScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f5f5f5',
   },
   header: {
     backgroundColor: '#ffffff',
-    padding: 20,
-    paddingTop: 60,
+    paddingTop: 50,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#e5e5e5',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logo: {
+    width: 50,
+    height: 50,
+    marginRight: 12,
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#1e293b',
+    color: '#333',
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 2,
   },
   content: {
     flex: 1,
@@ -377,7 +452,7 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#4DB8B8',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
@@ -432,7 +507,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   refreshButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#4DB8B8',
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
@@ -547,5 +622,27 @@ const styles = StyleSheet.create({
     color: '#1e293b',
     fontSize: 14,
     fontWeight: '600',
+  },
+  loadMoreButton: {
+    backgroundColor: '#4DB8B8',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  loadMoreText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  paginationInfo: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  paginationText: {
+    fontSize: 12,
+    color: '#94a3b8',
+    fontStyle: 'italic',
   },
 });
