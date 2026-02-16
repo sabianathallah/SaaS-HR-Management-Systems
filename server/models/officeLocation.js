@@ -9,6 +9,12 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'office_location_id',
         as: 'attendances'
       });
+
+      // Belongs to Company
+      OfficeLocation.belongsTo(models.Company, {
+        foreignKey: 'companyId',
+        as: 'company'
+      });
     }
   }
 
@@ -62,6 +68,15 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: true
+      },
+      companyId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        field: 'companyId', // Keep as camelCase in database
+        references: {
+          model: 'Companies',
+          key: 'id'
+        }
       }
     },
     {

@@ -29,6 +29,11 @@ import PayrollPeriodDetail from './components/admin/PayrollPeriodDetail.jsx'
 import MyPayslips from './components/MyPayslips.jsx'
 import PayslipDetail from './components/PayslipDetail.jsx'
 
+// Super Admin Layout & Pages
+import SuperAdminLayout from './layouts/SuperAdminLayout.jsx'
+import SuperAdminDashboard from './views/super-admin/SuperAdminDashboard.jsx'
+import CompaniesPage from './views/super-admin/CompaniesPage.jsx'
+
 
 export default function App() {
 
@@ -53,7 +58,7 @@ export default function App() {
           <Route 
             path='/admin' 
             element={
-              <ProtectedRoute allowedRoles={['ADMIN']}>
+              <ProtectedRoute allowedRoles={['ADMIN', 'COMPANY_ADMIN']}>
                 <AdminLayout />
               </ProtectedRoute>
             }
@@ -75,6 +80,22 @@ export default function App() {
             {/* Payroll Routes - Admin */}
             <Route path="payroll/periods" element={<PayrollPeriodList />} />
             <Route path="payroll/periods/:periodId" element={<PayrollPeriodDetail />} />
+          </Route>
+
+          {/* Super Admin Protected Routes */}
+          <Route 
+            path='/super-admin' 
+            element={
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                <SuperAdminLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="/super-admin/dashboard" replace />} />
+            <Route path="dashboard" element={<SuperAdminDashboard />} />
+            <Route path="companies" element={<CompaniesPage />} />
+            <Route path="users" element={<div>Users Page (Coming Soon)</div>} />
+            <Route path="settings" element={<div>Settings Page (Coming Soon)</div>} />
           </Route>
           
           {/* Payroll Routes - Employee (Standalone, not nested in AdminLayout) */}

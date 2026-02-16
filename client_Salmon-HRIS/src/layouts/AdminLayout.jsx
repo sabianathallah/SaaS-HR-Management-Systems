@@ -9,10 +9,15 @@ const AdminLayout = () => {
     const userData = JSON.parse(localStorage.getItem('user') || '{}');
     return userData;
   });
+  const [company, setCompany] = useState(() => {
+    const companyData = JSON.parse(localStorage.getItem('company') || 'null');
+    return companyData;
+  });
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('user');
+    localStorage.removeItem('company');
     navigate('/login');
   };
 
@@ -132,7 +137,9 @@ const AdminLayout = () => {
             />
             <div>
               <h1 className="text-xl font-bold text-black">HRIS Admin</h1>
-              <p className="text-xs text-black">Management System</p>
+              {company && (
+                <p className="text-xs text-amber-400">{company.name}</p>
+              )}
             </div>
           </div>
         </div>

@@ -26,6 +26,11 @@ export default function Login() {
       localStorage.setItem("access_token", data.access_token)
       localStorage.setItem("user", JSON.stringify(data.user)) // Simpan sebagai JSON object
       
+      // Simpan company data jika ada
+      if (data.user.company) {
+        localStorage.setItem("company", JSON.stringify(data.user.company))
+      }
+      
       toast.success(`✅ Login berhasil! Selamat datang, ${data.user.name}`, {
         autoClose: 2000,
         hideProgressBar: false,
@@ -36,7 +41,9 @@ export default function Login() {
       })
       
       // Redirect berdasarkan role
-      if (data.user.role === "ADMIN") {
+      if (data.user.role === "SUPER_ADMIN") {
+        navigate("/super-admin")
+      } else if (data.user.role === "COMPANY_ADMIN" || data.user.role === "ADMIN") {
         navigate("/admin")
       } else {
         navigate("/employee")

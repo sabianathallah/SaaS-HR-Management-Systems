@@ -22,9 +22,11 @@ const payrollRouter = require('./payroll')
 const payroll_isAdminRouter = require('./payroll_isAdmin')
 const payrollSettings_isAdminRouter = require('./payrollSettings_isAdmin')
 const webhookRouter = require('./webhook')
+const companyRouter = require('./companyRoutes')
 
 const isAdmin = require("../middlewares/authorization");
 const authentication = require('../middlewares/authentication')
+const tenantIdentification = require('../middlewares/tenantIdentification')
 const errorHandler = require('../middlewares/errorHandler')
 
 const LoginController = require('../controllers/loginController')
@@ -59,6 +61,8 @@ router.get('/test-ip', (req, res) => {
 })
 
 router.use(authentication)
+router.use(tenantIdentification)
+router.use('/companies', companyRouter)
 router.use('/profile', profileRouter)
 router.use('/users/admin', isAdmin, user_isAdminRouter)
 router.use('/attendances/admin', isAdmin, attendance_isAdminRouter)

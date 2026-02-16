@@ -2,6 +2,7 @@ const { OfficeLocation, Attendance } = require('../models');
 const { Op } = require('sequelize');
 const { isValidGPSCoordinates, formatGPSCoordinates, generateMapsLink } = require('../helpers/geolocation');
 const AuditLogger = require('../helpers/auditLogger');
+const tenantIsolation = require('../middlewares/tenantIsolation');
 
 /**
  * ========================================
@@ -22,7 +23,7 @@ class OfficeLocationAdminController {
     try {
       const { is_active, search } = req.query;
 
-      let whereClause = {};
+      let whereClause = tenantIsolation.addCompanyFilter({}, req);
 
       // Filter by active status
       if (is_active !== undefined) {
@@ -145,7 +146,8 @@ class OfficeLocationAdminController {
         latitude,
         longitude,
         radius: radius || 50, // Default 50 meter
-        is_active: is_active !== undefined ? is_active : true
+        is_active: is_active !== undefined ? is_active : true,
+        companyId: req.companyId
       });
 
       const locationData = {

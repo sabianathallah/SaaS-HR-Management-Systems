@@ -13,6 +13,13 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
+      // User belongs to Company
+      User.belongsTo(models.Company, {
+        foreignKey: 'companyId',
+        as: 'company',
+        onDelete: 'CASCADE'
+      });
+
       User.hasMany(models.Attendance, { foreignKey: 'UserId', onDelete: 'CASCADE' });
       User.hasMany(models.LeaveRequest, { foreignKey: 'UserId', as: 'leaveRequests', onDelete: 'CASCADE' });
       User.hasMany(models.LeaveRequest, { foreignKey: 'approvedBy', as: 'approvedLeaves', onDelete: 'SET NULL' });
@@ -152,8 +159,29 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: 'EMPLOYEE',
-      notEmpty: {
-        msg: 'Role cannot be empty'
+      validate: {
+        notEmpty: {
+          msg: 'Role cannot be empty'
+        },
+        isIn: {
+          args: [['SUPER_ADMIN', 'COMPANY_ADMIN', 'EMPLOYEE']],
+          msg: 'Role must be SUPER_ADMIN, COMPANY_ADMIN, or EMPLOYEE'
+        }
+      }
+    },
+    companyId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'Companies',
+        key: 'id'
+      },
+      validate: {
+        isCompanyRequired(value) {
+          if (this.role !== 'SUPER_ADMIN' && !value) {
+            throw new Error('Company is required for non-super admin users');
+          }
+        }
       }
     },
     position: {

@@ -24,6 +24,13 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
+      // Attendance belongs to Company
+      Attendance.belongsTo(models.Company, {
+        foreignKey: 'companyId',
+        as: 'company',
+        onDelete: 'CASCADE'
+      });
+
       // Attendance belongs to User
       Attendance.belongsTo(models.User, { 
         foreignKey: 'UserId'
@@ -64,6 +71,16 @@ module.exports = (sequelize, DataTypes) => {
     }
   }
   Attendance.init({
+    companyId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'Companies',
+        key: 'id'
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE'
+    },
     UserId: {
       type: DataTypes.INTEGER,
       allowNull: false,

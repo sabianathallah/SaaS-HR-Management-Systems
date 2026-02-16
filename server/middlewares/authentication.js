@@ -1,4 +1,5 @@
 const { verifyToken } = require('../helpers/jwt')
+const { User } = require('../models')
 
 const authentication = async (req, res, next) => {
     try {
@@ -20,11 +21,30 @@ const authentication = async (req, res, next) => {
 
         const decoded = verifyToken(token)
 
+        // Fetch fresh user data from database to get latest companyId
+        const user = await User.findByPk(decoded.id || decoded.userId, {
+            attributes: ['id', 'email', 'role', 'companyId', 'name', 'isActive']
+        })
+
+        if (!user) {
+            return res.status(401).json({ 
+                message: 'Unauthorized: User not found' 
+            });
+        }
+
+        if (!user.isActive) {
+            return res.status(403).json({ 
+                message: 'Forbidden: User account is inactive' 
+            });
+        }
+
         req.user = {
-            id: decoded.id || decoded.userId,
-            userId: decoded.id || decoded.userId,
-            email: decoded.email,
-            role: decoded.role
+            id: user.id,
+            userId: user.id,
+            email: user.email,
+            role: user.role,
+            companyId: user.companyId,
+            name: user.name
         }
         next()
     } catch (err) {
