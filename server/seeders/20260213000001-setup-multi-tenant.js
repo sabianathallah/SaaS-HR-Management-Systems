@@ -5,9 +5,9 @@ const { hashPassword } = require('../helpers/bcrypt');
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    // Check if default company already exists
+    // Check if default company already exists (check both old and new slug)
     const [existingCompanies] = await queryInterface.sequelize.query(
-      `SELECT id FROM "Companies" WHERE slug = 'default-company' LIMIT 1;`
+      `SELECT id FROM "Companies" WHERE slug IN ('default-company', 'salmon-technology') LIMIT 1;`
     );
 
     let companyId;
@@ -15,14 +15,14 @@ module.exports = {
     if (existingCompanies.length === 0) {
       // Create default company only if it doesn't exist
       await queryInterface.bulkInsert('Companies', [{
-        name: 'Default Company',
-        slug: 'default-company',
+         name: 'PT Salmon Technology',
+        slug: 'salmon-technology',
         logo: null,
         address: 'Jakarta, Indonesia',
         phoneNumber: '+62-21-1234567',
-        email: 'contact@defaultcompany.com',
-        website: null,
-        taxIdentificationNumber: null,
+        email: 'contact@salmontechnology.com',
+        website: 'https://salmontechnology.com',
+        taxIdentificationNumber: '01.234.567.8-901.000',
         industry: 'Technology',
         employeeCount: 3,
         status: 'active',
@@ -41,7 +41,7 @@ module.exports = {
 
       // Get the created company ID
       const [defaultCompany] = await queryInterface.sequelize.query(
-        `SELECT id FROM "Companies" WHERE slug = 'default-company' LIMIT 1;`
+        `SELECT id FROM "Companies" WHERE slug = 'salmon-technology' LIMIT 1;`
       );
       companyId = defaultCompany[0].id;
     } else {

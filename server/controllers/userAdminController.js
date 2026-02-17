@@ -186,6 +186,7 @@ class UserAdminController {
                     name: user.name,
                     email: user.email,
                     role: user.role,
+                    companyId: user.companyId, // ADDED: for filtering by company
                     phoneNumber: user.phoneNumber,
                     position: user.position,
                     department: user.department,
@@ -230,6 +231,7 @@ class UserAdminController {
                     name: user.name,
                     email: user.email,
                     role: user.role,
+                    companyId: user.companyId, // ADDED: for filtering by company
                     phoneNumber: user.phoneNumber,
                     position: user.position,
                     department: user.department,

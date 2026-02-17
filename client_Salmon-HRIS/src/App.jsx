@@ -33,6 +33,7 @@ import PayslipDetail from './components/PayslipDetail.jsx'
 import SuperAdminLayout from './layouts/SuperAdminLayout.jsx'
 import SuperAdminDashboard from './views/super-admin/SuperAdminDashboard.jsx'
 import CompaniesPage from './views/super-admin/CompaniesPage.jsx'
+import UsersPage from './views/super-admin/UsersPage.jsx'
 
 
 export default function App() {
@@ -94,7 +95,7 @@ export default function App() {
             <Route index element={<Navigate to="/super-admin/dashboard" replace />} />
             <Route path="dashboard" element={<SuperAdminDashboard />} />
             <Route path="companies" element={<CompaniesPage />} />
-            <Route path="users" element={<div>Users Page (Coming Soon)</div>} />
+            <Route path="users" element={<UsersPage />} />
             <Route path="settings" element={<div>Settings Page (Coming Soon)</div>} />
           </Route>
           
