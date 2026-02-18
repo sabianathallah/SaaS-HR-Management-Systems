@@ -4,31 +4,33 @@ const AuditLogger = require('../helpers/auditLogger')
 class RegisterController {
     static async register(req, res, next) {
         try {
-            const { 
-                email, 
-                password, 
-                name, 
-                phoneNumber, 
-                role, 
-                position, 
-                department, 
+            const {
+                email,
+                password,
+                name,
+                phoneNumber,
+                role,
+                position,
+                department,
                 joinDate,
-                isActive 
+                isActive,
+                companyId
             } = req.body
-            
+
             if (!email || !password || !name) {
                 throw { name: "BadRequest", message: "Email, password, and name are required" }
             }
 
-            const userData = { 
-                email, 
-                password, 
-                name, 
+            const userData = {
+                email,
+                password,
+                name,
                 phoneNumber: phoneNumber || null,
                 role: role || 'EMPLOYEE',
                 position: position || null,
                 department: department || null,
-                isActive: isActive !== undefined ? isActive : true
+                isActive: isActive !== undefined ? isActive : true,
+                companyId: companyId || req.user?.companyId || null
             }
 
             // Add joinDate if provided, otherwise use current date

@@ -1,11 +1,12 @@
 import { useState } from "react"
+import { Eye, EyeOff } from 'lucide-react'
 import axios from 'axios'
-import baseUrl from "../constant/url.js"
+import baseUrl from "../shared/config/url.js"
 import { useNavigate } from "react-router"
 import { toast } from 'react-toastify';
 import logoNavbar from '../assets/logo-navbar.png'
 import backgroundImage from '../assets/background.png'
-import Button from '../components/button-reusable.jsx'
+import Button from '../shared/components/button-reusable.jsx'
 
 export default function Login() {
 
@@ -31,7 +32,7 @@ export default function Login() {
         localStorage.setItem("company", JSON.stringify(data.user.company))
       }
       
-      toast.success(`✅ Login berhasil! Selamat datang, ${data.user.name}`, {
+      toast.success(`Login berhasil! Selamat datang, ${data.user.name}`, {
         autoClose: 2000,
         hideProgressBar: false,
         closeOnClick: true,
@@ -43,7 +44,7 @@ export default function Login() {
       // Redirect berdasarkan role
       if (data.user.role === "SUPER_ADMIN") {
         navigate("/super-admin")
-      } else if (data.user.role === "COMPANY_ADMIN" || data.user.role === "ADMIN") {
+      } else if (data.user.role === "COMPANY_ADMIN") {
         navigate("/admin")
       } else {
         navigate("/employee")
@@ -152,7 +153,7 @@ export default function Login() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 transform -translate-y-1/2 text-amber-600 hover:text-amber-800 text-xl"
                 >
-                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>

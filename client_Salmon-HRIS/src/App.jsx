@@ -4,36 +4,37 @@ import 'react-toastify/dist/ReactToastify.css'
 
 import LandingPage from './views/LandingPage.jsx'
 import Login from './views/Login.jsx'
-import EmployeePage from './views/EmployeePage.jsx'
-import ProtectedRoute from './components/ProtectedRoute.jsx'
+import EmployeePage from './features/employee/views/EmployeePage.jsx'
+import ProtectedRoute from './shared/components/ProtectedRoute.jsx'
 
 // Admin Layout & Pages
-import AdminLayout from './layouts/AdminLayout.jsx'
-import DashboardPage from './views/admin/DashboardPage.jsx'
-import EmployeesPage from './views/admin/EmployeesPage.jsx'
-import AttendancePage from './views/admin/AttendancePage.jsx'
-import LeavePage from './views/admin/LeavePage.jsx'
-import ShiftPage from './views/admin/ShiftPage.jsx'
-import OvertimePage from './views/admin/OvertimePage.jsx'
-import OrganizationPage from './views/admin/OrganizationPage.jsx'
-import ReportsPage from './views/admin/ReportsPage.jsx'
-import NotificationsPage from './views/admin/NotificationsPage.jsx'
-import SettingsPage from './views/admin/SettingsPage.jsx'
-import WorkLocationPage from './views/admin/WorkLocationPage.jsx'
+import AdminLayout from './features/admin/layout/AdminLayout.jsx'
+import DashboardPage from './features/admin/views/DashboardPage.jsx'
+import EmployeesPage from './features/admin/views/EmployeesPage.jsx'
+import AttendancePage from './features/admin/views/AttendancePage.jsx'
+import LeavePage from './features/admin/views/LeavePage.jsx'
+import ShiftPage from './features/admin/views/ShiftPage.jsx'
+import OvertimePage from './features/admin/views/OvertimePage.jsx'
+import OrganizationPage from './features/admin/views/OrganizationPage.jsx'
+import ReportsPage from './features/admin/views/ReportsPage.jsx'
+import NotificationsPage from './features/admin/views/NotificationsPage.jsx'
+import SettingsPage from './features/admin/views/SettingsPage.jsx'
+import WorkLocationPage from './features/admin/views/WorkLocationPage.jsx'
 
 // Payroll Pages - Admin Only
-import PayrollPeriodList from './components/admin/PayrollPeriodList.jsx'
-import PayrollPeriodDetail from './components/admin/PayrollPeriodDetail.jsx'
+import PayrollPeriodList from './features/admin/components/PayrollPeriodList.jsx'
+import PayrollPeriodDetail from './features/admin/components/PayrollPeriodDetail.jsx'
 
 // Payroll Pages - Employee & Admin
-import MyPayslips from './components/MyPayslips.jsx'
-import PayslipDetail from './components/PayslipDetail.jsx'
+import MyPayslips from './features/employee/components/MyPayslips.jsx'
+import PayslipDetail from './features/employee/components/PayslipDetail.jsx'
 
 // Super Admin Layout & Pages
-import SuperAdminLayout from './layouts/SuperAdminLayout.jsx'
-import SuperAdminDashboard from './views/super-admin/SuperAdminDashboard.jsx'
-import CompaniesPage from './views/super-admin/CompaniesPage.jsx'
-import UsersPage from './views/super-admin/UsersPage.jsx'
+import SuperAdminLayout from './features/super-admin/layout/SuperAdminLayout.jsx'
+import SuperAdminDashboard from './features/super-admin/views/SuperAdminDashboard.jsx'
+import CompaniesPage from './features/super-admin/views/CompaniesPage.jsx'
+import UsersPage from './features/super-admin/views/UsersPage.jsx'
+import SuperAdminSettingsPage from './features/super-admin/views/SettingsPage.jsx'
 
 
 export default function App() {
@@ -59,7 +60,7 @@ export default function App() {
           <Route 
             path='/admin' 
             element={
-              <ProtectedRoute allowedRoles={['ADMIN', 'COMPANY_ADMIN']}>
+              <ProtectedRoute allowedRoles={['COMPANY_ADMIN']}>
                 <AdminLayout />
               </ProtectedRoute>
             }
@@ -96,14 +97,14 @@ export default function App() {
             <Route path="dashboard" element={<SuperAdminDashboard />} />
             <Route path="companies" element={<CompaniesPage />} />
             <Route path="users" element={<UsersPage />} />
-            <Route path="settings" element={<div>Settings Page (Coming Soon)</div>} />
+            <Route path="settings" element={<SuperAdminSettingsPage />} />
           </Route>
-          
+
           {/* Payroll Routes - Employee (Standalone, not nested in AdminLayout) */}
           <Route 
             path='/payroll/my-payslips' 
             element={
-              <ProtectedRoute allowedRoles={['EMPLOYEE', 'ADMIN']}>
+              <ProtectedRoute allowedRoles={['EMPLOYEE', 'COMPANY_ADMIN']}>
                 <MyPayslips />
               </ProtectedRoute>
             } 
@@ -111,7 +112,7 @@ export default function App() {
           <Route 
             path='/payroll/payslips/:payrollId' 
             element={
-              <ProtectedRoute allowedRoles={['EMPLOYEE', 'ADMIN']}>
+              <ProtectedRoute allowedRoles={['EMPLOYEE', 'COMPANY_ADMIN']}>
                 <PayslipDetail />
               </ProtectedRoute>
             } 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router'
+import { Clock, ClipboardList, XCircle, Zap, Target, TrendingUp, DollarSign, Users, BarChart3, Shield, Cloud } from 'lucide-react'
 
 function LandingPage() {
   const navigate = useNavigate()
@@ -112,7 +113,7 @@ function LandingPage() {
                       </div>
                       <div className="text-right">
                         <div className="text-lg font-bold text-gray-900">$124,500</div>
-                        <div className="text-xs text-green-600 font-semibold">✓ On time</div>
+                        <div className="text-xs text-green-600 font-semibold">On time</div>
                       </div>
                     </div>
 
@@ -120,7 +121,7 @@ function LandingPage() {
                     <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-100">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                          <span className="text-white text-lg">⏰</span>
+                          <Clock size={18} className="text-white" />
                         </div>
                         <div>
                           <div className="font-bold text-gray-900">Today's Attendance</div>
@@ -134,7 +135,7 @@ function LandingPage() {
                     <div className="flex items-center justify-between p-4 bg-violet-50 rounded-lg border border-violet-100">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-violet-500 rounded-full flex items-center justify-center">
-                          <span className="text-white text-lg">📋</span>
+                          <ClipboardList size={18} className="text-white" />
                         </div>
                         <div>
                           <div className="font-bold text-gray-900">Pending Requests</div>
@@ -172,10 +173,10 @@ function LandingPage() {
             <p className="text-lg text-gray-600">Familiar dengan situasi ini?</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all"><div className="text-4xl mb-4">❌</div><h3 className="text-lg font-bold text-gray-900 mb-2">Payroll Sering Salah</h3><p className="text-gray-600 text-sm">Hitung manual bikin error, revisi terus menerus</p></div>
-            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all"><div className="text-4xl mb-4">❌</div><h3 className="text-lg font-bold text-gray-900 mb-2">Data Karyawan Tersebar</h3><p className="text-gray-600 text-sm">Excel, email, folder — susah cari data yang diperlukan</p></div>
-            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all"><div className="text-4xl mb-4">❌</div><h3 className="text-lg font-bold text-gray-900 mb-2">Reporting Makan Waktu</h3><p className="text-gray-600 text-sm">Kumpulin data manual, bikin laporan berjam-jam</p></div>
-            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all"><div className="text-4xl mb-4">❌</div><h3 className="text-lg font-bold text-gray-900 mb-2">Sistem Lama Tidak Scalable</h3><p className="text-gray-600 text-sm">Makin banyak karyawan, makin ribet prosesnya</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all"><XCircle size={40} className="mx-auto mb-4 text-red-400" /><h3 className="text-lg font-bold text-gray-900 mb-2">Payroll Sering Salah</h3><p className="text-gray-600 text-sm">Hitung manual bikin error, revisi terus menerus</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all"><XCircle size={40} className="mx-auto mb-4 text-red-400" /><h3 className="text-lg font-bold text-gray-900 mb-2">Data Karyawan Tersebar</h3><p className="text-gray-600 text-sm">Excel, email, folder — susah cari data yang diperlukan</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all"><XCircle size={40} className="mx-auto mb-4 text-red-400" /><h3 className="text-lg font-bold text-gray-900 mb-2">Reporting Makan Waktu</h3><p className="text-gray-600 text-sm">Kumpulin data manual, bikin laporan berjam-jam</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-all"><XCircle size={40} className="mx-auto mb-4 text-red-400" /><h3 className="text-lg font-bold text-gray-900 mb-2">Sistem Lama Tidak Scalable</h3><p className="text-gray-600 text-sm">Makin banyak karyawan, makin ribet prosesnya</p></div>
           </div>
         </div>
       </section>
@@ -188,9 +189,9 @@ function LandingPage() {
             <p className="text-lg text-gray-600">Sistem yang dirancang untuk efisiensi maksimal</p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="relative bg-white p-8 rounded-2xl border-2 border-gray-100 hover:border-violet-200 transition-all"><div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center text-3xl mb-6 shadow-lg">⚡</div><h3 className="text-2xl font-bold text-gray-900 mb-3">Otomatis & Akurat</h3><p className="text-gray-600 leading-relaxed">Sistem auto-calculate payroll, attendance, overtime. Minim human error.</p></div>
-            <div className="relative bg-white p-8 rounded-2xl border-2 border-gray-100 hover:border-violet-200 transition-all"><div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center text-3xl mb-6 shadow-lg">🎯</div><h3 className="text-2xl font-bold text-gray-900 mb-3">Terpusat</h3><p className="text-gray-600 leading-relaxed">Semua data karyawan, absensi, cuti dalam satu dashboard yang mudah diakses.</p></div>
-            <div className="relative bg-white p-8 rounded-2xl border-2 border-gray-100 hover:border-violet-200 transition-all"><div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center text-3xl mb-6 shadow-lg">📈</div><h3 className="text-2xl font-bold text-gray-900 mb-3">Scalable</h3><p className="text-gray-600 leading-relaxed">Cocok untuk tim kecil sampai enterprise. Grow sesuai kebutuhan bisnis Anda.</p></div>
+            <div className="relative bg-white p-8 rounded-2xl border-2 border-gray-100 hover:border-violet-200 transition-all"><div className="w-16 h-16 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center mb-6 shadow-lg"><Zap size={32} className="text-white" /></div><h3 className="text-2xl font-bold text-gray-900 mb-3">Otomatis & Akurat</h3><p className="text-gray-600 leading-relaxed">Sistem auto-calculate payroll, attendance, overtime. Minim human error.</p></div>
+            <div className="relative bg-white p-8 rounded-2xl border-2 border-gray-100 hover:border-violet-200 transition-all"><div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center mb-6 shadow-lg"><Target size={32} className="text-white" /></div><h3 className="text-2xl font-bold text-gray-900 mb-3">Terpusat</h3><p className="text-gray-600 leading-relaxed">Semua data karyawan, absensi, cuti dalam satu dashboard yang mudah diakses.</p></div>
+            <div className="relative bg-white p-8 rounded-2xl border-2 border-gray-100 hover:border-violet-200 transition-all"><div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mb-6 shadow-lg"><TrendingUp size={32} className="text-white" /></div><h3 className="text-2xl font-bold text-gray-900 mb-3">Scalable</h3><p className="text-gray-600 leading-relaxed">Cocok untuk tim kecil sampai enterprise. Grow sesuai kebutuhan bisnis Anda.</p></div>
           </div>
         </div>
       </section>
@@ -203,12 +204,12 @@ function LandingPage() {
             <p className="text-lg text-gray-600">Semua yang Anda butuhkan untuk manage HR modern</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform">💰</div><h3 className="text-xl font-bold text-gray-900 mb-2">Payroll Otomatis</h3><p className="text-gray-600">Auto-calculate gaji, tunjangan, potongan, dan pajak</p></div>
-            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform">⏰</div><h3 className="text-xl font-bold text-gray-900 mb-2">Attendance Real-time</h3><p className="text-gray-600">GPS check-in, selfie verification, live monitoring</p></div>
-            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform">👥</div><h3 className="text-xl font-bold text-gray-900 mb-2">Employee Database</h3><p className="text-gray-600">Semua data karyawan tersimpan rapi dan aman</p></div>
-            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform">📊</div><h3 className="text-xl font-bold text-gray-900 mb-2">Reporting & Analytics</h3><p className="text-gray-600">Dashboard insight, export laporan ke Excel/PDF</p></div>
-            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform">🔐</div><h3 className="text-xl font-bold text-gray-900 mb-2">Role & Permission</h3><p className="text-gray-600">Atur akses berdasarkan jabatan dan departemen</p></div>
-            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform">☁️</div><h3 className="text-xl font-bold text-gray-900 mb-2">Cloud-based System</h3><p className="text-gray-600">Akses dari mana saja, kapan saja, device apa saja</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><DollarSign size={32} className="text-violet-600" /></div><h3 className="text-xl font-bold text-gray-900 mb-2">Payroll Otomatis</h3><p className="text-gray-600">Auto-calculate gaji, tunjangan, potongan, dan pajak</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Clock size={32} className="text-violet-600" /></div><h3 className="text-xl font-bold text-gray-900 mb-2">Attendance Real-time</h3><p className="text-gray-600">GPS check-in, selfie verification, live monitoring</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Users size={32} className="text-violet-600" /></div><h3 className="text-xl font-bold text-gray-900 mb-2">Employee Database</h3><p className="text-gray-600">Semua data karyawan tersimpan rapi dan aman</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><BarChart3 size={32} className="text-violet-600" /></div><h3 className="text-xl font-bold text-gray-900 mb-2">Reporting & Analytics</h3><p className="text-gray-600">Dashboard insight, export laporan ke Excel/PDF</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Shield size={32} className="text-violet-600" /></div><h3 className="text-xl font-bold text-gray-900 mb-2">Role & Permission</h3><p className="text-gray-600">Atur akses berdasarkan jabatan dan departemen</p></div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg hover:border-violet-200 transition-all group"><div className="w-14 h-14 bg-violet-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Cloud size={32} className="text-violet-600" /></div><h3 className="text-xl font-bold text-gray-900 mb-2">Cloud-based System</h3><p className="text-gray-600">Akses dari mana saja, kapan saja, device apa saja</p></div>
           </div>
           <div className="text-center mt-12"><button onClick={() => navigate('/features')} className="px-8 py-3 border-2 border-violet-600 text-violet-600 hover:bg-violet-600 hover:text-white rounded-lg font-semibold transition-all">Lihat Semua Fitur →</button></div>
         </div>
