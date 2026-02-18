@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import axios from 'axios'
 import baseUrl from "../shared/config/url.js"
 import { useNavigate } from "react-router"
@@ -32,7 +32,7 @@ export default function Login() {
         localStorage.setItem("company", JSON.stringify(data.user.company))
       }
       
-      toast.success(`Login berhasil! Selamat datang, ${data.user.name}`, {
+      toast.success(`Login successful! Welcome, ${data.user.name}`, {
         autoClose: 2000,
         hideProgressBar: false,
         closeOnClick: true,
@@ -53,24 +53,22 @@ export default function Login() {
       console.error("Login failed:", error)
       
       // Extract error message
-      let errorMessage = "Login gagal. Terjadi kesalahan yang tidak terduga."
-      
+      let errorMessage = "Login failed. An unexpected error occurred."
+
       if (error.response) {
-        // Server responded with error
         if (error.response.status === 400) {
-          errorMessage = error.response.data?.message || "Email atau password salah!"
+          errorMessage = error.response.data?.message || "Invalid email or password!"
         } else if (error.response.status === 401) {
-          errorMessage = "Email atau password tidak valid!"
+          errorMessage = "Invalid email or password!"
         } else if (error.response.status === 404) {
-          errorMessage = "Akun tidak ditemukan!"
+          errorMessage = "Account not found!"
         } else if (error.response.status === 500) {
-          errorMessage = "Server error. Silakan coba lagi nanti."
+          errorMessage = "Server error. Please try again later."
         } else {
-          errorMessage = error.response.data?.message || "Terjadi kesalahan pada server."
+          errorMessage = error.response.data?.message || "An error occurred on the server."
         }
       } else if (error.request) {
-        // Request was made but no response
-        errorMessage = "Tidak dapat terhubung ke server. Periksa koneksi internet Anda."
+        errorMessage = "Unable to connect to server. Please check your internet connection."
       }
       
       toast.error(errorMessage, {
@@ -106,6 +104,13 @@ export default function Login() {
             />
             <span className="text-[#d4af37] font-bold text-2xl tracking-wide drop-shadow-md"></span>
           </div>
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-amber-200 hover:text-white hover:bg-white/10 transition-all text-sm font-medium"
+          >
+            <ArrowLeft size={16} />
+            Home
+          </button>
         </nav>
       </div>
 
@@ -129,7 +134,7 @@ export default function Login() {
                 className="w-full px-4 py-3 rounded-lg border-2 border-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all"
                 type="email"
                 id="email"
-                placeholder="Masukkan email Anda"
+                placeholder="Enter your email"
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
@@ -144,7 +149,7 @@ export default function Login() {
                   className="w-full px-4 py-3 rounded-lg border-2 border-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all pr-12"
                   type={showPassword ? "text" : "password"}
                   id="password"
-                  placeholder="Masukkan password Anda"
+                  placeholder="Enter your password"
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
@@ -158,8 +163,18 @@ export default function Login() {
               </div>
             </div>
 
-            <Button nameProp="Masuk" type="submit" variant="primary" />
+            <Button nameProp="Sign In" type="submit" variant="primary" />
           </form>
+
+          <p className="text-center text-sm text-amber-700 mt-6">
+            <button
+              onClick={() => navigate('/')}
+              className="inline-flex items-center gap-1.5 hover:text-amber-900 hover:underline transition-colors font-medium"
+            >
+              <ArrowLeft size={14} />
+              Back to Home
+            </button>
+          </p>
 
         </div>
       </main>
