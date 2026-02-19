@@ -16,10 +16,14 @@ class AuditLogController {
         startDate,
         endDate,
         page = 1,
-        limit = 50,
-        sortBy = 'createdAt',
-        sortOrder = 'DESC'
+        limit = 50
       } = req.query;
+
+      const ALLOWED_SORT_FIELDS = ['createdAt', 'action', 'tableName', 'userId'];
+      const rawSortBy = req.query.sortBy || 'createdAt';
+      const rawSortOrder = req.query.sortOrder || 'DESC';
+      const sortBy = ALLOWED_SORT_FIELDS.includes(rawSortBy) ? rawSortBy : 'createdAt';
+      const sortOrder = rawSortOrder === 'ASC' ? 'ASC' : 'DESC';
 
       // Build where clause
       const where = {};

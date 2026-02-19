@@ -1,8 +1,9 @@
 const { HybridSchedule, User } = require('../models');
 const { Op } = require('sequelize');
+const response = require('../helpers/responseHelper');
 
 class HybridScheduleController {
-  
+
   // Employee: Get own hybrid schedule
   static async getOwnSchedule(req, res, next) {
     try {
@@ -23,10 +24,7 @@ class HybridScheduleController {
         dayName: dayNames[schedule.dayOfWeek]
       }));
 
-      res.status(200).json({
-        message: 'Hybrid schedule retrieved successfully',
-        data: formattedSchedules
-      });
+      return response.ok(res, 'Hybrid schedule retrieved successfully', formattedSchedules);
     } catch (error) {
       next(error);
     }
@@ -39,23 +37,17 @@ class HybridScheduleController {
       const { schedules } = req.body; // Array of { dayOfWeek, locationType }
 
       if (!schedules || !Array.isArray(schedules)) {
-        return res.status(400).json({ 
-          message: 'Schedules must be an array' 
-        });
+        return response.badRequest(res, 'Schedules must be an array');
       }
 
       // Validasi schedules
       for (const schedule of schedules) {
         if (schedule.dayOfWeek < 0 || schedule.dayOfWeek > 6) {
-          return res.status(400).json({ 
-            message: 'Day of week must be between 0 (Sunday) and 6 (Saturday)' 
-          });
+          return response.badRequest(res, 'Day of week must be between 0 (Sunday) and 6 (Saturday)');
         }
 
         if (!['ONSITE', 'WFH', 'REMOTE'].includes(schedule.locationType)) {
-          return res.status(400).json({ 
-            message: 'Location type must be ONSITE, WFH, or REMOTE' 
-          });
+          return response.badRequest(res, 'Location type must be ONSITE, WFH, or REMOTE');
         }
       }
 
@@ -66,7 +58,7 @@ class HybridScheduleController {
 
       // Create new schedules
       const newSchedules = await Promise.all(
-        schedules.map(schedule => 
+        schedules.map(schedule =>
           HybridSchedule.create({
             UserId: userId,
             dayOfWeek: schedule.dayOfWeek,
@@ -83,10 +75,7 @@ class HybridScheduleController {
         dayName: dayNames[schedule.dayOfWeek]
       }));
 
-      res.status(200).json({
-        message: 'Hybrid schedule updated successfully',
-        data: formattedSchedules
-      });
+      return response.ok(res, 'Hybrid schedule updated successfully', formattedSchedules);
     } catch (error) {
       next(error);
     }
@@ -101,9 +90,7 @@ class HybridScheduleController {
         where: { UserId: userId }
       });
 
-      res.status(200).json({
-        message: 'Hybrid schedule deleted successfully. You will use the default onsite schedule.'
-      });
+      return response.ok(res, 'Hybrid schedule deleted successfully. You will use the default onsite schedule.');
     } catch (error) {
       next(error);
     }
@@ -112,7 +99,7 @@ class HybridScheduleController {
   // Helper: Get location type for a specific date
   static async getLocationTypeForDate(userId, date) {
     const dayOfWeek = new Date(date).getDay();
-    
+
     const schedule = await HybridSchedule.findOne({
       where: {
         UserId: userId,

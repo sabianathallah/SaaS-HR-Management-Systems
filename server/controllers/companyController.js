@@ -13,14 +13,18 @@ class CompanyController {
    */
   static async getAllCompanies(req, res) {
     try {
-      const { 
-        page = 1, 
-        limit = 10, 
-        search = '', 
-        status = '',
-        sortBy = 'createdAt',
-        sortOrder = 'DESC'
+      const {
+        page = 1,
+        limit = 10,
+        search = '',
+        status = ''
       } = req.query;
+
+      const ALLOWED_SORT_FIELDS = ['createdAt', 'name', 'status', 'updatedAt', 'industry', 'employeeCount'];
+      const rawSortBy = req.query.sortBy || 'createdAt';
+      const rawSortOrder = req.query.sortOrder || 'DESC';
+      const sortBy = ALLOWED_SORT_FIELDS.includes(rawSortBy) ? rawSortBy : 'createdAt';
+      const sortOrder = rawSortOrder === 'ASC' ? 'ASC' : 'DESC';
 
       const offset = (page - 1) * limit;
 
@@ -68,7 +72,7 @@ class CompanyController {
         }
       });
     } catch (error) {
-      console.error('Get All Companies Error:', error);
+      if (process.env.NODE_ENV !== 'production') console.error('Get All Companies Error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to retrieve companies',
@@ -115,7 +119,7 @@ class CompanyController {
         }
       });
     } catch (error) {
-      console.error('Get Company Error:', error);
+      if (process.env.NODE_ENV !== 'production') console.error('Get Company Error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to retrieve company',
@@ -238,7 +242,7 @@ class CompanyController {
       });
     } catch (error) {
       await transaction.rollback();
-      console.error('Create Company Error:', error);
+      if (process.env.NODE_ENV !== 'production') console.error('Create Company Error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to create company',
@@ -299,7 +303,7 @@ class CompanyController {
         data: company
       });
     } catch (error) {
-      console.error('Update Company Error:', error);
+      if (process.env.NODE_ENV !== 'production') console.error('Update Company Error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to update company',
@@ -333,7 +337,7 @@ class CompanyController {
         data: company
       });
     } catch (error) {
-      console.error('Delete Company Error:', error);
+      if (process.env.NODE_ENV !== 'production') console.error('Delete Company Error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to delete company',
@@ -374,7 +378,7 @@ class CompanyController {
         }
       });
     } catch (error) {
-      console.error('Get Company Stats Error:', error);
+      if (process.env.NODE_ENV !== 'production') console.error('Get Company Stats Error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to retrieve statistics',

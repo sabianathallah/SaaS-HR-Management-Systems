@@ -174,7 +174,7 @@ class LeaveRequestAdminController {
           }
         } catch (err) {
           // Log but continue to next date
-          console.error('Error creating attendance for date:', new Date(date).toISOString(), '-', err.message);
+          if (process.env.NODE_ENV !== 'production') console.error('Error creating attendance for date:', new Date(date).toISOString(), '-', err.message);
         }
       }
 
@@ -217,8 +217,8 @@ class LeaveRequestAdminController {
       });
 
     } catch (error) {
-      console.error('Error in approveRequest:', error);
-      console.error('Error stack:', error.stack);
+      if (process.env.NODE_ENV !== 'production') console.error('Error in approveRequest:', error);
+      if (process.env.NODE_ENV !== 'production') console.error('Error stack:', error.stack);
       next(error);
     }
   }

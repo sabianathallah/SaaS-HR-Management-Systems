@@ -12,14 +12,8 @@ class LeaveRequestController {
       const { leaveType, startDate, endDate, reason } = req.body;
       const file = req.file; // Optional file from multer
 
-      console.log('📝 Leave Request Submission Started');
-      console.log('User ID:', userId);
-      console.log('Body:', { leaveType, startDate, endDate, reason: reason?.substring(0, 50) });
-      console.log('File:', file ? { name: file.originalname, size: file.size, type: file.mimetype } : 'No file');
-
       // Validate required fields
       if (!leaveType || !startDate || !endDate || !reason) {
-        console.log('❌ Validation failed: Missing required fields');
         // Delete uploaded file if validation fails
         if (file) {
           deleteFile(file.path);
@@ -32,7 +26,6 @@ class LeaveRequestController {
       // Validate leave type
       const validLeaveTypes = Object.values(LeaveRequest.LEAVE_TYPE);
       if (!validLeaveTypes.includes(leaveType)) {
-        console.log('❌ Validation failed: Invalid leave type');
         // Delete uploaded file if validation fails
         if (file) {
           deleteFile(file.path);
@@ -200,10 +193,6 @@ class LeaveRequestController {
         }
       }
 
-      console.log('✅ Leave request created successfully:', leaveRequest.id);
-      console.log('Attachment uploaded:', file ? 'Yes' : 'No');
-      console.log('Attendance auto-created:', attendanceCreated);
-
       // Log to audit
       await AuditLogger.logCreate(
         userId,
@@ -230,7 +219,7 @@ class LeaveRequestController {
       });
 
     } catch (error) {
-      console.error('❌ Leave Request Submission Error:', error);
+      if (process.env.NODE_ENV !== 'production') console.error('❌ Leave Request Submission Error:', error);
       // Delete uploaded file if error occurs
       if (req.file) {
         deleteFile(req.file.path);

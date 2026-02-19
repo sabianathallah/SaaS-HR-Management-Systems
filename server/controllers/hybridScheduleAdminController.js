@@ -1,8 +1,9 @@
 const { HybridSchedule, User } = require('../models');
 const { Op } = require('sequelize');
+const response = require('../helpers/responseHelper');
 
 class HybridScheduleAdminController {
-  
+
   // Admin: Get all hybrid schedules
   static async getAllSchedules(req, res, next) {
     try {
@@ -39,14 +40,14 @@ class HybridScheduleAdminController {
       // Group schedules by user
       const groupedSchedules = schedules.reduce((acc, schedule) => {
         const userId = schedule.UserId;
-        
+
         if (!acc[userId]) {
           acc[userId] = {
             user: schedule.employee,
             schedules: []
           };
         }
-        
+
         const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         acc[userId].schedules.push({
           id: schedule.id,
@@ -57,20 +58,16 @@ class HybridScheduleAdminController {
           createdAt: schedule.createdAt,
           updatedAt: schedule.updatedAt
         });
-        
+
         return acc;
       }, {});
 
       const result = Object.values(groupedSchedules);
 
-      res.status(200).json({
-        message: 'Hybrid schedules retrieved successfully',
-        data: result,
-        pagination: {
-          totalItems: Object.keys(groupedSchedules).length,
-          currentPage: parseInt(page),
-          itemsPerPage: parseInt(limit)
-        }
+      return response.ok(res, 'Hybrid schedules retrieved successfully', result, {
+        totalItems: Object.keys(groupedSchedules).length,
+        currentPage: parseInt(page),
+        itemsPerPage: parseInt(limit)
       });
     } catch (error) {
       next(error);
@@ -87,9 +84,7 @@ class HybridScheduleAdminController {
       });
 
       if (!user) {
-        return res.status(404).json({ 
-          message: 'User not found' 
-        });
+        return response.notFound(res, 'User not found');
       }
 
       const schedules = await HybridSchedule.findAll({
@@ -106,12 +101,9 @@ class HybridScheduleAdminController {
         dayName: dayNames[schedule.dayOfWeek]
       }));
 
-      res.status(200).json({
-        message: 'Hybrid schedule retrieved successfully',
-        data: {
-          user,
-          schedules: formattedSchedules
-        }
+      return response.ok(res, 'Hybrid schedule retrieved successfully', {
+        user,
+        schedules: formattedSchedules
       });
     } catch (error) {
       next(error);
@@ -126,29 +118,21 @@ class HybridScheduleAdminController {
 
       const user = await User.findByPk(userId);
       if (!user) {
-        return res.status(404).json({ 
-          message: 'User not found' 
-        });
+        return response.notFound(res, 'User not found');
       }
 
       if (!schedules || !Array.isArray(schedules)) {
-        return res.status(400).json({ 
-          message: 'Schedules must be an array' 
-        });
+        return response.badRequest(res, 'Schedules must be an array');
       }
 
       // Validasi schedules
       for (const schedule of schedules) {
         if (schedule.dayOfWeek < 0 || schedule.dayOfWeek > 6) {
-          return res.status(400).json({ 
-            message: 'Day of week must be between 0 (Sunday) and 6 (Saturday)' 
-          });
+          return response.badRequest(res, 'Day of week must be between 0 (Sunday) and 6 (Saturday)');
         }
 
         if (!['ONSITE', 'WFH', 'REMOTE'].includes(schedule.locationType)) {
-          return res.status(400).json({ 
-            message: 'Location type must be ONSITE, WFH, or REMOTE' 
-          });
+          return response.badRequest(res, 'Location type must be ONSITE, WFH, or REMOTE');
         }
       }
 
@@ -159,7 +143,7 @@ class HybridScheduleAdminController {
 
       // Create new schedules
       const newSchedules = await Promise.all(
-        schedules.map(schedule => 
+        schedules.map(schedule =>
           HybridSchedule.create({
             UserId: userId,
             dayOfWeek: schedule.dayOfWeek,
@@ -176,18 +160,15 @@ class HybridScheduleAdminController {
         dayName: dayNames[schedule.dayOfWeek]
       }));
 
-      res.status(200).json({
-        message: 'Hybrid schedule updated successfully',
-        data: {
-          user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            position: user.position,
-            department: user.department
-          },
-          schedules: formattedSchedules
-        }
+      return response.ok(res, 'Hybrid schedule updated successfully', {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          position: user.position,
+          department: user.department
+        },
+        schedules: formattedSchedules
       });
     } catch (error) {
       next(error);
@@ -201,18 +182,14 @@ class HybridScheduleAdminController {
 
       const user = await User.findByPk(userId);
       if (!user) {
-        return res.status(404).json({ 
-          message: 'User not found' 
-        });
+        return response.notFound(res, 'User not found');
       }
 
       await HybridSchedule.destroy({
         where: { UserId: userId }
       });
 
-      res.status(200).json({
-        message: `Hybrid schedule deleted successfully for ${user.name}. User will use the default onsite schedule.`
-      });
+      return response.ok(res, `Hybrid schedule deleted successfully for ${user.name}. User will use the default onsite schedule.`);
     } catch (error) {
       next(error);
     }
@@ -242,7 +219,7 @@ class HybridScheduleAdminController {
       });
 
       const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      
+
       // Format breakdown
       const formattedBreakdown = {};
       for (let i = 0; i < 7; i++) {
@@ -258,12 +235,9 @@ class HybridScheduleAdminController {
         formattedBreakdown[dayName][item.locationType] = parseInt(item.count);
       });
 
-      res.status(200).json({
-        message: 'Statistics retrieved successfully',
-        data: {
-          totalUsersWithHybridSchedule: totalUsersWithHybrid,
-          breakdownByDay: formattedBreakdown
-        }
+      return response.ok(res, 'Statistics retrieved successfully', {
+        totalUsersWithHybridSchedule: totalUsersWithHybrid,
+        breakdownByDay: formattedBreakdown
       });
     } catch (error) {
       next(error);

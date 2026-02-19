@@ -30,22 +30,12 @@ class AttendanceAdminController {
         order: [['date', 'DESC']]
       });
       
-      console.log('📊 Total attendances:', attendances.length);
-      if (attendances.length > 0) {
-        console.log('📊 Sample attendance with office_location:', JSON.stringify({
-          id: attendances[0].id,
-          UserId: attendances[0].UserId,
-          office_location: attendances[0].office_location,
-          office_location_id: attendances[0].office_location_id
-        }, null, 2));
-      }
-      
       res.status(200).json({
         message: "All attendance records",
         data: attendances
       });
     } catch (error) {
-      console.error('❌ Error in getAllAttendance:', error);
+      if (process.env.NODE_ENV !== 'production') console.error('❌ Error in getAllAttendance:', error);
       next(error);
     }
   }

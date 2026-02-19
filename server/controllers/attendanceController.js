@@ -108,14 +108,6 @@ class AttendanceController {
         // SOFT VALIDATION: Jangan reject, tapi tandai untuk review admin
         // Bisa di-reject jika mau strict validation
         if (!locationValidation.isValid) {
-          // Log untuk admin review (optional)
-          console.log('⚠️ Clock-in outside radius:', {
-            userId,
-            status: locationValidation.status,
-            distance: locationValidation.distance,
-            message: locationValidation.message
-          });
-          
           // Jika di luar radius, JANGAN set officeLocationId
           // Biarkan null agar tidak menampilkan nama kantor
           locationValidation.officeLocationId = null;

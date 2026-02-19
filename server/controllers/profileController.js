@@ -1,6 +1,7 @@
 const { User } = require('../models')
 const { compare, hashPassword } = require('../helpers/bcrypt')
 const AuditLogger = require('../helpers/auditLogger')
+const response = require('../helpers/responseHelper')
 
 class ProfileController {
     // Get user profile
@@ -9,8 +10,8 @@ class ProfileController {
             const userId = req.user.id
 
             const user = await User.findByPk(userId, {
-                attributes: { 
-                    exclude: ['password', 'createdAt', 'updatedAt'] 
+                attributes: {
+                    exclude: ['password', 'createdAt', 'updatedAt']
                 }
             })
 
@@ -18,10 +19,7 @@ class ProfileController {
                 throw { name: "NotFound", message: "User not found" }
             }
 
-            res.status(200).json({
-                message: "User profile",
-                data: user
-            })
+            return response.ok(res, 'User profile', user)
         } catch (error) {
             next(error)
         }
@@ -63,13 +61,10 @@ class ProfileController {
                 `Profile updated: name changed to ${user.name}`
             )
 
-            res.status(200).json({
-                message: "Profile updated successfully",
-                data: {
-                    id: user.id,
-                    name: user.name,
-                    email: user.email
-                }
+            return response.ok(res, 'Profile updated successfully', {
+                id: user.id,
+                name: user.name,
+                email: user.email
             })
         } catch (error) {
             next(error)
@@ -84,16 +79,16 @@ class ProfileController {
 
             // Validation
             if (!oldPassword || !newPassword) {
-                throw { 
-                    name: "BadRequest", 
-                    message: "Old password and new password are required" 
+                throw {
+                    name: "BadRequest",
+                    message: "Old password and new password are required"
                 }
             }
 
             if (newPassword.length < 6) {
-                throw { 
-                    name: "BadRequest", 
-                    message: "New password must be at least 6 characters" 
+                throw {
+                    name: "BadRequest",
+                    message: "New password must be at least 6 characters"
                 }
             }
 
@@ -106,9 +101,9 @@ class ProfileController {
             // Verify old password
             const isPasswordValid = compare(oldPassword, user.password)
             if (!isPasswordValid) {
-                throw { 
-                    name: "Unauthorized", 
-                    message: "Old password is incorrect" 
+                throw {
+                    name: "Unauthorized",
+                    message: "Old password is incorrect"
                 }
             }
 
@@ -116,9 +111,7 @@ class ProfileController {
             user.password = hashPassword(newPassword)
             await user.save()
 
-            res.status(200).json({
-                message: "Password changed successfully"
-            })
+            return response.ok(res, 'Password changed successfully')
         } catch (error) {
             next(error)
         }

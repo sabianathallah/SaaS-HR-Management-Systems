@@ -1,5 +1,6 @@
 const { User } = require('../models');
 const AuditLogger = require('../helpers/auditLogger');
+const response = require('../helpers/responseHelper');
 
 class UserAdminController {
     /**
@@ -48,20 +49,17 @@ class UserAdminController {
                 description: `Updated user "${user.name}"`
             });
 
-            res.status(200).json({
-                message: "User updated successfully",
-                user: {
-                    id: user.id,
-                    name: user.name,
-                    email: user.email,
-                    role: user.role,
-                    isActive: user.isActive,
-                    joinDate: user.joinDate,
-                    leaveDate: user.leaveDate,
-                    annualLeaveQuota: user.annualLeaveQuota,
-                    usedLeaveQuota: user.usedLeaveQuota,
-                    remainingLeaveQuota: user.remainingLeaveQuota
-                }
+            return response.ok(res, 'User updated successfully', {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                isActive: user.isActive,
+                joinDate: user.joinDate,
+                leaveDate: user.leaveDate,
+                annualLeaveQuota: user.annualLeaveQuota,
+                usedLeaveQuota: user.usedLeaveQuota,
+                remainingLeaveQuota: user.remainingLeaveQuota
             });
         } catch (error) {
             next(error);
@@ -102,14 +100,11 @@ class UserAdminController {
 
             await user.update({ isActive });
 
-            res.status(200).json({
-                message: `User ${isActive ? 'activated' : 'deactivated'} successfully`,
-                user: {
-                    id: user.id,
-                    name: user.name,
-                    email: user.email,
-                    isActive: user.isActive
-                }
+            return response.ok(res, `User ${isActive ? 'activated' : 'deactivated'} successfully`, {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                isActive: user.isActive
             });
         } catch (error) {
             next(error);
@@ -150,16 +145,13 @@ class UserAdminController {
 
             await user.update(updateData);
 
-            res.status(200).json({
-                message: "Employment dates updated successfully",
-                user: {
-                    id: user.id,
-                    name: user.name,
-                    email: user.email,
-                    joinDate: user.joinDate,
-                    leaveDate: user.leaveDate,
-                    isActive: user.isActive
-                }
+            return response.ok(res, 'Employment dates updated successfully', {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                joinDate: user.joinDate,
+                leaveDate: user.leaveDate,
+                isActive: user.isActive
             });
         } catch (error) {
             next(error);
@@ -179,28 +171,25 @@ class UserAdminController {
                 order: [['createdAt', 'DESC']]
             });
 
-            res.status(200).json({
-                message: "Success fetch all users",
-                data: users.map(user => ({
-                    id: user.id,
-                    name: user.name,
-                    email: user.email,
-                    role: user.role,
-                    companyId: user.companyId, // ADDED: for filtering by company
-                    phoneNumber: user.phoneNumber,
-                    position: user.position,
-                    department: user.department,
-                    ShiftId: user.ShiftId,  
-                    isActive: user.isActive,
-                    joinDate: user.joinDate,
-                    leaveDate: user.leaveDate,
-                    annualLeaveQuota: user.annualLeaveQuota,
-                    usedLeaveQuota: user.usedLeaveQuota,
-                    remainingLeaveQuota: user.remainingLeaveQuota,
-                    createdAt: user.createdAt,
-                    updatedAt: user.updatedAt
-                }))
-            });
+            return response.ok(res, 'Success fetch all users', users.map(user => ({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                companyId: user.companyId, // ADDED: for filtering by company
+                phoneNumber: user.phoneNumber,
+                position: user.position,
+                department: user.department,
+                ShiftId: user.ShiftId,
+                isActive: user.isActive,
+                joinDate: user.joinDate,
+                leaveDate: user.leaveDate,
+                annualLeaveQuota: user.annualLeaveQuota,
+                usedLeaveQuota: user.usedLeaveQuota,
+                remainingLeaveQuota: user.remainingLeaveQuota,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt
+            })));
         } catch (error) {
             next(error);
         }
@@ -224,27 +213,24 @@ class UserAdminController {
                 throw { name: "NotFound", message: "User not found" };
             }
 
-            res.status(200).json({
-                message: "Success fetch user detail",
-                data: {
-                    id: user.id,
-                    name: user.name,
-                    email: user.email,
-                    role: user.role,
-                    companyId: user.companyId, // ADDED: for filtering by company
-                    phoneNumber: user.phoneNumber,
-                    position: user.position,
-                    department: user.department,
-                    ShiftId: user.ShiftId,  
-                    isActive: user.isActive,
-                    joinDate: user.joinDate,
-                    leaveDate: user.leaveDate,
-                    annualLeaveQuota: user.annualLeaveQuota,
-                    usedLeaveQuota: user.usedLeaveQuota,
-                    remainingLeaveQuota: user.remainingLeaveQuota,
-                    createdAt: user.createdAt,
-                    updatedAt: user.updatedAt
-                }
+            return response.ok(res, 'Success fetch user detail', {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                companyId: user.companyId, // ADDED: for filtering by company
+                phoneNumber: user.phoneNumber,
+                position: user.position,
+                department: user.department,
+                ShiftId: user.ShiftId,
+                isActive: user.isActive,
+                joinDate: user.joinDate,
+                leaveDate: user.leaveDate,
+                annualLeaveQuota: user.annualLeaveQuota,
+                usedLeaveQuota: user.usedLeaveQuota,
+                remainingLeaveQuota: user.remainingLeaveQuota,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt
             });
         } catch (error) {
             next(error);
@@ -260,9 +246,7 @@ class UserAdminController {
                 // Sync specific user
                 const user = await User.findByPk(userId);
                 if (!user) {
-                    return res.status(404).json({
-                        message: "User not found"
-                    });
+                    return response.notFound(res, 'User not found');
                 }
 
                 // Count actual LEAVE attendances
@@ -277,17 +261,14 @@ class UserAdminController {
                 user.usedLeaveQuota = actualLeaveCount;
                 await user.save();
 
-                return res.status(200).json({
-                    message: "Leave quota synced successfully",
-                    data: {
-                        userId: user.id,
-                        name: user.name,
-                        email: user.email,
-                        oldUsedQuota: oldQuota,
-                        newUsedQuota: actualLeaveCount,
-                        difference: actualLeaveCount - oldQuota,
-                        remainingQuota: user.annualLeaveQuota - actualLeaveCount
-                    }
+                return response.ok(res, 'Leave quota synced successfully', {
+                    userId: user.id,
+                    name: user.name,
+                    email: user.email,
+                    oldUsedQuota: oldQuota,
+                    newUsedQuota: actualLeaveCount,
+                    difference: actualLeaveCount - oldQuota,
+                    remainingQuota: user.annualLeaveQuota - actualLeaveCount
                 });
             } else {
                 // Sync ALL users
@@ -318,10 +299,7 @@ class UserAdminController {
                     }
                 }
 
-                return res.status(200).json({
-                    message: `Leave quota synced for ${results.length} users`,
-                    data: results
-                });
+                return response.ok(res, `Leave quota synced for ${results.length} users`, results);
             }
         } catch (error) {
             next(error);

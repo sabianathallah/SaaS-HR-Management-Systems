@@ -1,5 +1,6 @@
 const { Notification } = require('../models');
 const notificationHelper = require('../helpers/notificationHelper');
+const response = require('../helpers/responseHelper');
 
 class NotificationController {
 
@@ -28,15 +29,11 @@ class NotificationController {
       const notifications = await notificationHelper.getUserNotifications(userId, options);
       const unreadCount = await notificationHelper.getUnreadCount(userId);
 
-      res.status(200).json({
-        message: "My notifications",
-        data: notifications,
-        meta: {
-          total: notifications.length,
-          unreadCount,
-          limit: options.limit,
-          offset: options.offset
-        }
+      return response.ok(res, 'My notifications', notifications, {
+        total: notifications.length,
+        unreadCount,
+        limit: options.limit,
+        offset: options.offset
       });
 
     } catch (error) {
@@ -53,12 +50,7 @@ class NotificationController {
       const userId = req.user.id;
       const count = await notificationHelper.getUnreadCount(userId);
 
-      res.status(200).json({
-        message: "Unread notification count",
-        data: {
-          unreadCount: count
-        }
-      });
+      return response.ok(res, 'Unread notification count', { unreadCount: count });
 
     } catch (error) {
       next(error);
@@ -77,24 +69,17 @@ class NotificationController {
       const notification = await Notification.findByPk(id);
 
       if (!notification) {
-        return res.status(404).json({
-          message: "Notification not found"
-        });
+        return response.notFound(res, 'Notification not found');
       }
 
       // Check ownership
       if (notification.UserId !== userId) {
-        return res.status(403).json({
-          message: "You don't have permission to access this notification"
-        });
+        return response.forbidden(res, "You don't have permission to access this notification");
       }
 
       const updatedNotification = await notificationHelper.markAsRead(id);
 
-      res.status(200).json({
-        message: "Notification marked as read",
-        data: updatedNotification
-      });
+      return response.ok(res, 'Notification marked as read', updatedNotification);
 
     } catch (error) {
       next(error);
@@ -110,12 +95,7 @@ class NotificationController {
       const userId = req.user.id;
       const count = await notificationHelper.markAllAsRead(userId);
 
-      res.status(200).json({
-        message: `${count} notification(s) marked as read`,
-        data: {
-          updatedCount: count
-        }
-      });
+      return response.ok(res, `${count} notification(s) marked as read`, { updatedCount: count });
 
     } catch (error) {
       next(error);
@@ -134,23 +114,17 @@ class NotificationController {
       const notification = await Notification.findByPk(id);
 
       if (!notification) {
-        return res.status(404).json({
-          message: "Notification not found"
-        });
+        return response.notFound(res, 'Notification not found');
       }
 
       // Check ownership
       if (notification.UserId !== userId) {
-        return res.status(403).json({
-          message: "You don't have permission to delete this notification"
-        });
+        return response.forbidden(res, "You don't have permission to delete this notification");
       }
 
       await notification.destroy();
 
-      res.status(200).json({
-        message: "Notification deleted successfully"
-      });
+      return response.ok(res, 'Notification deleted successfully');
 
     } catch (error) {
       next(error);
@@ -172,12 +146,7 @@ class NotificationController {
         }
       });
 
-      res.status(200).json({
-        message: `${deletedCount} read notification(s) cleared`,
-        data: {
-          deletedCount
-        }
-      });
+      return response.ok(res, `${deletedCount} read notification(s) cleared`, { deletedCount });
 
     } catch (error) {
       next(error);

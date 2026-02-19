@@ -391,14 +391,6 @@ class OfficeLocationAdminController {
         attributes: ['id', 'date', 'clockIn', 'status', 'distanceFromOffice', 'locationValidationStatus']
       });
 
-      console.log('📊 Stats Debug:');
-      console.log('   - Total Attendances in System:', totalAttendancesInSystem);
-      console.log('   - Location ID:', id);
-      console.log('   - Total Check-ins for this location:', totalCheckIns);
-      console.log('   - Valid Check-ins:', validCheckIns);
-      console.log('   - Outside Radius:', outsideRadius);
-      console.log('   - Unique Users:', uniqueUsers);
-
       res.status(200).json({
         message: 'Office location statistics retrieved successfully',
         data: {
@@ -425,7 +417,7 @@ class OfficeLocationAdminController {
       });
 
     } catch (error) {
-      console.error('Error in getLocationStats:', error);
+      if (process.env.NODE_ENV !== 'production') console.error('Error in getLocationStats:', error);
       next(error);
     }
   }
