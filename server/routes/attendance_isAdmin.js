@@ -21,6 +21,9 @@ router.post("/manual-attendance", uploadPhotoOptional, AttendanceAdminController
 // ENDPOINT #2: Admin edit manual attendance (foto OPSIONAL)
 router.put("/manual-attendance/:id", uploadPhotoOptional, AttendanceAdminController.updateManualAttendance);
 
+// FIX 3: Admin delete manual attendance
+router.delete("/manual-attendance/:id", AttendanceAdminController.deleteManualAttendance);
+
 // ENDPOINT #3: Admin update work schedule (operational hours)
 router.put("/work-schedule", AttendanceAdminController.updateWorkSchedule);
 router.get("/work-schedule", AttendanceAdminController.getWorkSchedule);

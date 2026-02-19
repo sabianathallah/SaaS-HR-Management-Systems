@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axiosInstance from '../../../shared/config/axios';
 import { toast } from 'react-toastify';
-import { CalendarDays, Camera, Home, Building2, MapPin, Download, Pencil, Clock, ExternalLink, CheckCircle2, XCircle, AlertTriangle, Plus } from 'lucide-react';
+import { CalendarDays, Camera, Home, Building2, MapPin, Download, Pencil, Trash2, Clock, ExternalLink, CheckCircle2, XCircle, AlertTriangle, Plus } from 'lucide-react';
 import FormInput from '../../../shared/components/FormInput';
 import FormSelect from '../../../shared/components/FormSelect';
 import SearchableSelect from '../../../shared/components/SearchableSelect';
@@ -13,14 +13,14 @@ const AttendanceManagement = () => {
   const [employees, setEmployees] = useState([]);
   const [officeLocations, setOfficeLocations] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Filters
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [workTypeFilter, setWorkTypeFilter] = useState('all'); // New filter
-  
+
   // Modals
   const [showManualModal, setShowManualModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -28,7 +28,10 @@ const AttendanceManagement = () => {
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [editingAttendance, setEditingAttendance] = useState(null);
   const [selectedAttendance, setSelectedAttendance] = useState(null);
-  
+
+  // FIX 1: Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+
   // Form data
   const [formData, setFormData] = useState({
     userId: '',
@@ -56,20 +59,25 @@ const AttendanceManagement = () => {
         axiosInstance.get('/office-locations/admin'),
       ]);
 
-      setAttendances(attendanceRes.data.data || []);
-      setEmployees(employeeRes.data.data || []);
-      
+      // FIX 2: Handle updated response format { success, message, data }
+      const attendanceData = attendanceRes.data.data || [];
+      const employeeData = employeeRes.data.data || [];
+      const officeLocationData = officeLocationsRes.data.data || [];
+
+      setAttendances(attendanceData);
+      setEmployees(employeeData);
+
       // Transform office locations data
-      const transformedLocations = (officeLocationsRes.data.data || []).map(loc => ({
+      const transformedLocations = officeLocationData.map(loc => ({
         ...loc,
         isActive: loc.is_active !== undefined ? loc.is_active : loc.isActive
       }));
       setOfficeLocations(transformedLocations.filter(loc => loc.isActive));
-      
+
       setLoading(false);
     } catch (error) {
       console.error('Error fetching data:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch attendance data');
+      toast.error(error.response?.data?.message || 'Gagal memuat data absensi');
       setLoading(false);
     }
   };
@@ -97,13 +105,13 @@ const AttendanceManagement = () => {
 
     // Filter by work type (WFH vs Office)
     if (workTypeFilter === 'wfh') {
-      filtered = filtered.filter(att => 
-        att.locationValidationStatus === 'not_checked' && 
+      filtered = filtered.filter(att =>
+        att.locationValidationStatus === 'not_checked' &&
         (att.status === 'ON_TIME' || att.status === 'LATE' || att.status === 'ON_PROGRESS')
       );
     } else if (workTypeFilter === 'office') {
-      filtered = filtered.filter(att => 
-        att.locationValidationStatus === 'valid' || 
+      filtered = filtered.filter(att =>
+        att.locationValidationStatus === 'valid' ||
         att.locationValidationStatus === 'outside_radius'
       );
     }
@@ -113,6 +121,15 @@ const AttendanceManagement = () => {
 
   const handleManualAttendance = async (e) => {
     e.preventDefault();
+
+    // FIX 4: Validate clockOut > clockIn
+    if (formData.clockInTime && formData.clockOutTime) {
+      if (formData.clockOutTime <= formData.clockInTime) {
+        toast.error('Jam keluar harus setelah jam masuk');
+        return;
+      }
+    }
+
     try {
       // Prepare payload based on status
       const payload = {
@@ -132,25 +149,33 @@ const AttendanceManagement = () => {
         }
       }
 
-      // Add office location if validation is valid
+      // FIX 3: Use officeLocationId (camelCase) to match Sequelize model
       if (formData.locationValidationStatus === 'valid' && formData.officeLocationId) {
-        payload.office_location_id = formData.officeLocationId;
+        payload.officeLocationId = formData.officeLocationId;
       }
 
       await axiosInstance.post('/attendances/admin/manual-attendance', payload);
-      alert('Manual attendance created successfully!');
+      toast.success('Data absensi berhasil dibuat');
       setShowManualModal(false);
       resetForm();
       fetchInitialData();
     } catch (error) {
       console.error('Error creating manual attendance:', error);
-      toast.error(error.response?.data?.message || 'Failed to create manual attendance');
-      alert(error.response?.data?.message || 'Failed to create manual attendance');
+      toast.error(error.response?.data?.message || 'Gagal membuat data absensi');
     }
   };
 
   const handleEditAttendance = async (e) => {
     e.preventDefault();
+
+    // FIX 4: Validate clockOut > clockIn
+    if (formData.clockInTime && formData.clockOutTime) {
+      if (formData.clockOutTime <= formData.clockInTime) {
+        toast.error('Jam keluar harus setelah jam masuk');
+        return;
+      }
+    }
+
     try {
       // Prepare payload based on status
       const payload = {
@@ -170,26 +195,42 @@ const AttendanceManagement = () => {
         }
       }
 
-      // Add office location if validation is valid
+      // FIX 3: Use officeLocationId (camelCase) to match Sequelize model
       if (formData.locationValidationStatus === 'valid' && formData.officeLocationId) {
-        payload.office_location_id = formData.officeLocationId;
+        payload.officeLocationId = formData.officeLocationId;
       }
 
       await axiosInstance.put(`/attendances/admin/manual-attendance/${editingAttendance.id}`, payload);
-      alert('Attendance updated successfully!');
+      toast.success('Data absensi berhasil diperbarui');
       setShowEditModal(false);
       resetForm();
       fetchInitialData();
     } catch (error) {
       console.error('Error updating attendance:', error);
-      toast.error(error.response?.data?.message || 'Failed to update attendance');
-      alert(error.response?.data?.message || 'Failed to update attendance');
+      toast.error(error.response?.data?.message || 'Gagal memperbarui data absensi');
+    }
+  };
+
+  // FIX 1: Handle delete - set confirmation state
+  const handleDeleteAttendance = (attendance) => {
+    setDeleteConfirm(attendance);
+  };
+
+  // FIX 1: Confirm delete - call DELETE endpoint
+  const confirmDeleteAttendance = async () => {
+    try {
+      await axiosInstance.delete(`/attendances/admin/manual-attendance/${deleteConfirm.id}`);
+      toast.success('Data absensi berhasil dihapus');
+      setDeleteConfirm(null);
+      fetchInitialData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Gagal menghapus data absensi');
     }
   };
 
   const openEditModal = (attendance) => {
     setEditingAttendance(attendance);
-    
+
     // Extract time from datetime
     const getTimeFromDateTime = (datetime) => {
       if (!datetime) return '';
@@ -204,7 +245,7 @@ const AttendanceManagement = () => {
       clockOutTime: getTimeFromDateTime(attendance.clockOut),
       status: attendance.status,
       locationValidationStatus: attendance.locationValidationStatus || 'not_checked',
-      officeLocationId: attendance.office_location_id || '',
+      officeLocationId: attendance.office_location_id || attendance.officeLocationId || '',
     });
     setShowEditModal(true);
   };
@@ -243,8 +284,7 @@ const AttendanceManagement = () => {
       link.remove();
     } catch (error) {
       console.error('Error exporting to Excel:', error);
-      toast.error('Failed to export to Excel');
-      alert('Failed to export to Excel');
+      toast.error('Gagal mengekspor ke Excel');
     }
   };
 
@@ -313,19 +353,12 @@ const AttendanceManagement = () => {
   };
 
   const openPhotoModal = (attendance) => {
-    console.log('Opening photo modal for:', attendance);
-    console.log('Photo path:', attendance.photoCheckIn);
-
     // Clean up path to prevent double slashes
     const baseUrl = import.meta.env.VITE_BASE_URL.replace(/\/$/, ''); // Remove trailing slash
     const photoPath = attendance.photoCheckIn?.replace(/^\//, '') || ''; // Remove leading slash
     const fullUrl = `${baseUrl}/${photoPath}`;
 
-    console.log('Base URL:', baseUrl);
-    console.log('Photo Path:', photoPath);
-    console.log('Full photo URL:', fullUrl);
-    
-    setSelectedAttendance(attendance);
+    setSelectedAttendance({ ...attendance, _resolvedPhotoUrl: fullUrl });
     setShowPhotoModal(true);
   };
 
@@ -388,8 +421,8 @@ const AttendanceManagement = () => {
             onChange={(e) => setSelectedEmployee(e.target.value)}
             options={[
               { value: 'all', label: 'All Employees' },
-              ...employees.map(emp => ({ 
-                value: emp.id, 
+              ...employees.map(emp => ({
+                value: emp.id,
                 label: emp.name,
                 description: `${emp.position || 'No position'} - ${emp.email}`
               }))
@@ -461,8 +494,8 @@ const AttendanceManagement = () => {
         <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
           <div className="text-sm text-purple-600 flex items-center gap-1"><Home size={13} /> WFH</div>
           <div className="text-2xl font-bold text-purple-900">
-            {filteredAttendances.filter(a => 
-              a.locationValidationStatus === 'not_checked' && 
+            {filteredAttendances.filter(a =>
+              a.locationValidationStatus === 'not_checked' &&
               (a.status === 'ON_TIME' || a.status === 'LATE' || a.status === 'ON_PROGRESS')
             ).length}
           </div>
@@ -470,8 +503,8 @@ const AttendanceManagement = () => {
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="text-sm text-blue-600 flex items-center gap-1"><Building2 size={13} /> Office</div>
           <div className="text-2xl font-bold text-blue-900">
-            {filteredAttendances.filter(a => 
-              a.locationValidationStatus === 'valid' || 
+            {filteredAttendances.filter(a =>
+              a.locationValidationStatus === 'valid' ||
               a.locationValidationStatus === 'outside_radius'
             ).length}
           </div>
@@ -519,7 +552,7 @@ const AttendanceManagement = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {attendance.clockIn 
+                          {attendance.clockIn
                             ? new Date(attendance.clockIn).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
                             : '-'}
                         </div>
@@ -534,7 +567,7 @@ const AttendanceManagement = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {attendance.clockOut 
+                          {attendance.clockOut
                             ? new Date(attendance.clockOut).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
                             : '-'}
                         </div>
@@ -593,6 +626,14 @@ const AttendanceManagement = () => {
                           >
                             <Pencil size={14} />
                           </button>
+                          {/* FIX 1: Delete button */}
+                          <button
+                            onClick={() => handleDeleteAttendance(attendance)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Hapus"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                           {attendance.photoCheckIn && (
                             <button
                               onClick={() => openPhotoModal(attendance)}
@@ -614,22 +655,22 @@ const AttendanceManagement = () => {
       </div>
 
       {/* Manual Attendance Modal */}
-      <Modal 
+      <Modal
         isOpen={showManualModal}
         onClose={() => { setShowManualModal(false); resetForm(); }}
         title="Create Manual Attendance"
         size="lg"
       >
         <form onSubmit={handleManualAttendance} className="space-y-4">
-            
+
             <SearchableSelect
               label="Employee"
               value={formData.userId}
               onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
               options={[
                 { value: '', label: 'Select Employee' },
-                ...employees.map(emp => ({ 
-                  value: emp.id, 
+                ...employees.map(emp => ({
+                  value: emp.id,
                   label: emp.name,
                   description: emp.email // Menampilkan email sebagai info tambahan
                 }))
@@ -637,7 +678,7 @@ const AttendanceManagement = () => {
               placeholder="Search employee by name..."
               required
             />
-            
+
             <FormInput
               label="Date"
               type="date"
@@ -645,7 +686,7 @@ const AttendanceManagement = () => {
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               required
             />
-            
+
             <FormSelect
               label="Status"
               value={formData.status}
@@ -673,7 +714,7 @@ const AttendanceManagement = () => {
                     onChange={(e) => setFormData({ ...formData, clockInTime: e.target.value })}
                     required
                   />
-                  
+
                   <FormInput
                     label="Clock Out Time"
                     type="time"
@@ -686,7 +727,7 @@ const AttendanceManagement = () => {
                 </p>
               </>
             )}
-            
+
             <FormSelect
               label="Location Validation"
               value={formData.locationValidationStatus}
@@ -707,15 +748,15 @@ const AttendanceManagement = () => {
                 onChange={(e) => setFormData({ ...formData, officeLocationId: e.target.value })}
                 options={[
                   { value: '', label: 'Select Office Location' },
-                  ...officeLocations.map(loc => ({ 
-                    value: loc.id, 
-                    label: `${loc.name} - ${loc.address}` 
+                  ...officeLocations.map(loc => ({
+                    value: loc.id,
+                    label: `${loc.name} - ${loc.address}`
                   }))
                 ]}
                 required
               />
             )}
-            
+
             <div className="flex space-x-4">
               <button
                 type="submit"
@@ -735,20 +776,20 @@ const AttendanceManagement = () => {
         </Modal>
 
       {/* Edit Attendance Modal */}
-      <Modal 
+      <Modal
         isOpen={showEditModal}
         onClose={() => { setShowEditModal(false); resetForm(); }}
         title="Edit Attendance"
         size="lg"
       >
         <form onSubmit={handleEditAttendance} className="space-y-4">
-            
+
             <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4">
               <p className="text-sm text-blue-800">
                 <strong>Employee:</strong> {editingAttendance?.User?.name}
               </p>
             </div>
-            
+
             <FormInput
               label="Date"
               type="date"
@@ -756,7 +797,7 @@ const AttendanceManagement = () => {
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               required
             />
-            
+
             <FormSelect
               label="Status"
               value={formData.status}
@@ -795,7 +836,7 @@ const AttendanceManagement = () => {
                 </p>
               </>
             )}
-            
+
             <FormSelect
               label="Location Validation"
               value={formData.locationValidationStatus}
@@ -816,14 +857,14 @@ const AttendanceManagement = () => {
                 onChange={(e) => setFormData({ ...formData, officeLocationId: e.target.value })}
                 options={[
                   { value: '', label: 'Select Office Location' },
-                  ...officeLocations.map(loc => ({ 
-                    value: loc.id, 
-                    label: `${loc.name} - ${loc.address}` 
+                  ...officeLocations.map(loc => ({
+                    value: loc.id,
+                    label: `${loc.name} - ${loc.address}`
                   }))
                 ]}
               />
             )}
-            
+
             <div className="flex space-x-4">
               <button
                 type="submit"
@@ -841,9 +882,9 @@ const AttendanceManagement = () => {
             </div>
           </form>
         </Modal>
-      
+
       {/* Location Modal */}
-      <Modal 
+      <Modal
         isOpen={showLocationModal}
         onClose={() => { setShowLocationModal(false); setSelectedAttendance(null); }}
         title="Location Details"
@@ -857,11 +898,11 @@ const AttendanceManagement = () => {
                 {selectedAttendance.User?.name}
               </h3>
               <p className="text-sm text-gray-600">
-                {new Date(selectedAttendance.date).toLocaleDateString('id-ID', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
+                {new Date(selectedAttendance.date).toLocaleDateString('id-ID', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
                 })}
               </p>
             </div>
@@ -972,7 +1013,7 @@ const AttendanceManagement = () => {
       </Modal>
 
       {/* Photo Modal */}
-      <Modal 
+      <Modal
         isOpen={showPhotoModal}
         onClose={() => { setShowPhotoModal(false); setSelectedAttendance(null); }}
         title="Attendance Photo"
@@ -999,21 +1040,11 @@ const AttendanceManagement = () => {
                     alt="Check-in selfie"
                     className="w-full h-auto max-h-96 object-contain mx-auto"
                     onError={(e) => {
-                      console.error('Photo load error:', e.target.src);
                       e.target.onerror = null;
                       e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext fill="%239ca3af" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3EPhoto not available%3C/text%3E%3C/svg%3E';
                     }}
                   />
                 </div>
-                {/* Debug Info */}
-                <details className="text-xs bg-gray-100 p-2 rounded">
-                  <summary className="cursor-pointer text-gray-600">Debug Info</summary>
-                  <div className="mt-2 space-y-1 font-mono text-gray-700">
-                    <div><strong>Photo Path (from backend):</strong> {selectedAttendance.photoCheckIn}</div>
-                    <div><strong>Full URL (constructed):</strong> {getPhotoUrl(selectedAttendance.photoCheckIn)}</div>
-                    <div><strong>Base URL:</strong> {import.meta.env.VITE_BASE_URL}</div>
-                  </div>
-                </details>
               </div>
             ) : (
               <div className="border rounded-lg p-12 text-center text-gray-500">
@@ -1025,6 +1056,34 @@ const AttendanceManagement = () => {
           </div>
         )}
       </Modal>
+
+      {/* FIX 1: Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Hapus Data Absensi</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Apakah Anda yakin ingin menghapus data absensi ini? Tindakan ini tidak dapat dibatalkan.
+            </p>
+            <div className="flex space-x-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteAttendance}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
