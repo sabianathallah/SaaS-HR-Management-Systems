@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axiosInstance from '../../../shared/config/axios';
-import { toast } from 'react-hot-toast';
+import { toast } from 'react-toastify';
 import { Clock, CheckCircle2, XCircle, Pencil } from 'lucide-react';
 import Modal from '../../../shared/components/Modal';
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axiosInstance from '../../../shared/config/axios';
-import { toast } from 'react-hot-toast';
+import { toast } from 'react-toastify';
 import { Building2, Home, Globe, MapPin } from 'lucide-react';
 
 const HybridScheduleManagement = () => {

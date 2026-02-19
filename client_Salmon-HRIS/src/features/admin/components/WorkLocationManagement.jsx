@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axiosInstance from '../../../shared/config/axios';
-import { toast } from 'react-hot-toast';
+import { toast } from 'react-toastify';
 
 const WorkLocationManagement = () => {
   const [activeTab, setActiveTab] = useState('pending'); // pending, all, statistics

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axiosInstance from '../../../shared/config/axios';
-import { toast } from 'react-hot-toast';
+import { toast } from 'react-toastify';
 import { Users, Plus, Download, Pencil, Ban, CheckCircle2, Eye, EyeOff, Search } from 'lucide-react';
 import FormInput from '../../../shared/components/FormInput';
 import FormSelect from '../../../shared/components/FormSelect';
