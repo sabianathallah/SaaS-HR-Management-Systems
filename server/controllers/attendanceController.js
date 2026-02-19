@@ -22,6 +22,7 @@ class AttendanceController {
       const existingAttendance = await Attendance.findOne({
         where: {
           UserId: userId,
+          companyId: req.user.companyId,
           date: {
             [Op.between]: [startOfDay, endOfDay]
           }
@@ -88,7 +89,7 @@ class AttendanceController {
 
         // Get all active office locations
         const officeLocations = await OfficeLocation.findAll({
-          where: { is_active: true }
+          where: { is_active: true, companyId: req.user.companyId }
         });
 
         if (officeLocations.length === 0) {
@@ -116,13 +117,14 @@ class AttendanceController {
       
       // Get active work schedule
       const workSchedule = await WorkSchedule.findOne({
-        where: { isActive: true }
+        where: { isActive: true, companyId: req.user.companyId }
       });
       
       // Jika belum, buat attendance baru dengan foto + GPS data
       const now = new Date();
       const newAttendance = await Attendance.create({
         UserId: userId,
+        companyId: req.user.companyId,
         WorkScheduleId: workSchedule ? workSchedule.id : null,
         ShiftId: user?.shift?.id || null,
         HolidayId: null,

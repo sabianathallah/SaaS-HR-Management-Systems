@@ -5,7 +5,7 @@ const { Model } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class TaxSetting extends Model {
     static associate(models) {
-      // No associations needed for now
+      TaxSetting.belongsTo(models.Company, { foreignKey: 'companyId', as: 'company' });
     }
   }
 
@@ -42,6 +42,11 @@ module.exports = (sequelize, DataTypes) => {
     description: {
       type: DataTypes.STRING,
       allowNull: true
+    },
+    companyId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'Companies', key: 'id' }
     },
     isActive: {
       type: DataTypes.BOOLEAN,

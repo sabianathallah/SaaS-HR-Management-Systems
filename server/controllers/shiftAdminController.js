@@ -14,6 +14,7 @@ class ShiftAdminController {
   static async getAllShifts(req, res, next) {
     try {
       const shifts = await Shift.findAll({
+        where: { companyId: req.user.companyId },
         order: [['id', 'ASC']],
         include: [
           {
@@ -48,8 +49,8 @@ class ShiftAdminController {
         ]
       });
 
-      if (!shift) {
-        return response.notFound(res, `Shift with ID ${id} not found`);
+      if (!shift || shift.companyId !== req.user.companyId) {
+        return res.status(404).json({ success: false, message: 'Shift not found' });
       }
 
       return response.ok(res, 'Successfully retrieved shift', shift);
@@ -93,6 +94,7 @@ class ShiftAdminController {
       }
 
       const newShift = await Shift.create({
+        companyId: req.user.companyId,
         name,
         startTime,
         endTime,
@@ -141,8 +143,8 @@ class ShiftAdminController {
 
       const shift = await Shift.findByPk(id);
 
-      if (!shift) {
-        return response.notFound(res, `Shift with ID ${id} not found`);
+      if (!shift || shift.companyId !== req.user.companyId) {
+        return res.status(404).json({ success: false, message: 'Shift not found' });
       }
 
       // Update fields
@@ -186,8 +188,8 @@ class ShiftAdminController {
 
       const shift = await Shift.findByPk(id);
 
-      if (!shift) {
-        return response.notFound(res, `Shift with ID ${id} not found`);
+      if (!shift || shift.companyId !== req.user.companyId) {
+        return res.status(404).json({ success: false, message: 'Shift not found' });
       }
 
       // Check if shift is being used by users or attendances
@@ -233,13 +235,13 @@ class ShiftAdminController {
       }
 
       const user = await User.findByPk(userId);
-      if (!user) {
-        return response.notFound(res, `User with ID ${userId} not found`);
+      if (!user || user.companyId !== req.user.companyId) {
+        return res.status(404).json({ success: false, message: 'User not found' });
       }
 
       const shift = await Shift.findByPk(shiftId);
-      if (!shift) {
-        return response.notFound(res, `Shift with ID ${shiftId} not found`);
+      if (!shift || shift.companyId !== req.user.companyId) {
+        return res.status(404).json({ success: false, message: 'Shift not found' });
       }
 
       if (!shift.isActive) {

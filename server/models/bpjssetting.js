@@ -5,7 +5,7 @@ const { Model } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class BPJSSetting extends Model {
     static associate(models) {
-      // No associations needed for now
+      BPJSSetting.belongsTo(models.Company, { foreignKey: 'companyId', as: 'company' });
     }
   }
 
@@ -69,6 +69,11 @@ module.exports = (sequelize, DataTypes) => {
     endDate: {
       type: DataTypes.DATE,
       allowNull: true
+    },
+    companyId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'Companies', key: 'id' }
     },
     isActive: {
       type: DataTypes.BOOLEAN,

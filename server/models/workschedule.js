@@ -10,6 +10,8 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
+      WorkSchedule.belongsTo(models.Company, { foreignKey: 'companyId', as: 'company' });
+
       // WorkSchedule has many Attendances
       WorkSchedule.hasMany(models.Attendance, { 
         foreignKey: 'WorkScheduleId',
@@ -47,6 +49,11 @@ module.exports = (sequelize, DataTypes) => {
           msg: 'Auto absent time cannot be empty'
         }
       }
+    },
+    companyId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'Companies', key: 'id' }
     },
     isActive: {
       type: DataTypes.BOOLEAN,

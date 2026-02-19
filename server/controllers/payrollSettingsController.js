@@ -20,6 +20,7 @@ class PayrollSettingsController {
       const { type, isActive, search } = req.query;
 
       const where = {};
+      where.companyId = req.user.companyId;
       if (type) where.type = type;
       if (isActive !== undefined) where.isActive = isActive === 'true';
       if (search) {
@@ -60,7 +61,7 @@ class PayrollSettingsController {
       } = req.body;
 
       // Check if code already exists
-      const existing = await PayrollComponent.findOne({ where: { code } });
+      const existing = await PayrollComponent.findOne({ where: { code, companyId: req.user.companyId } });
       if (existing) {
         return res.status(400).json({
           success: false,
@@ -77,7 +78,8 @@ class PayrollSettingsController {
         isMandatory: isMandatory || false,
         isSystemGenerated: isSystemGenerated || false,
         description,
-        isActive: true
+        isActive: true,
+        companyId: req.user.companyId
       });
 
       // Log audit
@@ -108,7 +110,7 @@ class PayrollSettingsController {
       const updateData = req.body;
 
       const component = await PayrollComponent.findByPk(componentId);
-      if (!component) {
+      if (!component || component.companyId !== req.user.companyId) {
         return res.status(404).json({
           success: false,
           message: 'Component not found'
@@ -151,7 +153,7 @@ class PayrollSettingsController {
       const { componentId } = req.params;
 
       const component = await PayrollComponent.findByPk(componentId);
-      if (!component) {
+      if (!component || component.companyId !== req.user.companyId) {
         return res.status(404).json({
           success: false,
           message: 'Component not found'
@@ -414,7 +416,8 @@ class PayrollSettingsController {
       const ptkpSettings = await TaxSetting.findAll({
         where: {
           year: currentYear,
-          isActive: true
+          isActive: true,
+          companyId: req.user.companyId
         },
         order: [['ptkpStatus', 'ASC']]
       });
@@ -456,7 +459,8 @@ class PayrollSettingsController {
             ptkpStatus: ptkp.ptkpStatus,
             ptkpAmount: ptkp.ptkpAmount,
             description: ptkp.description,
-            isActive: true
+            isActive: true,
+            companyId: req.user.companyId
           });
         }
       }
@@ -501,7 +505,7 @@ class PayrollSettingsController {
   static async getBPJSSettings(req, res, next) {
     try {
       const settings = await BPJSSetting.findAll({
-        where: { isActive: true },
+        where: { isActive: true, companyId: req.user.companyId },
         order: [['type', 'ASC']]
       });
 
@@ -531,7 +535,7 @@ class PayrollSettingsController {
       for (const setting of settings) {
         if (setting.id) {
           await BPJSSetting.update(setting, {
-            where: { id: setting.id }
+            where: { id: setting.id, companyId: req.user.companyId }
           });
         }
       }

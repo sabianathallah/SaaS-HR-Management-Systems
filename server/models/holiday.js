@@ -10,6 +10,8 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
+      Holiday.belongsTo(models.Company, { foreignKey: 'companyId', as: 'company' });
+
       // Holiday has many Attendances (employees who marked as HOLIDAY)
       Holiday.hasMany(models.Attendance, { 
         foreignKey: 'HolidayId',
@@ -21,9 +23,6 @@ module.exports = (sequelize, DataTypes) => {
     date: {
       type: DataTypes.DATEONLY,
       allowNull: false,
-      unique: {
-        msg: 'Holiday date already exists'
-      },
       validate: {
         notEmpty: {
           msg: 'Date cannot be empty'
@@ -38,6 +37,11 @@ module.exports = (sequelize, DataTypes) => {
           msg: 'Description cannot be empty'
         }
       }
+    },
+    companyId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'Companies', key: 'id' }
     },
     isActive: {
       type: DataTypes.BOOLEAN,

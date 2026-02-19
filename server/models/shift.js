@@ -11,6 +11,8 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
+      Shift.belongsTo(models.Company, { foreignKey: 'companyId', as: 'company' });
+
       // Shift has many Users (user dengan shift default ini)
       Shift.hasMany(models.User, { 
         foreignKey: 'ShiftId',
@@ -29,9 +31,6 @@ module.exports = (sequelize, DataTypes) => {
     name: {
       type: DataTypes.STRING,
       allowNull: false,
-      unique: {
-        msg: 'Shift name must be unique'
-      },
       validate: {
         notEmpty: {
           msg: 'Shift name cannot be empty'
@@ -97,6 +96,11 @@ module.exports = (sequelize, DataTypes) => {
     description: {
       type: DataTypes.TEXT,
       allowNull: true
+    },
+    companyId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'Companies', key: 'id' }
     },
     isActive: {
       type: DataTypes.BOOLEAN,

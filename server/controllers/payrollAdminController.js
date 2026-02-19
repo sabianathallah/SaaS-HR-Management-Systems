@@ -23,6 +23,7 @@ class PayrollAdminController {
       const { status, year, page = 1, limit = 10 } = req.query;
 
       const where = {};
+      where.companyId = req.user.companyId;
       if (status) where.status = status;
       if (year) {
         const yearStart = new Date(`${year}-01-01`);
@@ -91,7 +92,8 @@ class PayrollAdminController {
               ]
             }
           ],
-          status: { [Op.ne]: 'cancelled' }
+          status: { [Op.ne]: 'cancelled' },
+          companyId: req.user.companyId
         }
       });
 
@@ -110,7 +112,8 @@ class PayrollAdminController {
         paymentDate,
         notes,
         status: 'draft',
-        generatedBy: req.user.id
+        generatedBy: req.user.id,
+        companyId: req.user.companyId
       });
 
       // Log audit
@@ -158,7 +161,8 @@ class PayrollAdminController {
       const employees = await User.findAll({
         where: {
           isActive: true,
-          role: { [Op.ne]: 'SUPERADMIN' } // Exclude superadmin
+          role: { [Op.ne]: 'SUPERADMIN' }, // Exclude superadmin
+          companyId: req.user.companyId
         }
       });
 
@@ -207,7 +211,8 @@ class PayrollAdminController {
             bankName: employee.bankName,
             bankAccountNumber: employee.bankAccountNumber,
             bankAccountHolderName: employee.bankAccountHolderName,
-            status: 'draft'
+            status: 'draft',
+            companyId: req.user.companyId
           });
 
           // Create payroll details

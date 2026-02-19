@@ -11,6 +11,7 @@ class LeaveRequestAdminController {
       const { status, leaveType, userId } = req.query;
 
       const whereClause = {};
+      whereClause.companyId = req.user.companyId;
       
       if (status) {
         whereClause.status = status;
@@ -116,7 +117,7 @@ class LeaveRequestAdminController {
 
       // Get active work schedule
       const workSchedule = await WorkSchedule.findOne({
-        where: { isActive: true }
+        where: { isActive: true, companyId: req.user.companyId }
       });
 
       // Create attendance records for each day
@@ -168,7 +169,8 @@ class LeaveRequestAdminController {
               date: new Date(date),
               clockIn: new Date(date),
               clockOut: new Date(date),
-              status: attendanceStatus
+              status: attendanceStatus,
+              companyId: req.user.companyId
             });
             createdCount++;
           }
