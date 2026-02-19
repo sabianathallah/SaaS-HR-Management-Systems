@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../../../shared/config/axios';
+import { toast } from 'react-hot-toast';
 import { Clock, CheckCircle2, XCircle, Pencil } from 'lucide-react';
 import Modal from '../../../shared/components/Modal';
 
@@ -20,15 +21,12 @@ const OvertimeManagement = () => {
 
   const fetchOvertimeRequests = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/overtimes/admin/requests`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await axiosInstance.get('/overtimes/admin/requests');
       setOvertimeRequests(response.data.data || []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching overtime requests:', error);
+      toast.error('Failed to load overtime requests');
       setLoading(false);
     }
   };
@@ -37,36 +35,28 @@ const OvertimeManagement = () => {
     if (!confirm('Are you sure you want to approve this overtime request?')) return;
 
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.patch(
-        `${import.meta.env.VITE_BASE_URL}/overtimes/admin/${id}/approve`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      alert('Overtime approved successfully!');
+      await axiosInstance.patch(`/overtimes/admin/${id}/approve`, {});
+      toast.success('Overtime approved successfully!');
       await fetchOvertimeRequests();
     } catch (error) {
       console.error('Error approving overtime:', error);
-      alert(error.response?.data?.message || 'Failed to approve');
+      toast.error(error.response?.data?.message || 'Failed to approve');
     }
   };
 
   const handleReject = async (id) => {
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.patch(
-        `${import.meta.env.VITE_BASE_URL}/overtimes/admin/${id}/reject`,
-        { rejectionReason: rejectReason },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      alert('Overtime rejected successfully!');
+      await axiosInstance.patch(`/overtimes/admin/${id}/reject`, {
+        rejectionReason: rejectReason,
+      });
+      toast.success('Overtime rejected successfully!');
       setShowRejectModal(false);
       setRejectReason('');
       setSelectedRequest(null);
       await fetchOvertimeRequests();
     } catch (error) {
       console.error('Error rejecting overtime:', error);
-      alert(error.response?.data?.message || 'Failed to reject');
+      toast.error(error.response?.data?.message || 'Failed to reject');
     }
   };
 
@@ -84,22 +74,17 @@ const OvertimeManagement = () => {
 
   const handleSaveEdit = async () => {
     if (editStatus === 'rejected' && (!editReason || editReason.trim().length < 10)) {
-      alert('Rejection reason must be at least 10 characters');
+      toast.error('Rejection reason must be at least 10 characters');
       return;
     }
 
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.patch(
-        `${import.meta.env.VITE_BASE_URL}/overtimes/admin/${selectedRequest.id}/update-status`,
-        {
-          status: editStatus,
-          rejectionReason: editStatus === 'rejected' ? editReason : null
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      alert('Status updated successfully!');
+      await axiosInstance.patch(`/overtimes/admin/${selectedRequest.id}/update-status`, {
+        status: editStatus,
+        rejectionReason: editStatus === 'rejected' ? editReason : null,
+      });
+
+      toast.success('Status updated successfully!');
       setShowEditModal(false);
       setSelectedRequest(null);
       setEditReason('');
@@ -107,11 +92,11 @@ const OvertimeManagement = () => {
       await fetchOvertimeRequests();
     } catch (error) {
       console.error('Error updating status:', error);
-      alert(error.response?.data?.message || 'Failed to update status');
+      toast.error(error.response?.data?.message || 'Failed to update status');
     }
   };
 
-  const filtered = overtimeRequests.filter(req => 
+  const filtered = overtimeRequests.filter(req =>
     statusFilter === 'all' ? true : req.status === statusFilter
   );
 
@@ -203,10 +188,10 @@ const OvertimeManagement = () => {
                     <div className="text-xs text-gray-500">{req.employee?.email || ''}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 align-top">
-                    {new Date(req.overtimeDate).toLocaleDateString('id-ID', { 
-                      day: '2-digit', 
-                      month: 'short', 
-                      year: 'numeric' 
+                    {new Date(req.overtimeDate).toLocaleDateString('id-ID', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric'
                     })}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 align-top">
@@ -232,9 +217,9 @@ const OvertimeManagement = () => {
                         <div className="font-medium text-gray-900">{req.approver.name}</div>
                         {req.approvedAt && (
                           <div className="text-gray-400">
-                            {new Date(req.approvedAt).toLocaleDateString('id-ID', { 
-                              day: '2-digit', 
-                              month: 'short' 
+                            {new Date(req.approvedAt).toLocaleDateString('id-ID', {
+                              day: '2-digit',
+                              month: 'short'
                             })}
                           </div>
                         )}
@@ -277,7 +262,7 @@ const OvertimeManagement = () => {
                           </button>
                         </>
                       )}
-                      
+
                       {(req.status === 'approved' || req.status === 'rejected') && (
                         <button
                           onClick={() => handleEdit(req)}

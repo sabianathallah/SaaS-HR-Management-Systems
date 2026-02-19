@@ -1,8 +1,7 @@
 import { useState } from "react"
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
-import axios from 'axios'
+import axiosInstance from '../shared/config/axios'
 import { scheduleTokenRefresh } from '../shared/config/axios'
-import baseUrl from "../shared/config/url.js"
 import { useNavigate } from "react-router"
 
 const LANDING_URL = import.meta.env.VITE_LANDING_URL ?? 'http://localhost:3005'
@@ -21,7 +20,7 @@ export default function Login() {
   async function handleLogin(event) {
     event.preventDefault()  
     try {
-      const {data} = await axios.post(`${baseUrl}/login`, {
+      const {data} = await axiosInstance.post('/login', {
         email,
         password
       })

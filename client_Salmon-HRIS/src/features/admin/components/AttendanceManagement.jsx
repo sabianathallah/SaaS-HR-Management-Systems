@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../../../shared/config/axios';
+import toast from 'react-hot-toast';
 import { CalendarDays, Camera, Home, Building2, MapPin, Download, Pencil, Clock, ExternalLink, CheckCircle2, XCircle, AlertTriangle, Plus } from 'lucide-react';
 import FormInput from '../../../shared/components/FormInput';
 import FormSelect from '../../../shared/components/FormSelect';
@@ -49,13 +50,10 @@ const AttendanceManagement = () => {
 
   const fetchInitialData = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-
       const [attendanceRes, employeeRes, officeLocationsRes] = await Promise.all([
-        axios.get(`${import.meta.env.VITE_BASE_URL}/attendances/admin/all-attendance`, config),
-        axios.get(`${import.meta.env.VITE_BASE_URL}/users/admin`, config),
-        axios.get(`${import.meta.env.VITE_BASE_URL}/office-locations/admin`, config),
+        axiosInstance.get('/attendances/admin/all-attendance'),
+        axiosInstance.get('/users/admin'),
+        axiosInstance.get('/office-locations/admin'),
       ]);
 
       setAttendances(attendanceRes.data.data || []);
@@ -71,6 +69,7 @@ const AttendanceManagement = () => {
       setLoading(false);
     } catch (error) {
       console.error('Error fetching data:', error);
+      toast.error(error.response?.data?.message || 'Failed to fetch attendance data');
       setLoading(false);
     }
   };
@@ -115,8 +114,6 @@ const AttendanceManagement = () => {
   const handleManualAttendance = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('access_token');
-      
       // Prepare payload based on status
       const payload = {
         userId: formData.userId,
@@ -140,17 +137,14 @@ const AttendanceManagement = () => {
         payload.office_location_id = formData.officeLocationId;
       }
 
-      await axios.post(
-        `${import.meta.env.VITE_BASE_URL}/attendances/admin/manual-attendance`,
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await axiosInstance.post('/attendances/admin/manual-attendance', payload);
       alert('Manual attendance created successfully!');
       setShowManualModal(false);
       resetForm();
       fetchInitialData();
     } catch (error) {
       console.error('Error creating manual attendance:', error);
+      toast.error(error.response?.data?.message || 'Failed to create manual attendance');
       alert(error.response?.data?.message || 'Failed to create manual attendance');
     }
   };
@@ -158,8 +152,6 @@ const AttendanceManagement = () => {
   const handleEditAttendance = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('access_token');
-      
       // Prepare payload based on status
       const payload = {
         userId: formData.userId,
@@ -183,17 +175,14 @@ const AttendanceManagement = () => {
         payload.office_location_id = formData.officeLocationId;
       }
 
-      await axios.put(
-        `${import.meta.env.VITE_BASE_URL}/attendances/admin/manual-attendance/${editingAttendance.id}`,
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await axiosInstance.put(`/attendances/admin/manual-attendance/${editingAttendance.id}`, payload);
       alert('Attendance updated successfully!');
       setShowEditModal(false);
       resetForm();
       fetchInitialData();
     } catch (error) {
       console.error('Error updating attendance:', error);
+      toast.error(error.response?.data?.message || 'Failed to update attendance');
       alert(error.response?.data?.message || 'Failed to update attendance');
     }
   };
@@ -235,18 +224,14 @@ const AttendanceManagement = () => {
 
   const handleExportExcel = async () => {
     try {
-      const token = localStorage.getItem('access_token');
       const params = new URLSearchParams();
       if (dateFrom) params.append('startDate', dateFrom);
       if (dateTo) params.append('endDate', dateTo);
       if (selectedEmployee !== 'all') params.append('userId', selectedEmployee);
 
-      const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/reports/export/excel?${params.toString()}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          responseType: 'blob',
-        }
+      const response = await axiosInstance.get(
+        `/reports/export/excel?${params.toString()}`,
+        { responseType: 'blob' }
       );
 
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -258,6 +243,7 @@ const AttendanceManagement = () => {
       link.remove();
     } catch (error) {
       console.error('Error exporting to Excel:', error);
+      toast.error('Failed to export to Excel');
       alert('Failed to export to Excel');
     }
   };
@@ -797,7 +783,6 @@ const AttendanceManagement = () => {
                     value={formData.clockInTime}
                     onChange={(e) => setFormData({ ...formData, clockInTime: e.target.value })}
                   />
-                  
                   <FormInput
                     label="Clock Out Time"
                     type="time"

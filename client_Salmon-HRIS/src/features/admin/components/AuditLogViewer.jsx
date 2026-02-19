@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../../../shared/config/axios';
+import { toast } from 'react-hot-toast';
 import { FileText } from 'lucide-react';
 
 const AuditLogViewer = () => {
@@ -30,8 +31,7 @@ const AuditLogViewer = () => {
   const fetchAuditLogs = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('access_token');
-      
+
       // Build query params
       const params = new URLSearchParams({
         page: pagination.page,
@@ -41,15 +41,12 @@ const AuditLogViewer = () => {
         )
       });
 
-      const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/audit-logs?${params}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
+      const response = await axiosInstance.get(`/audit-logs?${params}`);
+
       // Backend returns { data: { auditLogs: [...], pagination: {...} } }
       const auditLogs = response.data.data?.auditLogs || [];
       const paginationData = response.data.data?.pagination || {};
-      
+
       setLogs(Array.isArray(auditLogs) ? auditLogs : []);
       setPagination(prev => ({
         ...prev,
@@ -59,6 +56,7 @@ const AuditLogViewer = () => {
       setLoading(false);
     } catch (error) {
       console.error('Error fetching audit logs:', error);
+      toast.error('Failed to load audit logs');
       setLogs([]); // Set to empty array on error
       setLoading(false);
     }
@@ -66,32 +64,26 @@ const AuditLogViewer = () => {
 
   const fetchAuditStats = async () => {
     try {
-      const token = localStorage.getItem('access_token');
       const params = new URLSearchParams();
       if (filters.startDate) params.append('startDate', filters.startDate);
       if (filters.endDate) params.append('endDate', filters.endDate);
 
-      const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/audit-logs/stats?${params}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await axiosInstance.get(`/audit-logs/stats?${params}`);
       setStats(response.data.data);
     } catch (error) {
       console.error('Error fetching audit stats:', error);
+      toast.error('Failed to load audit stats');
     }
   };
 
   const viewLogDetail = async (logId) => {
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/audit-logs/${logId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await axiosInstance.get(`/audit-logs/${logId}`);
       setSelectedLog(response.data.data.auditLog);
       setShowDetailModal(true);
     } catch (error) {
       console.error('Error fetching log detail:', error);
+      toast.error('Failed to load log detail');
     }
   };
 
@@ -156,21 +148,21 @@ const AuditLogViewer = () => {
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <div className="text-sm text-green-600 font-medium">Create Actions</div>
           <div className="text-2xl font-bold text-green-900">
-            {stats?.byAction?.find(a => a.action === 'CREATE')?.count || 
+            {stats?.byAction?.find(a => a.action === 'CREATE')?.count ||
              logs.filter(l => l.action === 'CREATE').length}
           </div>
         </div>
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <div className="text-sm text-yellow-600 font-medium">Update Actions</div>
           <div className="text-2xl font-bold text-yellow-900">
-            {stats?.byAction?.find(a => a.action === 'UPDATE')?.count || 
+            {stats?.byAction?.find(a => a.action === 'UPDATE')?.count ||
              logs.filter(l => l.action === 'UPDATE').length}
           </div>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="text-sm text-red-600 font-medium">Delete Actions</div>
           <div className="text-2xl font-bold text-red-900">
-            {stats?.byAction?.find(a => a.action === 'DELETE')?.count || 
+            {stats?.byAction?.find(a => a.action === 'DELETE')?.count ||
              logs.filter(l => l.action === 'DELETE').length}
           </div>
         </div>
@@ -310,7 +302,7 @@ const AuditLogViewer = () => {
             </table>
           </div>
         )}
-        
+
         {/* Pagination */}
         {pagination.totalPages > 1 && (
           <div className="px-6 py-4 bg-gray-50 border-t flex items-center justify-between">
@@ -350,7 +342,7 @@ const AuditLogViewer = () => {
                 ×
               </button>
             </div>
-            
+
             <div className="p-6 space-y-4">
               {/* Basic Info */}
               <div className="grid grid-cols-2 gap-4">

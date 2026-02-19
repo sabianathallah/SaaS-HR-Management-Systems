@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../../../shared/config/axios';
+import { toast } from 'react-hot-toast';
 import { Building2, Home, Globe, MapPin } from 'lucide-react';
-
-const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:3000';
 
 const HybridScheduleManagement = () => {
   const [activeTab, setActiveTab] = useState('schedules'); // schedules, statistics
@@ -29,18 +28,14 @@ const HybridScheduleManagement = () => {
   const fetchSchedules = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(
-        `${API_BASE_URL}/hybrid-schedules/admin?page=${currentPage}&limit=10`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
+      const response = await axiosInstance.get(
+        `/hybrid-schedules/admin?page=${currentPage}&limit=10`
       );
       setSchedules(response.data.data);
       setTotalPages(response.data.pagination.totalPages);
     } catch (error) {
       console.error('Error fetching schedules:', error);
-      alert('Gagal memuat data: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal memuat data: ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -49,17 +44,11 @@ const HybridScheduleManagement = () => {
   const fetchStatistics = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(
-        `${API_BASE_URL}/hybrid-schedules/admin/statistics`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      const response = await axiosInstance.get('/hybrid-schedules/admin/statistics');
       setStatistics(response.data.data);
     } catch (error) {
       console.error('Error fetching statistics:', error);
-      alert('Gagal memuat statistik: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal memuat statistik: ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -67,14 +56,8 @@ const HybridScheduleManagement = () => {
 
   const fetchUserSchedule = async (userId) => {
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(
-        `${API_BASE_URL}/hybrid-schedules/admin/user/${userId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      
+      const response = await axiosInstance.get(`/hybrid-schedules/admin/user/${userId}`);
+
       // Convert array to object with dayOfWeek as key
       const scheduleObj = {};
       response.data.data.forEach((schedule) => {
@@ -95,30 +78,25 @@ const HybridScheduleManagement = () => {
 
   const handleSaveSchedule = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      
       // Convert object to array format
       const scheduleArray = Object.entries(weeklySchedule).map(([day, type]) => ({
         dayOfWeek: parseInt(day),
         locationType: type
       }));
 
-      await axios.put(
-        `${API_BASE_URL}/hybrid-schedules/admin/user/${selectedUser.UserId}`,
-        { schedules: scheduleArray },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
+      await axiosInstance.put(
+        `/hybrid-schedules/admin/user/${selectedUser.UserId}`,
+        { schedules: scheduleArray }
       );
 
-      alert('Schedule berhasil diupdate!');
+      toast.success('Schedule berhasil diupdate!');
       setShowEditModal(false);
       setSelectedUser(null);
       setWeeklySchedule({});
       fetchSchedules();
     } catch (error) {
       console.error('Error saving schedule:', error);
-      alert('Gagal menyimpan schedule: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal menyimpan schedule: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -126,18 +104,14 @@ const HybridScheduleManagement = () => {
     if (!confirm(`Hapus schedule untuk hari ${dayNames[dayOfWeek]}?`)) return;
 
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.delete(
-        `${API_BASE_URL}/hybrid-schedules/admin/user/${userId}/day/${dayOfWeek}`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
+      await axiosInstance.delete(
+        `/hybrid-schedules/admin/user/${userId}/day/${dayOfWeek}`
       );
-      alert('Schedule berhasil dihapus!');
+      toast.success('Schedule berhasil dihapus!');
       fetchSchedules();
     } catch (error) {
       console.error('Error deleting schedule:', error);
-      alert('Gagal menghapus schedule: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal menghapus schedule: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -354,7 +328,7 @@ const HybridScheduleManagement = () => {
             <h3 className="text-lg font-semibold mb-4">
               Edit Schedule - {selectedUser.user.name}
             </h3>
-            
+
             <div className="space-y-4 mb-6">
               {dayNames.map((day, index) => (
                 <div key={index} className="flex items-center justify-between border-b pb-3">

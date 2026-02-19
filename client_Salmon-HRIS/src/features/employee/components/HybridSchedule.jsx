@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../../../shared/config/axios';
 import { Building2, Home, Globe, MapPin } from 'lucide-react';
-
-const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:3000';
+import { toast } from 'react-toastify';
 
 const HybridSchedule = () => {
   const [schedule, setSchedule] = useState({});
@@ -20,13 +19,7 @@ const HybridSchedule = () => {
   const fetchSchedule = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(
-        `${API_BASE_URL}/hybrid-schedules`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      const response = await axiosInstance.get('/hybrid-schedules');
       
       // Convert array to object with dayOfWeek as key
       const scheduleObj = {};
@@ -37,6 +30,7 @@ const HybridSchedule = () => {
       setTempSchedule(scheduleObj);
     } catch (error) {
       console.error('Error fetching schedule:', error);
+      toast.error('Gagal memuat schedule');
     } finally {
       setLoading(false);
     }
@@ -44,21 +38,13 @@ const HybridSchedule = () => {
 
   const handleSave = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      
       // Convert object to array format
       const scheduleArray = Object.entries(tempSchedule).map(([day, type]) => ({
         dayOfWeek: parseInt(day),
         locationType: type
       }));
 
-      await axios.put(
-        `${API_BASE_URL}/hybrid-schedules`,
-        { schedules: scheduleArray },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      await axiosInstance.put('/hybrid-schedules', { schedules: scheduleArray });
 
       alert('Schedule berhasil disimpan!');
       setSchedule(tempSchedule);
@@ -73,13 +59,7 @@ const HybridSchedule = () => {
     if (!confirm(`Hapus schedule untuk hari ${dayNames[dayOfWeek]}?`)) return;
 
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.delete(
-        `${API_BASE_URL}/hybrid-schedules/${dayOfWeek}`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      await axiosInstance.delete(`/hybrid-schedules/${dayOfWeek}`);
       
       const newSchedule = { ...schedule };
       delete newSchedule[dayOfWeek];

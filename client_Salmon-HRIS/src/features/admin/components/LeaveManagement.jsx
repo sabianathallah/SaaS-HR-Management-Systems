@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../../../shared/config/axios';
+import toast from 'react-hot-toast';
 import { Settings, Calendar, Eye, CheckCircle2, XCircle, Paperclip, Download } from 'lucide-react';
 import FormInput from '../../../shared/components/FormInput';
 import FormSelect from '../../../shared/components/FormSelect';
@@ -28,12 +29,9 @@ const LeaveManagement = () => {
 
   const fetchData = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-
       const [leaveRes, employeeRes] = await Promise.all([
-        axios.get(`${import.meta.env.VITE_BASE_URL}/leave-requests/admin/all`, config),
-        axios.get(`${import.meta.env.VITE_BASE_URL}/users/admin`, config),
+        axiosInstance.get('/leave-requests/admin/all'),
+        axiosInstance.get('/users/admin'),
       ]);
 
       setLeaveRequests(leaveRes.data.data || []);
@@ -41,6 +39,7 @@ const LeaveManagement = () => {
       setLoading(false);
     } catch (error) {
       console.error('Error fetching data:', error);
+      toast.error(error.response?.data?.message || 'Failed to fetch leave data');
       setLoading(false);
     }
   };
@@ -49,11 +48,9 @@ const LeaveManagement = () => {
     try {
       if (!confirm('Are you sure you want to approve this leave request?')) return;
 
-      const token = localStorage.getItem('access_token');
-      const response = await axios.put(
-        `${import.meta.env.VITE_BASE_URL}/leave-requests/admin/${requestId}/approve`,
-        { approvalNote },
-        { headers: { Authorization: `Bearer ${token}` } }
+      const response = await axiosInstance.put(
+        `/leave-requests/admin/${requestId}/approve`,
+        { approvalNote }
       );
       
       console.log('Approve response:', response.data);
@@ -63,6 +60,7 @@ const LeaveManagement = () => {
       await fetchData();
     } catch (error) {
       console.error('Error approving leave:', error);
+      toast.error(error.response?.data?.message || 'Failed to approve leave request');
       alert(error.response?.data?.message || 'Failed to approve leave request');
     }
   };
@@ -75,11 +73,9 @@ const LeaveManagement = () => {
         return;
       }
 
-      const token = localStorage.getItem('access_token');
-      const response = await axios.put(
-        `${import.meta.env.VITE_BASE_URL}/leave-requests/admin/${requestId}/reject`,
-        { approvalNote: note },
-        { headers: { Authorization: `Bearer ${token}` } }
+      const response = await axiosInstance.put(
+        `/leave-requests/admin/${requestId}/reject`,
+        { approvalNote: note }
       );
       
       console.log('Reject response:', response.data);
@@ -89,6 +85,7 @@ const LeaveManagement = () => {
       await fetchData();
     } catch (error) {
       console.error('Error rejecting leave:', error);
+      toast.error(error.response?.data?.message || 'Failed to reject leave request');
       alert(error.response?.data?.message || 'Failed to reject leave request');
     }
   };
@@ -100,11 +97,9 @@ const LeaveManagement = () => {
         return;
       }
 
-      const token = localStorage.getItem('access_token');
-      const response = await axios.put(
-        `${import.meta.env.VITE_BASE_URL}/leave-requests/admin/${selectedRequest.id}/reject`,
-        { approvalNote: approvalNote },
-        { headers: { Authorization: `Bearer ${token}` } }
+      const response = await axiosInstance.put(
+        `/leave-requests/admin/${selectedRequest.id}/reject`,
+        { approvalNote: approvalNote }
       );
       
       console.log('Reject response:', response.data);
@@ -115,6 +110,7 @@ const LeaveManagement = () => {
       await fetchData();
     } catch (error) {
       console.error('Error rejecting leave:', error);
+      toast.error(error.response?.data?.message || 'Failed to reject leave request');
       alert(error.response?.data?.message || 'Failed to reject leave request');
     }
   };
@@ -134,14 +130,12 @@ const LeaveManagement = () => {
     }
     
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.put(
-        `${import.meta.env.VITE_BASE_URL}/leave-requests/admin/adjust-quota/${quotaAdjustment.userId}`,
+      await axiosInstance.put(
+        `/leave-requests/admin/adjust-quota/${quotaAdjustment.userId}`,
         {
           annualLeaveQuota: parseInt(quotaAdjustment.annualLeaveQuota),
           usedLeaveQuota: parseInt(quotaAdjustment.usedLeaveQuota),
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
+        }
       );
       alert('Leave quota adjusted successfully!');
       setShowAdjustQuotaModal(false);
@@ -149,6 +143,7 @@ const LeaveManagement = () => {
       fetchData(); // Refresh data
     } catch (error) {
       console.error('Error adjusting quota:', error);
+      toast.error(error.response?.data?.message || 'Failed to adjust leave quota');
       alert(error.response?.data?.message || 'Failed to adjust leave quota');
     }
   };
@@ -161,13 +156,9 @@ const LeaveManagement = () => {
 
   const handleViewAttachment = async (requestId) => {
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/leave-requests/admin/${requestId}/attachment/view`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          responseType: 'blob' // Important for file download
-        }
+      const response = await axiosInstance.get(
+        `/leave-requests/admin/${requestId}/attachment/view`,
+        { responseType: 'blob' } // Important for file download
       );
 
       // Create blob URL and open in new tab
@@ -179,19 +170,16 @@ const LeaveManagement = () => {
       setTimeout(() => window.URL.revokeObjectURL(url), 100);
     } catch (error) {
       console.error('Error viewing attachment:', error);
+      toast.error(error.response?.data?.message || 'Failed to view attachment');
       alert(error.response?.data?.message || 'Failed to view attachment');
     }
   };
 
   const handleDownloadAttachment = async (requestId, filename) => {
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/leave-requests/admin/${requestId}/attachment/download`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          responseType: 'blob' // Important for file download
-        }
+      const response = await axiosInstance.get(
+        `/leave-requests/admin/${requestId}/attachment/download`,
+        { responseType: 'blob' } // Important for file download
       );
 
       // Create blob URL and trigger download
@@ -208,6 +196,7 @@ const LeaveManagement = () => {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading attachment:', error);
+      toast.error(error.response?.data?.message || 'Failed to download attachment');
       alert(error.response?.data?.message || 'Failed to download attachment');
     }
   };

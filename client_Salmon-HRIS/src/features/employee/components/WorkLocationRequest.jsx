@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../../../shared/config/axios';
+import { toast } from 'react-toastify';
 
-const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:3000';
 
 const WorkLocationRequest = () => {
   const [requests, setRequests] = useState([]);
@@ -20,16 +20,11 @@ const WorkLocationRequest = () => {
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(
-        `${API_BASE_URL}/work-location-changes`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      const response = await axiosInstance.get('/work-location-changes');
       setRequests(response.data.data);
     } catch (error) {
       console.error('Error fetching requests:', error);
+      toast.error('Gagal memuat riwayat request');
     } finally {
       setLoading(false);
     }
@@ -54,14 +49,7 @@ const WorkLocationRequest = () => {
     }
 
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.post(
-        `${API_BASE_URL}/work-location-changes`,
-        form,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      await axiosInstance.post('/work-location-changes', form);
       alert('Request berhasil dibuat!');
       setShowForm(false);
       setForm({
@@ -80,14 +68,7 @@ const WorkLocationRequest = () => {
     if (!confirm('Apakah Anda yakin ingin membatalkan request ini?')) return;
 
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.patch(
-        `${API_BASE_URL}/work-location-changes/${requestId}/cancel`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      await axiosInstance.patch(`/work-location-changes/${requestId}/cancel`, {});
       alert('Request berhasil dibatalkan!');
       fetchRequests();
     } catch (error) {

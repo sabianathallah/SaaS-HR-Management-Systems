@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../../../shared/config/axios';
+import toast from 'react-hot-toast';
 import { MapPin, Plus, BarChart3, Pencil, Trash2 } from 'lucide-react';
 import FormInput from '../../../shared/components/FormInput';
 import FormSelect from '../../../shared/components/FormSelect';
@@ -29,11 +30,7 @@ const OfficeLocationManagement = () => {
 
   const fetchLocations = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/office-locations/admin`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await axiosInstance.get('/office-locations/admin');
       
       // Transform is_active to isActive for frontend compatibility
       const transformedData = (response.data.data || []).map(loc => ({
@@ -45,6 +42,7 @@ const OfficeLocationManagement = () => {
       setLoading(false);
     } catch (error) {
       console.error('Error fetching locations:', error);
+      toast.error(error.response?.data?.message || 'Failed to fetch office locations');
       setLoading(false);
     }
   };
@@ -52,8 +50,6 @@ const OfficeLocationManagement = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('access_token');
-      
       // Transform isActive to is_active for backend
       const submitData = {
         ...formData,
@@ -62,20 +58,15 @@ const OfficeLocationManagement = () => {
       
       if (editingLocation) {
         // Update existing location
-        await axios.put(
-          `${import.meta.env.VITE_BASE_URL}/office-locations/admin/${editingLocation.id}`,
-          submitData,
-          { headers: { Authorization: `Bearer ${token}` } }
+        await axiosInstance.put(
+          `/office-locations/admin/${editingLocation.id}`,
+          submitData
         );
         alert('Office location updated successfully!');
         setShowEditModal(false);
       } else {
         // Create new location
-        await axios.post(
-          `${import.meta.env.VITE_BASE_URL}/office-locations/admin`,
-          submitData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await axiosInstance.post('/office-locations/admin', submitData);
         alert('Office location created successfully!');
         setShowAddModal(false);
       }
@@ -84,6 +75,7 @@ const OfficeLocationManagement = () => {
       fetchLocations();
     } catch (error) {
       console.error('Error saving location:', error);
+      toast.error(error.response?.data?.message || 'Failed to save office location');
       alert(error.response?.data?.message || 'Failed to save office location');
     }
   };
@@ -92,30 +84,23 @@ const OfficeLocationManagement = () => {
     if (!confirm('Are you sure you want to delete this office location?')) return;
     
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.delete(
-        `${import.meta.env.VITE_BASE_URL}/office-locations/admin/${id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await axiosInstance.delete(`/office-locations/admin/${id}`);
       alert('Office location deleted successfully!');
       fetchLocations();
     } catch (error) {
       console.error('Error deleting location:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete office location');
       alert(error.response?.data?.message || 'Failed to delete office location');
     }
   };
 
   const handleToggleActive = async (id) => {
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.patch(
-        `${import.meta.env.VITE_BASE_URL}/office-locations/admin/${id}/toggle`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await axiosInstance.patch(`/office-locations/admin/${id}/toggle`, {});
       fetchLocations();
     } catch (error) {
       console.error('Error toggling location status:', error);
+      toast.error('Failed to toggle location status');
       alert('Failed to toggle location status');
     }
   };
@@ -135,16 +120,13 @@ const OfficeLocationManagement = () => {
 
   const viewStats = async (location) => {
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/office-locations/admin/${location.id}/stats`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await axiosInstance.get(`/office-locations/admin/${location.id}/stats`);
       setLocationStats(response.data.data);
       setEditingLocation(location);
       setShowStatsModal(true);
     } catch (error) {
       console.error('Error fetching stats:', error);
+      toast.error('Failed to fetch location statistics');
       alert('Failed to fetch location statistics');
     }
   };

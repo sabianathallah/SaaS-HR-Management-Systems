@@ -72,10 +72,8 @@ const ReportAnalytics = () => {
 
   const fetchMetadata = async () => {
     try {
-      const token = localStorage.getItem('access_token');
       const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/reports/metadata`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        `${import.meta.env.VITE_BASE_URL}/reports/metadata`
       );
       setMetadata(response.data.data);
     } catch (error) {
@@ -87,7 +85,6 @@ const ReportAnalytics = () => {
   const handleDownload = async (endpoint, filters, filename) => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('access_token');
       const params = new URLSearchParams();
       
       Object.entries(filters).forEach(([key, value]) => {
@@ -97,7 +94,6 @@ const ReportAnalytics = () => {
       const response = await axios.get(
         `${import.meta.env.VITE_BASE_URL}/reports/${endpoint}?${params.toString()}`,
         {
-          headers: { Authorization: `Bearer ${token}` },
           responseType: 'blob',
         }
       );

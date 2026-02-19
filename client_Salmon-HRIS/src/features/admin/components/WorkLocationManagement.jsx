@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'http://localhost:3000';
+import axiosInstance from '../../../shared/config/axios';
+import { toast } from 'react-hot-toast';
 
 const WorkLocationManagement = () => {
   const [activeTab, setActiveTab] = useState('pending'); // pending, all, statistics
@@ -33,18 +32,14 @@ const WorkLocationManagement = () => {
   const fetchPendingRequests = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(
-        `${API_BASE_URL}/work-location-changes/admin/pending?page=${currentPage}&limit=10`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
+      const response = await axiosInstance.get(
+        `/work-location-changes/admin/pending?page=${currentPage}&limit=10`
       );
       setRequests(response.data.data);
       setTotalPages(response.data.pagination.totalPages);
     } catch (error) {
       console.error('Error fetching pending requests:', error);
-      alert('Gagal memuat data request: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal memuat data request: ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -53,24 +48,18 @@ const WorkLocationManagement = () => {
   const fetchAllRequests = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('access_token');
       const params = new URLSearchParams({
         page: currentPage,
         limit: 10,
         ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))
       });
-      
-      const response = await axios.get(
-        `${API_BASE_URL}/work-location-changes/admin?${params}`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+
+      const response = await axiosInstance.get(`/work-location-changes/admin?${params}`);
       setRequests(response.data.data);
       setTotalPages(response.data.pagination.totalPages);
     } catch (error) {
       console.error('Error fetching all requests:', error);
-      alert('Gagal memuat data: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal memuat data: ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -79,21 +68,15 @@ const WorkLocationManagement = () => {
   const fetchStatistics = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('access_token');
       const params = new URLSearchParams(
         Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))
       );
-      
-      const response = await axios.get(
-        `${API_BASE_URL}/work-location-changes/admin/statistics?${params}`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+
+      const response = await axiosInstance.get(`/work-location-changes/admin/statistics?${params}`);
       setStatistics(response.data.data);
     } catch (error) {
       console.error('Error fetching statistics:', error);
-      alert('Gagal memuat statistik: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal memuat statistik: ' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -103,15 +86,11 @@ const WorkLocationManagement = () => {
     if (!confirm('Apakah Anda yakin ingin menyetujui request ini?')) return;
 
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.patch(
-        `${API_BASE_URL}/work-location-changes/admin/${requestId}/approve`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
+      await axiosInstance.patch(
+        `/work-location-changes/admin/${requestId}/approve`,
+        {}
       );
-      alert('Request berhasil disetujui!');
+      toast.success('Request berhasil disetujui!');
       if (activeTab === 'pending') {
         fetchPendingRequests();
       } else {
@@ -119,26 +98,22 @@ const WorkLocationManagement = () => {
       }
     } catch (error) {
       console.error('Error approving request:', error);
-      alert('Gagal menyetujui request: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal menyetujui request: ' + (error.response?.data?.message || error.message));
     }
   };
 
   const handleReject = async () => {
     if (!rejectionReason.trim()) {
-      alert('Alasan penolakan harus diisi!');
+      toast.error('Alasan penolakan harus diisi!');
       return;
     }
 
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.patch(
-        `${API_BASE_URL}/work-location-changes/admin/${selectedRequest.id}/reject`,
-        { rejectionReason },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
+      await axiosInstance.patch(
+        `/work-location-changes/admin/${selectedRequest.id}/reject`,
+        { rejectionReason }
       );
-      alert('Request berhasil ditolak!');
+      toast.success('Request berhasil ditolak!');
       setShowRejectModal(false);
       setRejectionReason('');
       setSelectedRequest(null);
@@ -149,7 +124,7 @@ const WorkLocationManagement = () => {
       }
     } catch (error) {
       console.error('Error rejecting request:', error);
-      alert('Gagal menolak request: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal menolak request: ' + (error.response?.data?.message || error.message));
     }
   };
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../../../shared/config/axios';
+import toast from 'react-hot-toast';
 import { CalendarDays, Users, Plus, User, Pencil, Trash2 } from 'lucide-react';
 import FormInput from '../../../shared/components/FormInput';
 import FormSelect from '../../../shared/components/FormSelect';
@@ -34,12 +35,9 @@ const ShiftScheduleManagement = () => {
 
   const fetchData = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-
       const [shiftsRes, employeesRes] = await Promise.all([
-        axios.get(`${import.meta.env.VITE_BASE_URL}/shifts/admin/shifts`, config),
-        axios.get(`${import.meta.env.VITE_BASE_URL}/users/admin`, config),
+        axiosInstance.get('/shifts/admin/shifts'),
+        axiosInstance.get('/users/admin'),
       ]);
 
       console.log('Shifts Response:', shiftsRes.data);
@@ -57,6 +55,7 @@ const ShiftScheduleManagement = () => {
       setLoading(false);
     } catch (error) {
       console.error('Error fetching data:', error);
+      toast.error(error.response?.data?.message || 'Failed to fetch data');
       alert('Failed to fetch data: ' + (error.response?.data?.message || error.message));
       setLoading(false);
     }
@@ -65,22 +64,11 @@ const ShiftScheduleManagement = () => {
   const handleSaveShift = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('access_token');
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-
       if (editingShift) {
-        await axios.put(
-          `${import.meta.env.VITE_BASE_URL}/shifts/admin/shifts/${editingShift.id}`,
-          shiftForm,
-          config
-        );
+        await axiosInstance.put(`/shifts/admin/shifts/${editingShift.id}`, shiftForm);
         alert('Shift updated successfully!');
       } else {
-        await axios.post(
-          `${import.meta.env.VITE_BASE_URL}/shifts/admin/shifts`,
-          shiftForm,
-          config
-        );
+        await axiosInstance.post('/shifts/admin/shifts', shiftForm);
         alert('Shift created successfully!');
       }
       
@@ -89,6 +77,7 @@ const ShiftScheduleManagement = () => {
       await fetchData();
     } catch (error) {
       console.error('Error saving shift:', error);
+      toast.error(error.response?.data?.message || 'Failed to save shift');
       alert(error.response?.data?.message || 'Failed to save shift');
     }
   };
@@ -97,15 +86,12 @@ const ShiftScheduleManagement = () => {
     if (!confirm('Are you sure you want to delete this shift?')) return;
 
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.delete(
-        `${import.meta.env.VITE_BASE_URL}/shifts/admin/shifts/${shiftId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await axiosInstance.delete(`/shifts/admin/shifts/${shiftId}`);
       alert('Shift deleted successfully!');
       await fetchData();
     } catch (error) {
       console.error('Error deleting shift:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete shift');
       alert(error.response?.data?.message || 'Failed to delete shift');
     }
   };
@@ -113,11 +99,9 @@ const ShiftScheduleManagement = () => {
   const handleAssignShift = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await axios.put(
-        `${import.meta.env.VITE_BASE_URL}/shifts/admin/users/${assignForm.userId}/shift`,
-        { shiftId: parseInt(assignForm.shiftId) },
-        { headers: { Authorization: `Bearer ${token}` } }
+      const response = await axiosInstance.put(
+        `/shifts/admin/users/${assignForm.userId}/shift`,
+        { shiftId: parseInt(assignForm.shiftId) }
       );
       console.log('Assign response:', response.data);
       alert('Shift assigned successfully!');
@@ -126,6 +110,7 @@ const ShiftScheduleManagement = () => {
       await fetchData(); // Ensure data is refreshed
     } catch (error) {
       console.error('Error assigning shift:', error);
+      toast.error(error.response?.data?.message || 'Failed to assign shift');
       alert(error.response?.data?.message || 'Failed to assign shift');
     }
   };
@@ -134,16 +119,13 @@ const ShiftScheduleManagement = () => {
     if (!confirm('Are you sure you want to remove shift from this employee?')) return;
 
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await axios.delete(
-        `${import.meta.env.VITE_BASE_URL}/shifts/admin/users/${userId}/shift`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await axiosInstance.delete(`/shifts/admin/users/${userId}/shift`);
       console.log('Remove response:', response.data);
       alert('Shift removed successfully!');
       await fetchData(); // Ensure data is refreshed
     } catch (error) {
       console.error('Error removing shift:', error);
+      toast.error(error.response?.data?.message || 'Failed to remove shift');
       alert(error.response?.data?.message || 'Failed to remove shift');
     }
   };

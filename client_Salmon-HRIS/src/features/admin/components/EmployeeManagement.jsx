@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../../../shared/config/axios';
+import { toast } from 'react-hot-toast';
 import { Users, Plus, Download, Pencil, Ban, CheckCircle2, Eye, EyeOff, Search } from 'lucide-react';
 import FormInput from '../../../shared/components/FormInput';
 import FormSelect from '../../../shared/components/FormSelect';
@@ -26,7 +27,7 @@ const EmployeeManagement = () => {
     joinDate: '',
     isActive: true,
   });
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -40,17 +41,12 @@ const EmployeeManagement = () => {
 
   const fetchEmployees = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/users/admin`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      const response = await axiosInstance.get('/users/admin');
       setEmployees(response.data.data || []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching employees:', error);
+      toast.error('Failed to load employees');
       setLoading(false);
     }
   };
@@ -78,113 +74,99 @@ const EmployeeManagement = () => {
 
   const handleAddEmployee = async (e) => {
     e.preventDefault();
-    
+
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      alert('⚠️ Please enter a valid email address');
+      toast.error('Please enter a valid email address');
       return;
     }
-    
+
     // Validate password confirmation
     if (formData.password !== formData.confirmPassword) {
-      alert('⚠️ Password dan konfirmasi password tidak cocok!');
+      toast.error('Password dan konfirmasi password tidak cocok!');
       return;
     }
-    
+
     // Check if email already exists in current employee list
-    const emailExists = employees.some(emp => 
+    const emailExists = employees.some(emp =>
       emp.email.toLowerCase() === formData.email.toLowerCase()
     );
-    
+
     if (emailExists) {
-      alert('⚠️ Email already exists! Please use a different email address.');
+      toast.error('Email already exists! Please use a different email address.');
       return;
     }
-    
+
     try {
-      const token = localStorage.getItem('access_token');
       // Don't send confirmPassword to API
       const { confirmPassword, ...dataToSend } = formData;
-      await axios.post(
-        `${import.meta.env.VITE_BASE_URL}/register`,
-        dataToSend,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      alert('Employee added successfully!');
+      await axiosInstance.post('/register', dataToSend);
+      toast.success('Employee added successfully!');
       setShowAddModal(false);
       resetForm();
       fetchEmployees();
     } catch (error) {
       console.error('Error adding employee:', error);
       const errorMessage = error.response?.data?.message || 'Failed to add employee';
-      
+
       // Handle specific error messages
       if (errorMessage.toLowerCase().includes('email') && errorMessage.toLowerCase().includes('use')) {
-        alert('⚠️ Email already exists! Please use a different email address.');
+        toast.error('Email already exists! Please use a different email address.');
       } else if (errorMessage.toLowerCase().includes('unique')) {
-        alert('⚠️ This email is already registered in the system. Please use a different email.');
+        toast.error('This email is already registered in the system. Please use a different email.');
       } else {
-        alert(`❌ Error: ${errorMessage}`);
+        toast.error(`Error: ${errorMessage}`);
       }
     }
   };
 
   const handleEditEmployee = async (e) => {
     e.preventDefault();
-    
+
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      alert('⚠️ Please enter a valid email address');
+      toast.error('Please enter a valid email address');
       return;
     }
-    
+
     // Validate password confirmation if password is being changed
     if (formData.password && formData.password !== formData.confirmPassword) {
-      alert('⚠️ Password dan konfirmasi password tidak cocok!');
+      toast.error('Password dan konfirmasi password tidak cocok!');
       return;
     }
-    
+
     // Check if email already exists in other employees (exclude current employee)
-    const emailExists = employees.some(emp => 
-      emp.email.toLowerCase() === formData.email.toLowerCase() && 
+    const emailExists = employees.some(emp =>
+      emp.email.toLowerCase() === formData.email.toLowerCase() &&
       emp.id !== selectedEmployee.id
     );
-    
+
     if (emailExists) {
-      alert('⚠️ Email already exists! Please use a different email address.');
+      toast.error('Email already exists! Please use a different email address.');
       return;
     }
-    
+
     try {
-      const token = localStorage.getItem('access_token');
       // Don't send confirmPassword to API
       const { confirmPassword, ...dataToSend } = formData;
-      await axios.put(
-        `${import.meta.env.VITE_BASE_URL}/users/admin/${selectedEmployee.id}`,
-        dataToSend,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      alert('Employee updated successfully!');
+      await axiosInstance.put(`/users/admin/${selectedEmployee.id}`, dataToSend);
+      toast.success('Employee updated successfully!');
       setShowEditModal(false);
       resetForm();
       fetchEmployees();
     } catch (error) {
       console.error('Error updating employee:', error);
       const errorMessage = error.response?.data?.message || 'Failed to update employee';
-      
+
       // Handle specific error messages
       if (errorMessage.toLowerCase().includes('email') && errorMessage.toLowerCase().includes('use')) {
-        alert('⚠️ Email already exists! Please use a different email address.');
+        toast.error('Email already exists! Please use a different email address.');
       } else if (errorMessage.toLowerCase().includes('unique')) {
-        alert('⚠️ This email is already registered by another employee.');
+        toast.error('This email is already registered by another employee.');
       } else {
-        alert(`❌ Error: ${errorMessage}`);
+        toast.error(`Error: ${errorMessage}`);
       }
     }
   };
@@ -195,19 +177,14 @@ const EmployeeManagement = () => {
     }
 
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.patch(
-        `${import.meta.env.VITE_BASE_URL}/users/admin/${employeeId}/status`,
-        { isActive: !currentStatus },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      alert('Employee status updated successfully!');
+      await axiosInstance.patch(`/users/admin/${employeeId}/status`, {
+        isActive: !currentStatus,
+      });
+      toast.success('Employee status updated successfully!');
       fetchEmployees();
     } catch (error) {
       console.error('Error toggling employee status:', error);
-      alert(error.response?.data?.message || 'Failed to update employee status');
+      toast.error(error.response?.data?.message || 'Failed to update employee status');
     }
   };
 
@@ -388,8 +365,8 @@ const EmployeeManagement = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full
-                        ${employee.role === 'ADMIN' 
-                          ? 'bg-purple-100 text-purple-800' 
+                        ${employee.role === 'ADMIN'
+                          ? 'bg-purple-100 text-purple-800'
                           : 'bg-blue-100 text-blue-800'
                         }`}>
                         {employee.role}
@@ -397,16 +374,16 @@ const EmployeeManagement = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full
-                        ${employee.isActive 
-                          ? 'bg-green-100 text-green-800' 
+                        ${employee.isActive
+                          ? 'bg-green-100 text-green-800'
                           : 'bg-red-100 text-red-800'
                         }`}>
                         {employee.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {employee.joinDate 
-                        ? new Date(employee.joinDate).toLocaleDateString('id-ID') 
+                      {employee.joinDate
+                        ? new Date(employee.joinDate).toLocaleDateString('id-ID')
                         : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
@@ -435,7 +412,7 @@ const EmployeeManagement = () => {
       </div>
 
       {/* Add Employee Modal */}
-      <Modal 
+      <Modal
         isOpen={showAddModal}
         onClose={() => { setShowAddModal(false); resetForm(); }}
         title="Add New Employee"
@@ -451,7 +428,7 @@ const EmployeeManagement = () => {
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
             />
-            
+
             <FormInput
               label="Email"
               type="email"
@@ -484,7 +461,7 @@ const EmployeeManagement = () => {
                 </button>
               </div>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Confirm Password *
@@ -526,7 +503,7 @@ const EmployeeManagement = () => {
               value={formData.position}
               onChange={(e) => setFormData({ ...formData, position: e.target.value })}
             />
-            
+
             <FormInput
               label="Department"
               type="text"
@@ -547,7 +524,7 @@ const EmployeeManagement = () => {
                 { value: 'EMPLOYEE', label: 'Employee' },
               ]}
             />
-            
+
             <FormInput
               label="Join Date"
               type="date"
@@ -575,7 +552,7 @@ const EmployeeManagement = () => {
       </Modal>
 
       {/* Edit Employee Modal */}
-      <Modal 
+      <Modal
         isOpen={showEditModal}
         onClose={() => { setShowEditModal(false); resetForm(); }}
         title="Edit Employee"
@@ -591,7 +568,7 @@ const EmployeeManagement = () => {
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
             />
-            
+
             <FormInput
               label="Email"
               type="email"
@@ -623,7 +600,7 @@ const EmployeeManagement = () => {
                 </button>
               </div>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Confirm New Password
@@ -664,7 +641,7 @@ const EmployeeManagement = () => {
               value={formData.position}
               onChange={(e) => setFormData({ ...formData, position: e.target.value })}
             />
-            
+
             <FormInput
               label="Department"
               type="text"
@@ -684,7 +661,7 @@ const EmployeeManagement = () => {
                 { value: 'ADMIN', label: 'Admin' },
               ]}
             />
-            
+
             <FormInput
               label="Join Date"
               type="date"
