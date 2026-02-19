@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 
-import LandingPage from './views/LandingPage.jsx'
 import Login from './views/Login.jsx'
 import EmployeePage from './features/employee/views/EmployeePage.jsx'
 import ProtectedRoute from './shared/components/ProtectedRoute.jsx'
@@ -43,7 +42,7 @@ export default function App() {
     <>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
           
           {/* Employee Protected Route */}

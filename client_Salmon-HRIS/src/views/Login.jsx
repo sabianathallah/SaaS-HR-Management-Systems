@@ -3,6 +3,8 @@ import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import axios from 'axios'
 import baseUrl from "../shared/config/url.js"
 import { useNavigate } from "react-router"
+
+const LANDING_URL = import.meta.env.VITE_LANDING_URL ?? 'http://localhost:3005'
 import { toast } from 'react-toastify';
 import logoNavbar from '../assets/logo-navbar.png'
 import backgroundImage from '../assets/background.png'
@@ -105,7 +107,7 @@ export default function Login() {
             <span className="text-[#d4af37] font-bold text-2xl tracking-wide drop-shadow-md"></span>
           </div>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => { window.location.href = LANDING_URL }}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-amber-200 hover:text-white hover:bg-white/10 transition-all text-sm font-medium"
           >
             <ArrowLeft size={16} />
@@ -168,7 +170,7 @@ export default function Login() {
 
           <p className="text-center text-sm text-amber-700 mt-6">
             <button
-              onClick={() => navigate('/')}
+              onClick={() => { window.location.href = LANDING_URL }}
               className="inline-flex items-center gap-1.5 hover:text-amber-900 hover:underline transition-colors font-medium"
             >
               <ArrowLeft size={14} />
