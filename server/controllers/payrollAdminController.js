@@ -167,6 +167,7 @@ class PayrollAdminController {
       });
 
       const generatedPayrolls = [];
+      const payrollHistoryRecords = [];
       const errors = [];
       let totalGross = 0;
       let totalDeductions = 0;
@@ -288,7 +289,7 @@ class PayrollAdminController {
           await PayrollDetail.bulkCreate(details);
 
           // Log history
-          await PayrollHistory.create({
+          payrollHistoryRecords.push({
             PayrollId: payroll.id,
             PayrollPeriodId: period.id,
             action: 'generated',
@@ -310,6 +311,11 @@ class PayrollAdminController {
             error: error.message
           });
         }
+      }
+
+      // Bulk insert all PayrollHistory records collected during the loop (avoids N+1 writes)
+      if (payrollHistoryRecords.length > 0) {
+        await PayrollHistory.bulkCreate(payrollHistoryRecords);
       }
 
       // Update period summary

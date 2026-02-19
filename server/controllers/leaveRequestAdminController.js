@@ -140,45 +140,53 @@ class LeaveRequestAdminController {
           attendanceStatus = Attendance.ATTENDANCE_STATUS.LEAVE;
       }
 
-      // Loop through each day and create attendance
-      let createdCount = 0;
-      for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
-        try {
-          const attendanceDate = new Date(date);
-          const startOfDay = new Date(attendanceDate);
-          startOfDay.setHours(0, 0, 0, 0);
-          const endOfDay = new Date(attendanceDate);
-          endOfDay.setHours(23, 59, 59, 999);
-          
-          // Check if attendance already exists for this date
-          const existingAttendance = await Attendance.findOne({
-            where: {
-              UserId: leaveRequest.UserId,
-              date: {
-                [Op.between]: [startOfDay, endOfDay]
-              }
-            }
-          });
+      // Collect all dates in range (bulk approach - avoids N+1 queries)
+      const allDates = [];
+      const tempDate = new Date(start);
+      while (tempDate <= end) {
+        allDates.push(new Date(tempDate));
+        tempDate.setDate(tempDate.getDate() + 1);
+      }
 
-          if (!existingAttendance) {
-            await Attendance.create({
-              UserId: leaveRequest.UserId,
-              WorkScheduleId: workSchedule ? workSchedule.id : null,
-              HolidayId: null,
-              LeaveRequestId: leaveRequest.id,
-              date: new Date(date),
-              clockIn: new Date(date),
-              clockOut: new Date(date),
-              status: attendanceStatus,
-              companyId: req.user.companyId
-            });
-            createdCount++;
-          }
-        } catch (err) {
-          // Log but continue to next date
-          if (process.env.NODE_ENV !== 'production') console.error('Error creating attendance for date:', new Date(date).toISOString(), '-', err.message);
+      // Single query: check existing attendances for all dates at once
+      const existingAttendances = await Attendance.findAll({
+        where: {
+          UserId: leaveRequest.UserId,
+          companyId: req.user.companyId,
+          date: { [Op.between]: [new Date(start), new Date(end)] }
+        },
+        attributes: ['date']
+      });
+
+      // Build set of existing dates (as ISO date strings for comparison)
+      const existingDateStrings = new Set(
+        existingAttendances.map(a => new Date(a.date).toISOString().split('T')[0])
+      );
+
+      // Build records to create (only missing dates)
+      const attendancesToCreate = [];
+      for (const date of allDates) {
+        const dateStr = date.toISOString().split('T')[0];
+        if (!existingDateStrings.has(dateStr)) {
+          attendancesToCreate.push({
+            UserId: leaveRequest.UserId,
+            WorkScheduleId: workSchedule ? workSchedule.id : null,
+            HolidayId: null,
+            LeaveRequestId: leaveRequest.id,
+            companyId: req.user.companyId,
+            date: date,
+            clockIn: date,
+            clockOut: date,
+            status: attendanceStatus,
+          });
         }
       }
+
+      // Single bulk insert for all missing dates
+      if (attendancesToCreate.length > 0) {
+        await Attendance.bulkCreate(attendancesToCreate);
+      }
+      const createdCount = attendancesToCreate.length;
 
       // Return success response with simple data
       const responseData = {
