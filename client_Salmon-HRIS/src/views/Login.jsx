@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import axios from 'axios'
+import { scheduleTokenRefresh } from '../shared/config/axios'
 import baseUrl from "../shared/config/url.js"
 import { useNavigate } from "react-router"
 
@@ -27,6 +28,7 @@ export default function Login() {
       
       // Simpan token dan user data sebagai JSON object
       localStorage.setItem("access_token", data.access_token)
+      scheduleTokenRefresh()
       localStorage.setItem("user", JSON.stringify(data.user)) // Simpan sebagai JSON object
       
       // Simpan company data jika ada

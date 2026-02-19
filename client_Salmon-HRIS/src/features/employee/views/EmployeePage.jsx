@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
-import baseUrl from '../../../shared/config/url.js'
+import axiosInstance from '../../../shared/config/axios'
 import { useNavigate } from 'react-router'
 import { toast } from 'react-toastify'
 import logoNavbar from '../../../assets/logo-navbar.png'
@@ -127,9 +126,7 @@ export default function EmployeePage() {
     if (!token) { navigate('/login'); return }
     const fetchInitialProfile = async () => {
       try {
-        const { data } = await axios.get(`${baseUrl}/profile`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        const { data } = await axiosInstance.get('/profile')
         setProfile(data.data || profile)
         setProfileForm({ name: data.data?.name || '' })
       } catch (error) {
@@ -154,11 +151,10 @@ export default function EmployeePage() {
   const fetchDashboardData = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
       const [todayRes, notifRes, countRes] = await Promise.all([
-        axios.get(`${baseUrl}/attendances/today-attendance`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${baseUrl}/notifications?limit=5`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${baseUrl}/notifications/unread-count`, { headers: { Authorization: `Bearer ${token}` } })
+        axiosInstance.get('/attendances/today-attendance'),
+        axiosInstance.get('/notifications?limit=5'),
+        axiosInstance.get('/notifications/unread-count')
       ])
       setTodayAttendance(todayRes.data.data)
       setNotifications(notifRes.data.data || [])
@@ -181,14 +177,11 @@ export default function EmployeePage() {
     if (!capturedPhoto || !gpsLocation) { toast.error('Foto dan lokasi GPS diperlukan!'); return }
     try {
       setLoading(true)
-      const token = localStorage.getItem('access_token')
       const formData = new FormData()
       formData.append('photo', capturedPhoto, capturedPhoto.name)
       formData.append('latitude', String(gpsLocation.latitude))
       formData.append('longitude', String(gpsLocation.longitude))
-      const { data } = await axios.post(`${baseUrl}/attendances/clock-in`, formData, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const { data } = await axiosInstance.post('/attendances/clock-in', formData)
       toast.success('Clock-in berhasil!')
       setTodayAttendance(data.data)
       setCapturedPhoto(null); setGPSLocation(null); setClockAction(null)
@@ -205,14 +198,11 @@ export default function EmployeePage() {
     if (!capturedPhoto || !gpsLocation) { toast.error('Foto dan lokasi GPS diperlukan!'); return }
     try {
       setLoading(true)
-      const token = localStorage.getItem('access_token')
       const formData = new FormData()
       formData.append('photo', capturedPhoto, capturedPhoto.name)
       formData.append('latitude', String(gpsLocation.latitude))
       formData.append('longitude', String(gpsLocation.longitude))
-      const { data } = await axios.put(`${baseUrl}/attendances/clock-out`, formData, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const { data } = await axiosInstance.put('/attendances/clock-out', formData)
       toast.success('Clock-out berhasil!')
       setTodayAttendance(data.data)
       setCapturedPhoto(null); setGPSLocation(null); setClockAction(null)
@@ -228,8 +218,7 @@ export default function EmployeePage() {
   // ==================== NOTIFICATIONS ====================
   const markNotificationAsRead = async (notifId) => {
     try {
-      const token = localStorage.getItem('access_token')
-      await axios.patch(`${baseUrl}/notifications/${notifId}/read`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      await axiosInstance.patch(`/notifications/${notifId}/read`, {})
       fetchDashboardData()
       if (activeTab === 'notifications') fetchAllNotifications()
     } catch (error) {
@@ -240,10 +229,9 @@ export default function EmployeePage() {
   const fetchAllNotifications = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
       const [notifRes, countRes] = await Promise.all([
-        axios.get(`${baseUrl}/notifications?limit=100`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${baseUrl}/notifications/unread-count`, { headers: { Authorization: `Bearer ${token}` } })
+        axiosInstance.get('/notifications?limit=100'),
+        axiosInstance.get('/notifications/unread-count')
       ])
       setAllNotifications(notifRes.data.data || [])
       setUnreadCount(countRes.data.data.unreadCount || 0)
@@ -258,8 +246,7 @@ export default function EmployeePage() {
     if (unreadCount === 0) { toast.info('Semua notifikasi sudah dibaca'); return }
     try {
       setLoading(true)
-      const token = localStorage.getItem('access_token')
-      const { data } = await axios.patch(`${baseUrl}/notifications/read-all`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      const { data } = await axiosInstance.patch('/notifications/read-all', {})
       toast.success(`${data.data.updatedCount} notifikasi ditandai sudah dibaca`)
       fetchAllNotifications(); fetchDashboardData()
     } catch (error) {
@@ -275,8 +262,7 @@ export default function EmployeePage() {
     if (!window.confirm(`Hapus ${readCount} notifikasi yang sudah dibaca?`)) return
     try {
       setLoading(true)
-      const token = localStorage.getItem('access_token')
-      const { data } = await axios.delete(`${baseUrl}/notifications/clear-read`, { headers: { Authorization: `Bearer ${token}` } })
+      const { data } = await axiosInstance.delete('/notifications/clear-read')
       toast.success(`${data.data.deletedCount} notifikasi dihapus`)
       fetchAllNotifications()
     } catch (error) {
@@ -289,8 +275,7 @@ export default function EmployeePage() {
   const deleteNotification = async (notifId) => {
     if (!window.confirm('Hapus notifikasi ini?')) return
     try {
-      const token = localStorage.getItem('access_token')
-      await axios.delete(`${baseUrl}/notifications/${notifId}`, { headers: { Authorization: `Bearer ${token}` } })
+      await axiosInstance.delete(`/notifications/${notifId}`)
       toast.success('Notifikasi dihapus')
       fetchAllNotifications()
       if (activeTab === 'dashboard') fetchDashboardData()
@@ -303,8 +288,7 @@ export default function EmployeePage() {
   const fetchAttendanceHistory = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
-      const { data } = await axios.get(`${baseUrl}/attendances/my-attendance`, { headers: { Authorization: `Bearer ${token}` } })
+      const { data } = await axiosInstance.get('/attendances/my-attendance')
       setAttendanceHistory(data.data || [])
     } catch (error) {
       handleApiError(error, 'Gagal memuat riwayat attendance')
@@ -316,11 +300,10 @@ export default function EmployeePage() {
   const fetchAttendanceStatistics = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
       let queryParams = `period=${statisticsPeriod}`
       if (statisticsPeriod === 'monthly') queryParams += `&month=${statisticsMonth}&year=${statisticsYear}`
       else if (statisticsPeriod === 'weekly') queryParams += `&year=${statisticsYear}`
-      const { data } = await axios.get(`${baseUrl}/attendances/my-statistics?${queryParams}`, { headers: { Authorization: `Bearer ${token}` } })
+      const { data } = await axiosInstance.get(`/attendances/my-statistics?${queryParams}`)
       setAttendanceStatistics(data.data || null)
     } catch (error) {
       handleApiError(error, 'Gagal memuat statistik attendance')
@@ -335,10 +318,9 @@ export default function EmployeePage() {
   const fetchLeaveData = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
       const [requestsRes, balanceRes] = await Promise.all([
-        axios.get(`${baseUrl}/leave-requests/my-requests`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${baseUrl}/leave-requests/my-balance`, { headers: { Authorization: `Bearer ${token}` } })
+        axiosInstance.get('/leave-requests/my-requests'),
+        axiosInstance.get('/leave-requests/my-balance')
       ])
       setLeaveRequests(requestsRes.data.data || [])
       setLeaveBalance(balanceRes.data.data)
@@ -359,14 +341,13 @@ export default function EmployeePage() {
     if (leaveForm.attachment && leaveForm.attachment.size > 5 * 1024 * 1024) { toast.error('Ukuran file maksimal 5MB'); return }
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
       const formData = new FormData()
       formData.append('leaveType', leaveForm.leaveType)
       formData.append('startDate', leaveForm.startDate)
       formData.append('endDate', leaveForm.endDate)
       formData.append('reason', leaveForm.reason.trim())
       if (leaveForm.attachment) formData.append('attachment', leaveForm.attachment)
-      await axios.post(`${baseUrl}/leave-requests`, formData, { headers: { Authorization: `Bearer ${token}` } })
+      await axiosInstance.post('/leave-requests', formData)
       toast.success(leaveForm.attachment ? 'Pengajuan cuti dengan lampiran berhasil dikirim!' : 'Pengajuan cuti berhasil dikirim!')
       setShowLeaveForm(false)
       setLeaveForm({ leaveType: 'ANNUAL_LEAVE', startDate: '', endDate: '', reason: '', attachment: null })
@@ -400,8 +381,7 @@ export default function EmployeePage() {
   const handleCancelLeave = async (leaveId) => {
     if (!window.confirm('Yakin ingin membatalkan pengajuan ini?')) return
     try {
-      const token = localStorage.getItem('access_token')
-      await axios.delete(`${baseUrl}/leave-requests/${leaveId}`, { headers: { Authorization: `Bearer ${token}` } })
+      await axiosInstance.delete(`/leave-requests/${leaveId}`)
       toast.success('Pengajuan berhasil dibatalkan')
       fetchLeaveData()
     } catch (error) {
@@ -413,8 +393,7 @@ export default function EmployeePage() {
   const fetchOvertimeData = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
-      const { data } = await axios.get(`${baseUrl}/overtimes/my-requests`, { headers: { Authorization: `Bearer ${token}` } })
+      const { data } = await axiosInstance.get('/overtimes/my-requests')
       setOvertimeRequests(data.data || [])
     } catch (error) {
       handleApiError(error, 'Gagal memuat data overtime')
@@ -426,8 +405,7 @@ export default function EmployeePage() {
   const fetchOvertimeHistory = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
-      const { data } = await axios.get(`${baseUrl}/overtimes/my-history`, { headers: { Authorization: `Bearer ${token}` } })
+      const { data } = await axiosInstance.get('/overtimes/my-history')
       setOvertimeHistory(data.data || [])
     } catch (error) {
       handleApiError(error, 'Gagal memuat riwayat overtime')
@@ -445,12 +423,11 @@ export default function EmployeePage() {
     if (!overtimeForm.reason?.trim() || overtimeForm.reason.trim().length < 10) { toast.error('Alasan overtime harus minimal 10 karakter!'); return }
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
-      await axios.post(`${baseUrl}/overtimes/request`, {
+      await axiosInstance.post('/overtimes/request', {
         overtimeDate: overtimeForm.overtimeDate,
         requestedHours: parseFloat(overtimeForm.requestedHours),
         reason: overtimeForm.reason.trim()
-      }, { headers: { Authorization: `Bearer ${token}` } })
+      })
       toast.success('Pengajuan overtime berhasil dikirim!')
       setShowOvertimeForm(false)
       setOvertimeForm({ overtimeDate: '', requestedHours: '', reason: '' })
@@ -465,8 +442,7 @@ export default function EmployeePage() {
   const handleCancelOvertime = async (overtimeId) => {
     if (!window.confirm('Yakin ingin membatalkan pengajuan overtime ini?')) return
     try {
-      const token = localStorage.getItem('access_token')
-      await axios.delete(`${baseUrl}/overtimes/${overtimeId}`, { headers: { Authorization: `Bearer ${token}` } })
+      await axiosInstance.delete(`/overtimes/${overtimeId}`)
       toast.success('Pengajuan overtime berhasil dibatalkan')
       fetchOvertimeData()
     } catch (error) {
@@ -478,10 +454,9 @@ export default function EmployeePage() {
   const fetchPayslipsData = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
       const [payslipsRes, summaryRes] = await Promise.all([
-        axios.get(`${baseUrl}/payroll/my-payslips`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${baseUrl}/payroll/my-payslips/summary`, { headers: { Authorization: `Bearer ${token}` } })
+        axiosInstance.get('/payroll/my-payslips'),
+        axiosInstance.get('/payroll/my-payslips/summary')
       ])
       setPayslips(payslipsRes.data.data || [])
       setPayslipSummary(summaryRes.data.data || null)
@@ -494,8 +469,7 @@ export default function EmployeePage() {
 
   const viewPayslipDetail = async (payrollId) => {
     try {
-      const token = localStorage.getItem('access_token')
-      const { data } = await axios.get(`${baseUrl}/payroll/my-payslips/${payrollId}`, { headers: { Authorization: `Bearer ${token}` } })
+      const { data } = await axiosInstance.get(`/payroll/my-payslips/${payrollId}`)
       setSelectedPayslip(data.data)
       setShowPayslipDetail(true)
     } catch (error) {
@@ -505,9 +479,7 @@ export default function EmployeePage() {
 
   const handleDownloadPayslip = async (payrollId, periodName) => {
     try {
-      const token = localStorage.getItem('access_token')
-      const response = await axios.get(`${baseUrl}/payroll/my-payslips/${payrollId}/download`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await axiosInstance.get(`/payroll/my-payslips/${payrollId}/download`, {
         responseType: 'blob'
       })
       const url = window.URL.createObjectURL(new Blob([response.data]))
@@ -527,8 +499,7 @@ export default function EmployeePage() {
   const fetchProfile = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
-      const { data } = await axios.get(`${baseUrl}/profile`, { headers: { Authorization: `Bearer ${token}` } })
+      const { data } = await axiosInstance.get('/profile')
       setProfile(data.data || profile)
       setProfileForm({ name: data.data?.name || '' })
     } catch (error) {
@@ -543,8 +514,7 @@ export default function EmployeePage() {
     if (!profileForm.name?.trim()) { toast.error('Nama tidak boleh kosong'); return }
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
-      const { data } = await axios.put(`${baseUrl}/profile`, { name: profileForm.name }, { headers: { Authorization: `Bearer ${token}` } })
+      const { data } = await axiosInstance.put('/profile', { name: profileForm.name })
       toast.success('Profile berhasil diperbarui!')
       setProfile({ ...profile, name: data.data.name })
       setShowEditProfileForm(false)
@@ -563,11 +533,10 @@ export default function EmployeePage() {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) { toast.error('Password baru tidak cocok!'); return }
     setLoading(true)
     try {
-      const token = localStorage.getItem('access_token')
-      await axios.put(`${baseUrl}/profile/change-password`, {
+      await axiosInstance.put('/profile/change-password', {
         oldPassword: passwordForm.oldPassword,
         newPassword: passwordForm.newPassword
-      }, { headers: { Authorization: `Bearer ${token}` } })
+      })
       toast.success('Password berhasil diubah!')
       setShowPasswordForm(false)
       setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' })
@@ -580,7 +549,8 @@ export default function EmployeePage() {
 
   const handleLogout = () => {
     localStorage.removeItem('access_token')
-    localStorage.removeItem('user_email')
+    localStorage.removeItem('user')
+    localStorage.removeItem('company')
     toast.success('Logout berhasil')
     navigate('/login')
   }

@@ -50,6 +50,21 @@ module.exports = (sequelize, DataTypes) => {
         }
       }
     },
+    allowLateClockIn: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true
+    },
+    requirePhoto: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true
+    },
+    requireGPS: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true
+    },
     companyId: {
       type: DataTypes.INTEGER,
       allowNull: true,

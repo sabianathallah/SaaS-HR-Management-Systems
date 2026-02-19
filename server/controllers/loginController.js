@@ -1,6 +1,6 @@
 const { User, Company } = require('../models')
 const { compare } = require('../helpers/bcrypt')
-const { signToken } = require('../helpers/jwt')
+const { signToken, verifyToken } = require('../helpers/jwt')
 const AuditLogger = require('../helpers/auditLogger')
 
 class LoginController {
@@ -59,7 +59,7 @@ class LoginController {
 
             const access_token = signToken(payload)
 
-            // 📌 Log login activity
+            // Log login activity
             await AuditLogger.logLogin({
                 userId: user.id,
                 req,
@@ -84,6 +84,33 @@ class LoginController {
             })
         } catch (error) {
             next(error)
+        }
+    }
+
+    static async refreshToken(req, res) {
+        try {
+            const authHeader = req.headers.authorization
+            if (!authHeader || !authHeader.startsWith('Bearer ')) {
+                return res.status(401).json({ success: false, message: 'No token provided' })
+            }
+            const token = authHeader.split(' ')[1]
+            const decoded = verifyToken(token)
+            const user = await User.findOne({
+                where: { id: decoded.id, isActive: true },
+                attributes: ['id', 'email', 'role', 'companyId']
+            })
+            if (!user) {
+                return res.status(401).json({ success: false, message: 'User not found or inactive' })
+            }
+            const newToken = signToken({
+                id: user.id,
+                email: user.email,
+                role: user.role,
+                companyId: user.companyId
+            })
+            return res.status(200).json({ success: true, access_token: newToken })
+        } catch (err) {
+            return res.status(401).json({ success: false, message: 'Token expired or invalid. Please login again.' })
         }
     }
 }

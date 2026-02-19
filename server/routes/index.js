@@ -33,6 +33,7 @@ const rateLimit = require('express-rate-limit')
 const LoginController = require('../controllers/loginController')
 const RegisterController = require('../controllers/registerController')
 const AuditLogger = require('../helpers/auditLogger')
+const WorkScheduleAdminController = require('../controllers/workScheduleAdminController')
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -43,6 +44,7 @@ const loginLimiter = rateLimit({
 })
 
 router.post('/login', loginLimiter, LoginController.login)
+router.post('/auth/refresh-token', LoginController.refreshToken)
 router.post('/register', authentication, isAdmin, RegisterController.register)
 
 // Webhooks (no authentication - called by external services)
@@ -91,6 +93,9 @@ router.use('/hybrid-schedules', hybridScheduleRouter)
 router.use('/payroll_isAdmin', isAdmin, payroll_isAdminRouter)
 router.use('/payrollSettings_isAdmin', isAdmin, payrollSettings_isAdminRouter)
 router.use('/payroll', payrollRouter)
+
+router.get('/admin/attendance-settings', isAdmin, WorkScheduleAdminController.getAttendanceSettings)
+router.put('/admin/attendance-settings', isAdmin, WorkScheduleAdminController.updateAttendanceSettings)
 
 
 router.use(errorHandler)

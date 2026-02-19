@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { User, Lock, Building2, Clock, Save, Eye, EyeOff, Shield, ToggleLeft } from 'lucide-react'
 import { toast } from 'react-toastify'
 import axios from '../../../shared/config/axios'
@@ -59,6 +59,21 @@ export default function SettingsPage() {
   const [savingCompany, setSavingCompany] = useState(false)
 
   const inputClass = 'w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none bg-gray-50 focus:bg-white transition-colors'
+
+  useEffect(() => {
+    const fetchAttendanceSettings = async () => {
+      try {
+        const { data } = await axios.get('/admin/attendance-settings')
+        if (data.success && data.data) {
+          setAttendanceForm(data.data)
+          localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(data.data))
+        }
+      } catch (err) {
+        // fallback to localStorage already handled by useState initialization
+      }
+    }
+    fetchAttendanceSettings()
+  }, [])
 
   async function handleSaveProfile(e) {
     e.preventDefault()
@@ -121,10 +136,15 @@ export default function SettingsPage() {
     }
   }
 
-  function handleSaveAttendance(e) {
+  async function handleSaveAttendance(e) {
     e.preventDefault()
-    localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(attendanceForm))
-    toast.success('Attendance settings saved!')
+    try {
+      await axios.put('/admin/attendance-settings', attendanceForm)
+      localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(attendanceForm))
+      toast.success('Attendance settings saved!')
+    } catch (err) {
+      toast.error('Failed to save attendance settings')
+    }
   }
 
   return (
