@@ -15,6 +15,16 @@ const EmployeeManagement = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+
+  // Fix 5: view employee state
+  const [viewEmployee, setViewEmployee] = useState(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+
+  // Fix 4: pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [limit] = useState(20);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -25,6 +35,7 @@ const EmployeeManagement = () => {
     position: '',
     department: '',
     joinDate: '',
+    leaveDate: '',
     isActive: true,
   });
 
@@ -32,17 +43,45 @@ const EmployeeManagement = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
-    fetchEmployees();
-  }, []);
+    fetchEmployees(currentPage);
+  }, [currentPage]);
 
   useEffect(() => {
     filterEmployees();
   }, [employees, searchTerm, statusFilter]);
 
-  const fetchEmployees = async () => {
+  // Fix 4 & 6: handle paginated response and both old/new response formats
+  const fetchEmployees = async (page = 1) => {
     try {
-      const response = await axiosInstance.get('/users/admin');
-      setEmployees(response.data.data || []);
+      const response = await axiosInstance.get('/users/admin', {
+        params: { page, limit },
+      });
+
+      const responseData = response.data;
+
+      // Handle new paginated format: { success: true, data: { users: [...], pagination: {...} } }
+      if (
+        responseData &&
+        responseData.data &&
+        responseData.data.users &&
+        Array.isArray(responseData.data.users)
+      ) {
+        setEmployees(responseData.data.users);
+        if (responseData.data.pagination) {
+          setTotalPages(responseData.data.pagination.totalPages || 1);
+        }
+      }
+      // Handle old flat array format: { data: [...] }
+      else if (responseData && Array.isArray(responseData.data)) {
+        setEmployees(responseData.data);
+        setTotalPages(1);
+      }
+      // Fallback
+      else {
+        setEmployees([]);
+        setTotalPages(1);
+      }
+
       setLoading(false);
     } catch (error) {
       console.error('Error fetching employees:', error);
@@ -100,12 +139,12 @@ const EmployeeManagement = () => {
 
     try {
       // Don't send confirmPassword to API
-      const { confirmPassword, ...dataToSend } = formData;
+      const { confirmPassword, leaveDate, ...dataToSend } = formData;
       await axiosInstance.post('/register', dataToSend);
       toast.success('Employee added successfully!');
       setShowAddModal(false);
       resetForm();
-      fetchEmployees();
+      fetchEmployees(currentPage);
     } catch (error) {
       console.error('Error adding employee:', error);
       const errorMessage = error.response?.data?.message || 'Failed to add employee';
@@ -121,6 +160,7 @@ const EmployeeManagement = () => {
     }
   };
 
+  // Fix 3: only include password in PUT request if admin typed a new one
   const handleEditEmployee = async (e) => {
     e.preventDefault();
 
@@ -131,10 +171,16 @@ const EmployeeManagement = () => {
       return;
     }
 
-    // Validate password confirmation if password is being changed
-    if (formData.password && formData.password !== formData.confirmPassword) {
-      toast.error('Password dan konfirmasi password tidak cocok!');
-      return;
+    // Fix 3: validate password only if a new password was typed
+    if (formData.password) {
+      if (formData.password.length < 6) {
+        toast.error('Password harus minimal 6 karakter!');
+        return;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        toast.error('Password dan konfirmasi password tidak cocok!');
+        return;
+      }
     }
 
     // Check if email already exists in other employees (exclude current employee)
@@ -149,13 +195,26 @@ const EmployeeManagement = () => {
     }
 
     try {
-      // Don't send confirmPassword to API
-      const { confirmPassword, ...dataToSend } = formData;
+      // Build request body — exclude confirmPassword always
+      // Fix 3: only include password if it was provided
+      const { confirmPassword, password, leaveDate, ...baseData } = formData;
+
+      const dataToSend = { ...baseData };
+
+      if (password && password.trim() !== '') {
+        dataToSend.password = password;
+      }
+
+      // Fix 2: include leaveDate if provided
+      if (leaveDate && leaveDate.trim() !== '') {
+        dataToSend.leaveDate = leaveDate;
+      }
+
       await axiosInstance.put(`/users/admin/${selectedEmployee.id}`, dataToSend);
       toast.success('Employee updated successfully!');
       setShowEditModal(false);
       resetForm();
-      fetchEmployees();
+      fetchEmployees(currentPage);
     } catch (error) {
       console.error('Error updating employee:', error);
       const errorMessage = error.response?.data?.message || 'Failed to update employee';
@@ -181,7 +240,7 @@ const EmployeeManagement = () => {
         isActive: !currentStatus,
       });
       toast.success('Employee status updated successfully!');
-      fetchEmployees();
+      fetchEmployees(currentPage);
     } catch (error) {
       console.error('Error toggling employee status:', error);
       toast.error(error.response?.data?.message || 'Failed to update employee status');
@@ -200,9 +259,16 @@ const EmployeeManagement = () => {
       position: employee.position || '',
       department: employee.department || '',
       joinDate: employee.joinDate?.split('T')[0] || '',
+      leaveDate: employee.leaveDate?.split('T')[0] || '',
       isActive: employee.isActive,
     });
     setShowEditModal(true);
+  };
+
+  // Fix 5: view employee handler
+  const handleViewEmployee = (employee) => {
+    setViewEmployee(employee);
+    setShowViewModal(true);
   };
 
   const resetForm = () => {
@@ -216,6 +282,7 @@ const EmployeeManagement = () => {
       position: '',
       department: '',
       joinDate: '',
+      leaveDate: '',
       isActive: true,
     });
     setSelectedEmployee(null);
@@ -242,6 +309,12 @@ const EmployeeManagement = () => {
     a.href = url;
     a.download = `employees_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+  };
+
+  // Fix 4: page change handler
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    setCurrentPage(newPage);
   };
 
   if (loading) {
@@ -352,7 +425,13 @@ const EmployeeManagement = () => {
                           {employee.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{employee.name}</div>
+                          {/* Fix 5: clickable name to open view modal */}
+                          <div
+                            className="text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600 hover:underline"
+                            onClick={() => handleViewEmployee(employee)}
+                          >
+                            {employee.name}
+                          </div>
                           <div className="text-sm text-gray-500">{employee.email}</div>
                         </div>
                       </div>
@@ -387,6 +466,14 @@ const EmployeeManagement = () => {
                         : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      {/* Fix 5: View button */}
+                      <button
+                        onClick={() => handleViewEmployee(employee)}
+                        className="inline-flex items-center gap-1 text-gray-500 hover:text-gray-800"
+                        title="Lihat Detail"
+                      >
+                        <Eye size={14} /> View
+                      </button>
                       <button
                         onClick={() => openEditModal(employee)}
                         className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-900"
@@ -410,6 +497,29 @@ const EmployeeManagement = () => {
           </div>
         )}
       </div>
+
+      {/* Fix 4: Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-gray-600">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Next
+          </button>
+        </div>
+      )}
 
       {/* Add Employee Modal */}
       <Modal
@@ -438,7 +548,7 @@ const EmployeeManagement = () => {
             />
           </div>
 
-          {/* Row 2: Password & Phone */}
+          {/* Row 2: Password & Confirm Password */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -513,6 +623,7 @@ const EmployeeManagement = () => {
           </div>
 
           {/* Row 5: Role & Join Date */}
+          {/* Fix 1: removed duplicate EMPLOYEE option */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormSelect
               label="Role"
@@ -521,7 +632,6 @@ const EmployeeManagement = () => {
               options={[
                 { value: 'EMPLOYEE', label: 'Employee' },
                 { value: 'ADMIN', label: 'Admin' },
-                { value: 'EMPLOYEE', label: 'Employee' },
               ]}
             />
 
@@ -532,6 +642,7 @@ const EmployeeManagement = () => {
               onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
             />
           </div>
+
           {/* Buttons */}
           <div className="flex space-x-4 pt-4 border-t border-gray-200">
             <button
@@ -578,11 +689,11 @@ const EmployeeManagement = () => {
             />
           </div>
 
-          {/* Row 2: Password & Confirm Password */}
+          {/* Row 2: Password & Confirm Password (Fix 3: optional, only sent if filled) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                New Password (leave empty to keep current)
+                New Password <span className="text-gray-400 font-normal">(kosongkan jika tidak ingin mengubah)</span>
               </label>
               <div className="relative">
                 <input
@@ -603,7 +714,7 @@ const EmployeeManagement = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm New Password
+                Konfirmasi Password Baru
               </label>
               <div className="relative">
                 <input
@@ -669,6 +780,27 @@ const EmployeeManagement = () => {
               onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
             />
           </div>
+
+          {/* Fix 2: Leave Date field */}
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tanggal Keluar <span className="text-gray-400 font-normal">(opsional)</span>
+              </label>
+              <input
+                type="date"
+                value={formData.leaveDate}
+                onChange={(e) => setFormData({ ...formData, leaveDate: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              {formData.leaveDate && (
+                <p className="mt-1 text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                  Mengisi tanggal keluar akan menonaktifkan karyawan secara otomatis.
+                </p>
+              )}
+            </div>
+          </div>
+
           {/* Buttons */}
           <div className="flex space-x-4 pt-4 border-t border-gray-200">
             <button
@@ -687,6 +819,169 @@ const EmployeeManagement = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Fix 5: Employee Detail View Modal (read-only) */}
+      {viewEmployee && (
+        <Modal
+          isOpen={showViewModal}
+          onClose={() => { setShowViewModal(false); setViewEmployee(null); }}
+          title="Detail Karyawan"
+          size="xl"
+        >
+          <div className="space-y-6">
+            {/* Header: avatar + name + status badge */}
+            <div className="flex items-center gap-4 pb-4 border-b border-gray-200">
+              <div className="flex-shrink-0 h-16 w-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                {viewEmployee.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">{viewEmployee.name}</h3>
+                <p className="text-sm text-gray-500">{viewEmployee.email}</p>
+                <span className={`mt-1 inline-block px-2 py-0.5 text-xs font-semibold rounded-full
+                  ${viewEmployee.isActive
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
+                  }`}>
+                  {viewEmployee.isActive ? 'Aktif' : 'Tidak Aktif'}
+                </span>
+              </div>
+            </div>
+
+            {/* Info Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+              {/* Personal Info */}
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Nomor Telepon</p>
+                <p className="text-sm text-gray-800">{viewEmployee.phoneNumber || '-'}</p>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Role</p>
+                <span className={`px-2 py-0.5 text-xs font-semibold rounded-full
+                  ${viewEmployee.role === 'ADMIN'
+                    ? 'bg-purple-100 text-purple-800'
+                    : 'bg-blue-100 text-blue-800'
+                  }`}>
+                  {viewEmployee.role}
+                </span>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Jabatan</p>
+                <p className="text-sm text-gray-800">{viewEmployee.position || '-'}</p>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Departemen</p>
+                <p className="text-sm text-gray-800">{viewEmployee.department || '-'}</p>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Tanggal Bergabung</p>
+                <p className="text-sm text-gray-800">
+                  {viewEmployee.joinDate
+                    ? new Date(viewEmployee.joinDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+                    : '-'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Tanggal Keluar</p>
+                <p className="text-sm text-gray-800">
+                  {viewEmployee.leaveDate
+                    ? new Date(viewEmployee.leaveDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+                    : '-'}
+                </p>
+              </div>
+
+              {/* Leave Quota */}
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Kuota Cuti Tahunan</p>
+                <p className="text-sm text-gray-800">
+                  {viewEmployee.annualLeaveQuota != null ? `${viewEmployee.annualLeaveQuota} hari` : '-'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Cuti Terpakai</p>
+                <p className="text-sm text-gray-800">
+                  {viewEmployee.usedLeaveQuota != null ? `${viewEmployee.usedLeaveQuota} hari` : '-'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Sisa Cuti</p>
+                <p className="text-sm text-gray-800">
+                  {viewEmployee.annualLeaveQuota != null && viewEmployee.usedLeaveQuota != null
+                    ? `${viewEmployee.annualLeaveQuota - viewEmployee.usedLeaveQuota} hari`
+                    : '-'}
+                </p>
+              </div>
+
+              {/* Salary */}
+              {viewEmployee.baseSalary != null && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Gaji Pokok</p>
+                  <p className="text-sm text-gray-800">
+                    {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(viewEmployee.baseSalary)}
+                  </p>
+                </div>
+              )}
+
+              {/* Shift */}
+              {viewEmployee.shiftName && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Shift</p>
+                  <p className="text-sm text-gray-800">{viewEmployee.shiftName}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Bank Info */}
+            {(viewEmployee.bankName || viewEmployee.bankAccountNumber || viewEmployee.bankAccountHolder) && (
+              <div className="pt-4 border-t border-gray-200">
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-3">Informasi Bank</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Nama Bank</p>
+                    <p className="text-sm text-gray-800">{viewEmployee.bankName || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Nomor Rekening</p>
+                    <p className="text-sm text-gray-800">{viewEmployee.bankAccountNumber || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Atas Nama</p>
+                    <p className="text-sm text-gray-800">{viewEmployee.bankAccountHolder || '-'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex space-x-4 pt-4 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowViewModal(false);
+                  setViewEmployee(null);
+                  openEditModal(viewEmployee);
+                }}
+                className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2"
+              >
+                <Pencil size={16} /> Edit Karyawan
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowViewModal(false); setViewEmployee(null); }}
+                className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

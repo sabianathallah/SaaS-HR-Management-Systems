@@ -11,6 +11,9 @@ router.get('/:id', UserAdminController.getUserDetail);
 // Edit user data
 router.put('/:id', UserAdminController.editUser);
 
+// Reset user password
+router.put('/:id/reset-password', UserAdminController.resetPassword);
+
 // Toggle user active/inactive status
 router.patch('/:id/status', UserAdminController.toggleUserStatus);
 

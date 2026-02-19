@@ -1,5 +1,6 @@
 const { User } = require('../models')
 const AuditLogger = require('../helpers/auditLogger')
+const response = require('../helpers/responseHelper')
 
 class RegisterController {
     static async register(req, res, next) {
@@ -44,26 +45,24 @@ class RegisterController {
 
             // Log to audit (if req.user exists, meaning admin is creating user)
             if (req.user) {
-                await AuditLogger.logCreate(
-                    req.user.id,
-                    'Users',
-                    user.id,
-                    {
+                await AuditLogger.logCreate({
+                    userId: req.user.id,
+                    tableName: 'Users',
+                    recordId: user.id,
+                    newData: {
                         email: user.email,
                         name: user.name,
                         role: user.role,
                         position: user.position,
                         department: user.department
                     },
-                    req.ip,
-                    req.get('user-agent'),
-                    `User registered: ${user.name} (${user.email})`
-                )
+                    req,
+                    description: `User registered: ${user.name} (${user.email})`
+                })
             }
 
-            res.status(201).json({
-                message: "Employee created successfully",
-                data: {
+            return response.created(res, 'Employee created successfully', {
+                user: {
                     id: user.id,
                     email: user.email,
                     name: user.name,

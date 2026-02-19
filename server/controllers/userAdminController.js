@@ -1,6 +1,7 @@
-const { User } = require('../models');
+const { User, Attendance } = require('../models');
 const AuditLogger = require('../helpers/auditLogger');
 const response = require('../helpers/responseHelper');
+const { hashPassword } = require('../helpers/bcrypt');
 
 class UserAdminController {
     /**
@@ -10,11 +11,16 @@ class UserAdminController {
     static async editUser(req, res, next) {
         try {
             const { id } = req.params;
-            const { name, email, role, annualLeaveQuota, joinDate, leaveDate, isActive } = req.body;
+            const { name, email, role, annualLeaveQuota, joinDate, leaveDate, isActive, password } = req.body;
 
             const user = await User.findByPk(id);
             if (!user) {
                 throw { name: "NotFound", message: "User not found" };
+            }
+
+            // Multi-tenant isolation: company admins can only edit users in their own company
+            if (req.user.role !== 'SUPER_ADMIN' && user.companyId !== req.user.companyId) {
+                throw { name: "Forbidden", message: "Access denied: user does not belong to your company" };
             }
 
             // Validate dates if both are provided or one is being updated
@@ -23,6 +29,13 @@ class UserAdminController {
 
             if (newJoinDate && newLeaveDate && newLeaveDate <= newJoinDate) {
                 throw { name: "BadRequest", message: "Leave date must be after join date" };
+            }
+
+            // Validate and hash password if provided
+            if (password !== undefined) {
+                if (password.length < 6) {
+                    throw { name: "BadRequest", message: "Password must be at least 6 characters" };
+                }
             }
 
             // Prepare update data
@@ -34,6 +47,7 @@ class UserAdminController {
             if (joinDate !== undefined) updateData.joinDate = joinDate ? new Date(joinDate) : null;
             if (leaveDate !== undefined) updateData.leaveDate = leaveDate ? new Date(leaveDate) : null;
             if (isActive !== undefined) updateData.isActive = isActive;
+            if (password !== undefined) updateData.password = hashPassword(password);
 
             const oldData = user.toJSON();
             await user.update(updateData);
@@ -98,7 +112,24 @@ class UserAdminController {
                 throw { name: "NotFound", message: "User not found" };
             }
 
+            // Multi-tenant isolation: company admins can only toggle users in their own company
+            if (req.user.role !== 'SUPER_ADMIN' && user.companyId !== req.user.companyId) {
+                throw { name: "Forbidden", message: "Access denied: user does not belong to your company" };
+            }
+
+            const oldData = user.toJSON();
             await user.update({ isActive });
+
+            // ===== AUDIT LOG =====
+            await AuditLogger.logUpdate({
+                userId: req.user.id,
+                tableName: 'Users',
+                recordId: user.id,
+                oldData,
+                newData: user.toJSON(),
+                req,
+                description: `${isActive ? 'Activated' : 'Deactivated'} user "${user.name}"`
+            });
 
             return response.ok(res, `User ${isActive ? 'activated' : 'deactivated'} successfully`, {
                 id: user.id,
@@ -164,32 +195,58 @@ class UserAdminController {
      */
     static async getAllUsers(req, res, next) {
         try {
-            const users = await User.findAll({
+            // Pagination
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 20;
+            const offset = (page - 1) * limit;
+
+            // Multi-tenant isolation: only filter by companyId for non-SUPER_ADMIN callers
+            const whereClause = {};
+            if (req.user.role !== 'SUPER_ADMIN') {
+                whereClause.companyId = req.user.companyId;
+            }
+
+            const { count, rows: users } = await User.findAndCountAll({
+                where: whereClause,
                 attributes: {
                     exclude: ['password']
                 },
-                order: [['createdAt', 'DESC']]
+                order: [['createdAt', 'DESC']],
+                limit,
+                offset
             });
 
-            return response.ok(res, 'Success fetch all users', users.map(user => ({
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                companyId: user.companyId, // ADDED: for filtering by company
-                phoneNumber: user.phoneNumber,
-                position: user.position,
-                department: user.department,
-                ShiftId: user.ShiftId,
-                isActive: user.isActive,
-                joinDate: user.joinDate,
-                leaveDate: user.leaveDate,
-                annualLeaveQuota: user.annualLeaveQuota,
-                usedLeaveQuota: user.usedLeaveQuota,
-                remainingLeaveQuota: user.remainingLeaveQuota,
-                createdAt: user.createdAt,
-                updatedAt: user.updatedAt
-            })));
+            const totalPages = Math.ceil(count / limit);
+
+            return response.ok(
+                res,
+                'Success fetch all users',
+                users.map(user => ({
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    companyId: user.companyId,
+                    phoneNumber: user.phoneNumber,
+                    position: user.position,
+                    department: user.department,
+                    ShiftId: user.ShiftId,
+                    isActive: user.isActive,
+                    joinDate: user.joinDate,
+                    leaveDate: user.leaveDate,
+                    annualLeaveQuota: user.annualLeaveQuota,
+                    usedLeaveQuota: user.usedLeaveQuota,
+                    remainingLeaveQuota: user.remainingLeaveQuota,
+                    createdAt: user.createdAt,
+                    updatedAt: user.updatedAt
+                })),
+                {
+                    total: count,
+                    page,
+                    limit,
+                    totalPages
+                }
+            );
         } catch (error) {
             next(error);
         }
@@ -213,12 +270,17 @@ class UserAdminController {
                 throw { name: "NotFound", message: "User not found" };
             }
 
+            // Multi-tenant isolation: company admins can only view users in their own company
+            if (req.user.role !== 'SUPER_ADMIN' && user.companyId !== req.user.companyId) {
+                throw { name: "Forbidden", message: "Access denied: user does not belong to your company" };
+            }
+
             return response.ok(res, 'Success fetch user detail', {
                 id: user.id,
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                companyId: user.companyId, // ADDED: for filtering by company
+                companyId: user.companyId,
                 phoneNumber: user.phoneNumber,
                 position: user.position,
                 department: user.department,
@@ -237,10 +299,66 @@ class UserAdminController {
         }
     }
 
+    /**
+     * Admin can reset an employee's password
+     * PUT /users/admin/:id/reset-password
+     */
+    static async resetPassword(req, res, next) {
+        try {
+            const { id } = req.params;
+            const { newPassword } = req.body;
+
+            if (!newPassword) {
+                throw { name: "BadRequest", message: "newPassword is required" };
+            }
+
+            if (newPassword.length < 6) {
+                throw { name: "BadRequest", message: "Password must be at least 6 characters" };
+            }
+
+            const user = await User.findByPk(id);
+            if (!user) {
+                throw { name: "NotFound", message: "User not found" };
+            }
+
+            // Multi-tenant isolation: company admins can only reset passwords for users in their own company
+            if (req.user.role !== 'SUPER_ADMIN' && user.companyId !== req.user.companyId) {
+                throw { name: "Forbidden", message: "Access denied: user does not belong to your company" };
+            }
+
+            const hashedPassword = hashPassword(newPassword);
+            await user.update({ password: hashedPassword });
+
+            // ===== AUDIT LOG =====
+            await AuditLogger.log({
+                userId: req.user.id,
+                action: 'UPDATE',
+                tableName: 'Users',
+                recordId: user.id,
+                ipAddress: AuditLogger.getIpAddress(req),
+                userAgent: AuditLogger.getUserAgent(req),
+                description: `Admin reset password for user ${user.name} (${user.email})`
+            });
+
+            return response.ok(res, 'Password reset successfully', {
+                id: user.id,
+                name: user.name,
+                email: user.email
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
     // ENDPOINT: Sync leave quota with actual attendance count
     static async syncLeaveQuota(req, res, next) {
         try {
             const { userId } = req.params;
+
+            // Multi-tenant isolation: build company filter for non-SUPER_ADMIN callers
+            const companyFilter = (req.user.role !== 'SUPER_ADMIN' && req.user.companyId)
+                ? { companyId: req.user.companyId }
+                : {};
 
             if (userId) {
                 // Sync specific user
@@ -271,8 +389,8 @@ class UserAdminController {
                     remainingQuota: user.annualLeaveQuota - actualLeaveCount
                 });
             } else {
-                // Sync ALL users
-                const users = await User.findAll();
+                // Sync ALL users (filtered by company for non-SUPER_ADMIN)
+                const users = await User.findAll({ where: companyFilter });
                 const results = [];
 
                 for (const user of users) {
