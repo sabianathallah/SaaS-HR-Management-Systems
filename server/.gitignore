@@ -5,6 +5,9 @@ node_modules
 .env.local
 .env.*.local
 
+# Database config with credentials (use config.js instead)
+config/config.json
+
 # Logs
 logs
 *.log

@@ -29,36 +29,44 @@ const authentication = require('../middlewares/authentication')
 const tenantIdentification = require('../middlewares/tenantIdentification')
 const errorHandler = require('../middlewares/errorHandler')
 
+const rateLimit = require('express-rate-limit')
 const LoginController = require('../controllers/loginController')
 const RegisterController = require('../controllers/registerController')
 const AuditLogger = require('../helpers/auditLogger')
 
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,                   // max 10 attempts per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many login attempts, please try again after 15 minutes' }
+})
 
-router.post('/login', LoginController.login)
+router.post('/login', loginLimiter, LoginController.login)
 router.post('/register', authentication, isAdmin, RegisterController.register)
 
 // Webhooks (no authentication - called by external services)
 router.use('/webhook', webhookRouter)
 
-// 🧪 Test endpoint untuk verify IP detection (dapat dihapus di production)
-router.get('/test-ip', (req, res) => {
-  res.status(200).json({
-    message: 'IP Detection Test',
-    sources: {
-      'req.ip': req.ip,
-      'x-forwarded-for': req.headers['x-forwarded-for'],
-      'x-real-ip': req.headers['x-real-ip'],
-      'connection.remoteAddress': req.connection?.remoteAddress,
-      'socket.remoteAddress': req.socket?.remoteAddress,
-      'all-headers': req.headers
-    },
-    detected: {
-      ipAddress: AuditLogger.getIpAddress(req),
-      userAgent: AuditLogger.getUserAgent(req)
-    },
-    note: 'This endpoint can be removed in production'
-  });
-})
+// Test endpoint for IP detection — development only
+if (process.env.NODE_ENV !== 'production') {
+  router.get('/test-ip', (req, res) => {
+    res.status(200).json({
+      message: 'IP Detection Test',
+      sources: {
+        'req.ip': req.ip,
+        'x-forwarded-for': req.headers['x-forwarded-for'],
+        'x-real-ip': req.headers['x-real-ip'],
+        'connection.remoteAddress': req.connection?.remoteAddress,
+        'socket.remoteAddress': req.socket?.remoteAddress,
+      },
+      detected: {
+        ipAddress: AuditLogger.getIpAddress(req),
+        userAgent: AuditLogger.getUserAgent(req)
+      }
+    });
+  })
+}
 
 router.use(authentication)
 router.use(tenantIdentification)
