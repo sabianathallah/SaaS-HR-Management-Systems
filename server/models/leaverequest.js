@@ -26,25 +26,28 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // LeaveRequest belongs to User (requester)
-      LeaveRequest.belongsTo(models.User, { 
+      LeaveRequest.belongsTo(models.User, {
         foreignKey: 'UserId',
         as: 'employee'
       });
 
       // LeaveRequest belongs to User (approver)
-      LeaveRequest.belongsTo(models.User, { 
+      LeaveRequest.belongsTo(models.User, {
         foreignKey: 'approvedBy',
         as: 'approver'
       });
 
       // LeaveRequest has many Attendances
-      LeaveRequest.hasMany(models.Attendance, { 
+      LeaveRequest.hasMany(models.Attendance, {
         foreignKey: 'LeaveRequestId',
         as: 'attendances'
       });
+
+      // LeaveRequest belongs to Company
+      LeaveRequest.belongsTo(models.Company, { foreignKey: 'companyId', as: 'company' });
     }
   }
-  
+
   LeaveRequest.init({
     UserId: {
       type: DataTypes.INTEGER,
@@ -55,6 +58,11 @@ module.exports = (sequelize, DataTypes) => {
       },
       onUpdate: 'CASCADE',
       onDelete: 'CASCADE'
+    },
+    companyId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'Companies', key: 'id' }
     },
     leaveType: {
       type: DataTypes.ENUM(

@@ -1,32 +1,46 @@
-  const { LeaveRequest, User, Attendance, WorkSchedule, Notification } = require('../models');
+const { LeaveRequest, User, Attendance, WorkSchedule, Notification, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const notificationHelper = require('../helpers/notificationHelper');
 const AuditLogger = require('../helpers/auditLogger');
+const response = require('../helpers/responseHelper');
 
 class LeaveRequestAdminController {
 
   // Admin: Get all leave requests
   static async getAllRequests(req, res, next) {
     try {
-      const { status, leaveType, userId } = req.query;
+      const { status, leaveType, userId, startDate, endDate, page = 1, limit = 20 } = req.query;
 
-      const whereClause = {};
-      whereClause.companyId = req.user.companyId;
-      
+      // FIX 1: Multi-tenant isolation
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
+
+      const where = { ...companyFilter };
+
       if (status) {
-        whereClause.status = status;
+        where.status = status;
       }
-      
+
       if (leaveType) {
-        whereClause.leaveType = leaveType;
+        where.leaveType = leaveType;
       }
 
       if (userId) {
-        whereClause.UserId = userId;
+        where.UserId = userId;
       }
 
-      const leaveRequests = await LeaveRequest.findAll({
-        where: whereClause,
+      // FIX 7: Date range filter
+      if (startDate && endDate) {
+        where.startDate = { [Op.gte]: new Date(startDate) };
+        where.endDate = { [Op.lte]: new Date(endDate) };
+      }
+
+      // FIX 6: Pagination
+      const pageNum = parseInt(page, 10) || 1;
+      const limitNum = parseInt(limit, 10) || 20;
+      const offset = (pageNum - 1) * limitNum;
+
+      const { count: total, rows: leaveRequests } = await LeaveRequest.findAndCountAll({
+        where,
         include: [
           {
             model: User,
@@ -39,13 +53,20 @@ class LeaveRequestAdminController {
             attributes: ['id', 'name', 'email']
           }
         ],
-        order: [['createdAt', 'DESC']]
+        order: [['createdAt', 'DESC']],
+        limit: limitNum,
+        offset
       });
 
-      res.status(200).json({
-        message: "All leave requests",
-        data: leaveRequests
-      });
+      const totalPages = Math.ceil(total / limitNum);
+
+      // FIX 2: Use responseHelper
+      return response.ok(
+        res,
+        'All leave requests',
+        leaveRequests,
+        { total, page: pageNum, limit: limitNum, totalPages }
+      );
 
     } catch (error) {
       next(error);
@@ -59,172 +80,186 @@ class LeaveRequestAdminController {
       const { id } = req.params;
       const { approvalNote } = req.body;
 
-      const leaveRequest = await LeaveRequest.findByPk(id, {
-        include: [{
-          model: User,
-          as: 'employee'
-        }]
-      });
+      // FIX 1: Multi-tenant isolation
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
 
-      if (!leaveRequest) {
-        return res.status(404).json({
-          message: "Leave request not found"
+      // FIX 3: Wrap all DB operations in a Sequelize transaction
+      const result = await sequelize.transaction(async (t) => {
+        const leaveRequest = await LeaveRequest.findByPk(id, {
+          include: [{
+            model: User,
+            as: 'employee'
+          }],
+          transaction: t
         });
-      }
 
-      if (leaveRequest.status !== LeaveRequest.REQUEST_STATUS.PENDING) {
-        return res.status(400).json({
-          message: `Cannot approve request with status: ${leaveRequest.status}. Only PENDING requests can be approved.`
-        });
-      }
-
-      // Check quota ONLY for ANNUAL_LEAVE (SICK_LEAVE and PERMISSION don't deduct quota)
-      if (leaveRequest.leaveType === LeaveRequest.LEAVE_TYPE.ANNUAL_LEAVE) {
-        
-        const employee = leaveRequest.employee;
-        const remainingQuota = employee.annualLeaveQuota - employee.usedLeaveQuota;
-        
-        if (leaveRequest.totalDays > remainingQuota) {
-          return res.status(400).json({
-            message: `Cannot approve. Employee has insufficient leave quota. Remaining: ${remainingQuota} days, Requested: ${leaveRequest.totalDays} days.`,
-            remainingQuota,
-            requestedDays: leaveRequest.totalDays
-          });
+        if (!leaveRequest) {
+          return next({ name: 'NotFound', message: 'Leave request not found' });
         }
 
-        // Deduct quota only for ANNUAL_LEAVE
-        employee.usedLeaveQuota += leaveRequest.totalDays;
-        await employee.save();
-      }
+        // FIX 1: Company ownership check
+        if (req.user.role !== 'SUPER_ADMIN' && leaveRequest.companyId !== req.user.companyId) {
+          return res.status(403).json({ success: false, message: 'Access forbidden: leave request belongs to a different company' });
+        }
 
-      // Update leave request status
-      leaveRequest.status = LeaveRequest.REQUEST_STATUS.APPROVED;
-      leaveRequest.approvedBy = adminId;
-      leaveRequest.approvalNote = approvalNote || null;
-      leaveRequest.approvalDate = new Date();
-      await leaveRequest.save();
+        if (leaveRequest.status !== LeaveRequest.REQUEST_STATUS.PENDING) {
+          return next({ name: 'BadRequest', message: `Cannot approve request with status: ${leaveRequest.status}. Only PENDING requests can be approved.` });
+        }
 
-      // ===== AUDIT LOG =====
-      await AuditLogger.logApprove({
-        userId: adminId,
-        tableName: 'LeaveRequests',
-        recordId: leaveRequest.id,
-        oldData: { status: 'PENDING' },
-        newData: leaveRequest.toJSON(),
-        req,
-        description: `Approved ${leaveRequest.leaveType} leave for ${leaveRequest.employee?.name || 'user'}`
-      });
+        // Check quota ONLY for ANNUAL_LEAVE (SICK_LEAVE and PERMISSION don't deduct quota)
+        if (leaveRequest.leaveType === LeaveRequest.LEAVE_TYPE.ANNUAL_LEAVE) {
+          const employee = leaveRequest.employee;
+          const remainingQuota = employee.annualLeaveQuota - employee.usedLeaveQuota;
 
-      // Get active work schedule
-      const workSchedule = await WorkSchedule.findOne({
-        where: { isActive: true, companyId: req.user.companyId }
-      });
+          if (leaveRequest.totalDays > remainingQuota) {
+            return next({
+              name: 'BadRequest',
+              message: `Cannot approve. Employee has insufficient leave quota. Remaining: ${remainingQuota} days, Requested: ${leaveRequest.totalDays} days.`
+            });
+          }
 
-      // Create attendance records for each day
-      const start = new Date(leaveRequest.startDate);
-      const end = new Date(leaveRequest.endDate);
+          // Deduct quota only for ANNUAL_LEAVE
+          employee.usedLeaveQuota += leaveRequest.totalDays;
+          await employee.save({ transaction: t });
+        }
 
-      // Determine attendance status based on leave type
-      let attendanceStatus;
-      switch (leaveRequest.leaveType) {
-        case LeaveRequest.LEAVE_TYPE.ANNUAL_LEAVE:
-          attendanceStatus = Attendance.ATTENDANCE_STATUS.LEAVE;
-          break;
-        case LeaveRequest.LEAVE_TYPE.SICK_LEAVE:
-          attendanceStatus = Attendance.ATTENDANCE_STATUS.SICK_LEAVE;
-          break;
-        case LeaveRequest.LEAVE_TYPE.PERMISSION:
-          attendanceStatus = Attendance.ATTENDANCE_STATUS.PERMISSION;
-          break;
-        default:
-          attendanceStatus = Attendance.ATTENDANCE_STATUS.LEAVE;
-      }
+        // Update leave request status
+        leaveRequest.status = LeaveRequest.REQUEST_STATUS.APPROVED;
+        leaveRequest.approvedBy = adminId;
+        leaveRequest.approvalNote = approvalNote || null;
+        leaveRequest.approvalDate = new Date();
+        await leaveRequest.save({ transaction: t });
 
-      // Collect all dates in range (bulk approach - avoids N+1 queries)
-      const allDates = [];
-      const tempDate = new Date(start);
-      while (tempDate <= end) {
-        allDates.push(new Date(tempDate));
-        tempDate.setDate(tempDate.getDate() + 1);
-      }
+        // ===== AUDIT LOG =====
+        await AuditLogger.logApprove({
+          userId: adminId,
+          tableName: 'LeaveRequests',
+          recordId: leaveRequest.id,
+          oldData: { status: 'PENDING' },
+          newData: leaveRequest.toJSON(),
+          req,
+          description: `Approved ${leaveRequest.leaveType} leave for ${leaveRequest.employee?.name || 'user'}`
+        });
 
-      // Single query: check existing attendances for all dates at once
-      const existingAttendances = await Attendance.findAll({
-        where: {
-          UserId: leaveRequest.UserId,
-          companyId: req.user.companyId,
-          date: { [Op.between]: [new Date(start), new Date(end)] }
-        },
-        attributes: ['date']
-      });
+        // Get active work schedule
+        const workSchedule = await WorkSchedule.findOne({
+          where: { isActive: true, ...companyFilter },
+          transaction: t
+        });
 
-      // Build set of existing dates (as ISO date strings for comparison)
-      const existingDateStrings = new Set(
-        existingAttendances.map(a => new Date(a.date).toISOString().split('T')[0])
-      );
+        // Create attendance records for each day
+        const start = new Date(leaveRequest.startDate);
+        const end = new Date(leaveRequest.endDate);
 
-      // Build records to create (only missing dates)
-      const attendancesToCreate = [];
-      for (const date of allDates) {
-        const dateStr = date.toISOString().split('T')[0];
-        if (!existingDateStrings.has(dateStr)) {
-          attendancesToCreate.push({
+        // Determine attendance status based on leave type
+        let attendanceStatus;
+        switch (leaveRequest.leaveType) {
+          case LeaveRequest.LEAVE_TYPE.ANNUAL_LEAVE:
+            attendanceStatus = Attendance.ATTENDANCE_STATUS.LEAVE;
+            break;
+          case LeaveRequest.LEAVE_TYPE.SICK_LEAVE:
+            attendanceStatus = Attendance.ATTENDANCE_STATUS.SICK_LEAVE;
+            break;
+          case LeaveRequest.LEAVE_TYPE.PERMISSION:
+            attendanceStatus = Attendance.ATTENDANCE_STATUS.PERMISSION;
+            break;
+          default:
+            attendanceStatus = Attendance.ATTENDANCE_STATUS.LEAVE;
+        }
+
+        // Collect all dates in range (bulk approach - avoids N+1 queries)
+        const allDates = [];
+        const tempDate = new Date(start);
+        while (tempDate <= end) {
+          allDates.push(new Date(tempDate));
+          tempDate.setDate(tempDate.getDate() + 1);
+        }
+
+        // Single query: check existing attendances for all dates at once
+        const effectiveCompanyId = req.user.role === 'SUPER_ADMIN' ? leaveRequest.companyId : req.user.companyId;
+        const existingAttendances = await Attendance.findAll({
+          where: {
             UserId: leaveRequest.UserId,
-            WorkScheduleId: workSchedule ? workSchedule.id : null,
-            HolidayId: null,
-            LeaveRequestId: leaveRequest.id,
-            companyId: req.user.companyId,
-            date: date,
-            clockIn: date,
-            clockOut: date,
-            status: attendanceStatus,
-          });
+            companyId: effectiveCompanyId,
+            date: { [Op.between]: [new Date(start), new Date(end)] }
+          },
+          attributes: ['date'],
+          transaction: t
+        });
+
+        // Build set of existing dates (as ISO date strings for comparison)
+        const existingDateStrings = new Set(
+          existingAttendances.map(a => new Date(a.date).toISOString().split('T')[0])
+        );
+
+        // Build records to create (only missing dates)
+        const attendancesToCreate = [];
+        for (const date of allDates) {
+          const dateStr = date.toISOString().split('T')[0];
+          if (!existingDateStrings.has(dateStr)) {
+            attendancesToCreate.push({
+              UserId: leaveRequest.UserId,
+              WorkScheduleId: workSchedule ? workSchedule.id : null,
+              HolidayId: null,
+              LeaveRequestId: leaveRequest.id,
+              companyId: effectiveCompanyId,
+              date: date,
+              clockIn: date,
+              clockOut: date,
+              status: attendanceStatus,
+            });
+          }
         }
-      }
 
-      // Single bulk insert for all missing dates
-      if (attendancesToCreate.length > 0) {
-        await Attendance.bulkCreate(attendancesToCreate);
-      }
-      const createdCount = attendancesToCreate.length;
+        // Single bulk insert for all missing dates
+        if (attendancesToCreate.length > 0) {
+          await Attendance.bulkCreate(attendancesToCreate, { transaction: t });
+        }
+        const createdCount = attendancesToCreate.length;
 
-      // Return success response with simple data
-      const responseData = {
-        id: leaveRequest.id,
-        UserId: leaveRequest.UserId,
-        leaveType: leaveRequest.leaveType,
-        startDate: leaveRequest.startDate,
-        endDate: leaveRequest.endDate,
-        totalDays: leaveRequest.totalDays,
-        reason: leaveRequest.reason,
-        status: leaveRequest.status,
-        approvedBy: leaveRequest.approvedBy,
-        approvalNote: leaveRequest.approvalNote,
-        approvalDate: leaveRequest.approvalDate,
-        attendanceRecordsCreated: createdCount
-      };
-
-      // Send notification to employee
-      await notificationHelper.sendNotification(
-        leaveRequest.UserId,
-        Notification.NOTIFICATION_TYPE.LEAVE_APPROVED,
-        '✅ Leave Request Approved',
-        `Your ${leaveRequest.leaveType.replace('_', ' ').toLowerCase()} request from ${leaveRequest.startDate} to ${leaveRequest.endDate} has been approved.`,
-        {
-          leaveRequestId: leaveRequest.id,
+        // Build response data
+        const responseData = {
+          id: leaveRequest.id,
+          UserId: leaveRequest.UserId,
           leaveType: leaveRequest.leaveType,
           startDate: leaveRequest.startDate,
           endDate: leaveRequest.endDate,
           totalDays: leaveRequest.totalDays,
-          approvalNote: leaveRequest.approvalNote
-        },
-        true // Send email
-      );
+          reason: leaveRequest.reason,
+          status: leaveRequest.status,
+          approvedBy: leaveRequest.approvedBy,
+          approvalNote: leaveRequest.approvalNote,
+          approvalDate: leaveRequest.approvalDate,
+          attendanceRecordsCreated: createdCount
+        };
 
-      res.status(200).json({
-        message: "Leave request approved successfully. Attendance records created.",
-        data: responseData
+        // Send notification to employee (outside transaction is fine — non-critical side-effect)
+        notificationHelper.sendNotification(
+          leaveRequest.UserId,
+          Notification.NOTIFICATION_TYPE.LEAVE_APPROVED,
+          '✅ Leave Request Approved',
+          `Your ${leaveRequest.leaveType.replace('_', ' ').toLowerCase()} request from ${leaveRequest.startDate} to ${leaveRequest.endDate} has been approved.`,
+          {
+            leaveRequestId: leaveRequest.id,
+            leaveType: leaveRequest.leaveType,
+            startDate: leaveRequest.startDate,
+            endDate: leaveRequest.endDate,
+            totalDays: leaveRequest.totalDays,
+            approvalNote: leaveRequest.approvalNote
+          },
+          true // Send email
+        ).catch(err => {
+          if (process.env.NODE_ENV !== 'production') console.error('Error sending approval notification:', err);
+        });
+
+        return responseData;
       });
+
+      // If result is undefined the handler already responded (next was called)
+      if (result === undefined) return;
+
+      // FIX 2: Use responseHelper
+      return response.ok(res, 'Leave request approved successfully. Attendance records created.', result);
 
     } catch (error) {
       if (process.env.NODE_ENV !== 'production') console.error('Error in approveRequest:', error);
@@ -243,15 +278,16 @@ class LeaveRequestAdminController {
       const leaveRequest = await LeaveRequest.findByPk(id);
 
       if (!leaveRequest) {
-        return res.status(404).json({
-          message: "Leave request not found"
-        });
+        return next({ name: 'NotFound', message: 'Leave request not found' });
+      }
+
+      // FIX 1: Company ownership check
+      if (req.user.role !== 'SUPER_ADMIN' && leaveRequest.companyId !== req.user.companyId) {
+        return res.status(403).json({ success: false, message: 'Access forbidden: leave request belongs to a different company' });
       }
 
       if (leaveRequest.status !== LeaveRequest.REQUEST_STATUS.PENDING) {
-        return res.status(400).json({
-          message: `Cannot reject request with status: ${leaveRequest.status}. Only PENDING requests can be rejected.`
-        });
+        return next({ name: 'BadRequest', message: `Cannot reject request with status: ${leaveRequest.status}. Only PENDING requests can be rejected.` });
       }
 
       leaveRequest.status = LeaveRequest.REQUEST_STATUS.REJECTED;
@@ -272,7 +308,6 @@ class LeaveRequestAdminController {
       });
 
       // Delete any attendance records created for this leave request
-      // This handles cases where user submitted leave for today and attendance was auto-created
       const deletedCount = await Attendance.destroy({
         where: {
           LeaveRequestId: leaveRequest.id
@@ -280,7 +315,7 @@ class LeaveRequestAdminController {
       });
 
       // Send notification to employee
-      await notificationHelper.sendNotification(
+      notificationHelper.sendNotification(
         leaveRequest.UserId,
         Notification.NOTIFICATION_TYPE.LEAVE_REJECTED,
         '❌ Leave Request Rejected',
@@ -295,11 +330,13 @@ class LeaveRequestAdminController {
           attendanceRecordsDeleted: deletedCount
         },
         true // Send email
-      );
+      ).catch(err => {
+        if (process.env.NODE_ENV !== 'production') console.error('Error sending rejection notification:', err);
+      });
 
-      res.status(200).json({
-        message: "Leave request rejected successfully",
-        data: leaveRequest,
+      // FIX 2: Use responseHelper
+      return response.ok(res, 'Leave request rejected successfully', {
+        leaveRequest,
         attendanceRecordsDeleted: deletedCount
       });
 
@@ -312,15 +349,55 @@ class LeaveRequestAdminController {
   static async adjustQuota(req, res, next) {
     try {
       const { userId } = req.params;
-      const { annualLeaveQuota, usedLeaveQuota, reason } = req.body;
+      const { reason } = req.body;
+      let { annualLeaveQuota, usedLeaveQuota } = req.body;
 
-      const user = await User.findByPk(userId);
-      
+      // FIX 1: Multi-tenant isolation
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
+
+      const user = await User.findOne({ where: { id: userId, ...companyFilter } });
+
       if (!user) {
-        return res.status(404).json({
-          message: "User not found"
-        });
+        return next({ name: 'NotFound', message: 'User not found' });
       }
+
+      // FIX 1: Company ownership check
+      if (req.user.role !== 'SUPER_ADMIN' && user.companyId !== req.user.companyId) {
+        return res.status(403).json({ success: false, message: 'Access forbidden: user belongs to a different company' });
+      }
+
+      // Parse values if provided
+      if (annualLeaveQuota !== undefined) {
+        annualLeaveQuota = parseInt(annualLeaveQuota, 10);
+        if (isNaN(annualLeaveQuota) || annualLeaveQuota < 0) {
+          return next({ name: 'BadRequest', message: 'Annual leave quota cannot be negative' });
+        }
+      }
+
+      if (usedLeaveQuota !== undefined) {
+        usedLeaveQuota = parseInt(usedLeaveQuota, 10);
+        if (isNaN(usedLeaveQuota) || usedLeaveQuota < 0) {
+          return next({ name: 'BadRequest', message: 'Used leave quota cannot be negative' });
+        }
+      }
+
+      // FIX 4: Validate quota consistency
+      if (usedLeaveQuota !== undefined && annualLeaveQuota !== undefined) {
+        if (usedLeaveQuota > annualLeaveQuota) {
+          return next({ name: 'BadRequest', message: 'Used leave quota cannot exceed annual leave quota' });
+        }
+      }
+
+      // Also check against the user's current value when only one is provided
+      const effectiveAnnual = annualLeaveQuota !== undefined ? annualLeaveQuota : user.annualLeaveQuota;
+      const effectiveUsed = usedLeaveQuota !== undefined ? usedLeaveQuota : user.usedLeaveQuota;
+      if (effectiveUsed > effectiveAnnual) {
+        return next({ name: 'BadRequest', message: 'Used leave quota cannot exceed annual leave quota' });
+      }
+
+      // FIX 5: Capture old values BEFORE update for audit log
+      const oldAnnual = user.annualLeaveQuota;
+      const oldUsed = user.usedLeaveQuota;
 
       const oldQuota = {
         annualLeaveQuota: user.annualLeaveQuota,
@@ -328,29 +405,30 @@ class LeaveRequestAdminController {
         remainingLeaveQuota: user.remainingLeaveQuota
       };
 
-      // Update quota
+      // Apply updates
       if (annualLeaveQuota !== undefined) {
-        if (annualLeaveQuota < 0) {
-          return res.status(400).json({
-            message: "Annual leave quota cannot be negative"
-          });
-        }
         user.annualLeaveQuota = annualLeaveQuota;
       }
 
       if (usedLeaveQuota !== undefined) {
-        if (usedLeaveQuota < 0) {
-          return res.status(400).json({
-            message: "Used leave quota cannot be negative"
-          });
-        }
         user.usedLeaveQuota = usedLeaveQuota;
       }
 
       await user.save();
 
+      // FIX 5: Audit log for adjustQuota
+      await AuditLogger.logUpdate({
+        userId: req.user.id,
+        tableName: 'Users',
+        recordId: userId,
+        oldData: { annualLeaveQuota: oldAnnual, usedLeaveQuota: oldUsed },
+        newData: { annualLeaveQuota: user.annualLeaveQuota, usedLeaveQuota: user.usedLeaveQuota },
+        req,
+        description: `Admin adjusted leave quota for user ${user.name}`
+      });
+
       // Send notification to employee
-      await notificationHelper.sendNotification(
+      notificationHelper.sendNotification(
         userId,
         Notification.NOTIFICATION_TYPE.LEAVE_QUOTA_ADJUSTMENT,
         '📊 Leave Quota Adjusted',
@@ -359,14 +437,16 @@ class LeaveRequestAdminController {
           annualLeaveQuota: user.annualLeaveQuota,
           usedLeaveQuota: user.usedLeaveQuota,
           remainingLeaveQuota: user.remainingLeaveQuota,
-          reason: reason || "Manual adjustment by admin"
+          reason: reason || 'Manual adjustment by admin'
         },
         true // Send email
-      );
+      ).catch(err => {
+        if (process.env.NODE_ENV !== 'production') console.error('Error sending quota adjustment notification:', err);
+      });
 
-      res.status(200).json({
-        message: "Leave quota adjusted successfully",
-        reason: reason || "Manual adjustment by admin",
+      // FIX 2: Use responseHelper
+      return response.ok(res, 'Leave quota adjusted successfully', {
+        reason: reason || 'Manual adjustment by admin',
         oldQuota,
         newQuota: {
           annualLeaveQuota: user.annualLeaveQuota,
@@ -385,14 +465,16 @@ class LeaveRequestAdminController {
     try {
       const { userId } = req.params;
 
-      const user = await User.findByPk(userId, {
+      // FIX 1 & FIX 8: Multi-tenant isolation on User lookup
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
+
+      const user = await User.findOne({
+        where: { id: userId, ...companyFilter },
         attributes: ['id', 'name', 'email', 'annualLeaveQuota', 'usedLeaveQuota', 'remainingLeaveQuota']
       });
 
       if (!user) {
-        return res.status(404).json({
-          message: "User not found"
-        });
+        return next({ name: 'NotFound', message: 'User not found' });
       }
 
       // Get leave request statistics
@@ -407,8 +489,8 @@ class LeaveRequestAdminController {
         raw: true
       });
 
-      res.status(200).json({
-        message: "Employee leave balance",
+      // FIX 2: Use responseHelper
+      return response.ok(res, 'Employee leave balance', {
         user: {
           id: user.id,
           name: user.name,
@@ -427,33 +509,30 @@ class LeaveRequestAdminController {
     }
   }
 
-  // Admin: View/Download leave request attachment
+  // Admin: View leave request attachment (inline)
   static async viewAttachment(req, res, next) {
     try {
       const { id } = req.params;
-      const path = require('path');
       const fs = require('fs');
 
       const leaveRequest = await LeaveRequest.findByPk(id);
 
       if (!leaveRequest) {
-        return res.status(404).json({
-          message: "Leave request not found"
-        });
+        return next({ name: 'NotFound', message: 'Leave request not found' });
+      }
+
+      // FIX 1: Company ownership check
+      if (req.user.role !== 'SUPER_ADMIN' && leaveRequest.companyId !== req.user.companyId) {
+        return res.status(403).json({ success: false, message: 'Access forbidden: leave request belongs to a different company' });
       }
 
       if (!leaveRequest.attachmentPath) {
-        return res.status(404).json({
-          message: "No attachment found for this leave request"
-        });
+        return next({ name: 'NotFound', message: 'No attachment found for this leave request' });
       }
 
       // Check if file exists
       if (!fs.existsSync(leaveRequest.attachmentPath)) {
-        return res.status(404).json({
-          message: "Attachment file not found on server",
-          attachmentPath: leaveRequest.attachmentPath
-        });
+        return next({ name: 'NotFound', message: 'Attachment file not found on server' });
       }
 
       // Set appropriate headers
@@ -473,28 +552,26 @@ class LeaveRequestAdminController {
   static async downloadAttachment(req, res, next) {
     try {
       const { id } = req.params;
-      const path = require('path');
       const fs = require('fs');
 
       const leaveRequest = await LeaveRequest.findByPk(id);
 
       if (!leaveRequest) {
-        return res.status(404).json({
-          message: "Leave request not found"
-        });
+        return next({ name: 'NotFound', message: 'Leave request not found' });
+      }
+
+      // FIX 1: Company ownership check
+      if (req.user.role !== 'SUPER_ADMIN' && leaveRequest.companyId !== req.user.companyId) {
+        return res.status(403).json({ success: false, message: 'Access forbidden: leave request belongs to a different company' });
       }
 
       if (!leaveRequest.attachmentPath) {
-        return res.status(404).json({
-          message: "No attachment found for this leave request"
-        });
+        return next({ name: 'NotFound', message: 'No attachment found for this leave request' });
       }
 
       // Check if file exists
       if (!fs.existsSync(leaveRequest.attachmentPath)) {
-        return res.status(404).json({
-          message: "Attachment file not found on server"
-        });
+        return next({ name: 'NotFound', message: 'Attachment file not found on server' });
       }
 
       // Set appropriate headers for download

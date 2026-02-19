@@ -4,7 +4,7 @@ const { deleteFile } = require('../helpers/fileUploadHelper');
 const AuditLogger = require('../helpers/auditLogger');
 
 class LeaveRequestController {
-  
+
   // Employee submit leave/permission request (with optional file attachment)
   static async submitRequest(req, res, next) {
     try {
@@ -35,11 +35,20 @@ class LeaveRequestController {
         });
       }
 
-      // Parse dates
-      const start = new Date(startDate);
-      const end = new Date(endDate);
+      // Fix A: Validate that startDate is not in the past
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      if (start < today) {
+        if (file) {
+          deleteFile(file.path);
+        }
+        return next({ name: 'BadRequest', message: 'Leave request cannot be submitted for past dates' });
+      }
+
+      // Parse end date
+      const end = new Date(endDate);
 
       // Validate dates
       if (end < start) {
@@ -54,12 +63,12 @@ class LeaveRequestController {
 
       // Get user data
       const user = await User.findByPk(userId);
-      
+
       // Check quota ONLY for ANNUAL_LEAVE (SICK_LEAVE and PERMISSION don't deduct quota)
       if (leaveType === LeaveRequest.LEAVE_TYPE.ANNUAL_LEAVE) {
-        
+
         const remainingQuota = user.annualLeaveQuota - user.usedLeaveQuota;
-        
+
         if (totalDays > remainingQuota) {
           return res.status(400).json({
             message: `Insufficient leave quota. You have ${remainingQuota} days remaining, but requested ${totalDays} days.`,
@@ -69,10 +78,11 @@ class LeaveRequestController {
         }
       }
 
-      // Check for overlapping leave requests (PENDING or APPROVED)
+      // Fix C: Check for overlapping leave requests (PENDING or APPROVED), scoped to user's company
       const overlappingRequest = await LeaveRequest.findOne({
         where: {
           UserId: userId,
+          companyId: req.user.companyId,
           status: {
             [Op.in]: [LeaveRequest.REQUEST_STATUS.PENDING, LeaveRequest.REQUEST_STATUS.APPROVED]
           },
@@ -109,8 +119,10 @@ class LeaveRequestController {
       }
 
       // Prepare leave request data
+      // Fix B: Set companyId from authenticated user
       const leaveRequestData = {
         UserId: userId,
+        companyId: req.user.companyId,
         leaveType,
         startDate,
         endDate,
@@ -139,7 +151,7 @@ class LeaveRequestController {
       endDateOnly.setHours(0, 0, 0, 0);
 
       let attendanceCreated = false;
-      
+
       // Check if today is within the leave request range
       if (todayDateOnly >= startDateOnly && todayDateOnly <= endDateOnly) {
         // Get active work schedule
@@ -205,7 +217,7 @@ class LeaveRequestController {
       );
 
       res.status(201).json({
-        message: attendanceCreated 
+        message: attendanceCreated
           ? "Leave request submitted successfully. Attendance record created for today. Waiting for admin approval."
           : "Leave request submitted successfully. Waiting for admin approval.",
         data: leaveRequest,
@@ -235,11 +247,11 @@ class LeaveRequestController {
       const { status, leaveType } = req.query;
 
       const whereClause = { UserId: userId };
-      
+
       if (status) {
         whereClause.status = status;
       }
-      
+
       if (leaveType) {
         whereClause.leaveType = leaveType;
       }

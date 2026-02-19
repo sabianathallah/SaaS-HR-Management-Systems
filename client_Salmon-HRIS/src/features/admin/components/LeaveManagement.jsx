@@ -12,11 +12,17 @@ const LeaveManagement = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('PENDING');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showAdjustQuotaModal, setShowAdjustQuotaModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [selectedEmployeeBalance, setSelectedEmployeeBalance] = useState(null);
   const [approvalNote, setApprovalNote] = useState('');
+  const [rejectModal, setRejectModal] = useState({ open: false, requestId: null });
+  const [rejectNote, setRejectNote] = useState('');
   const [quotaAdjustment, setQuotaAdjustment] = useState({
     userId: '',
     annualLeaveQuota: '',
@@ -24,111 +30,121 @@ const LeaveManagement = () => {
   });
 
   useEffect(() => {
-    fetchData();
+    fetchLeaveRequests(currentPage);
+  }, [currentPage, statusFilter, filterStartDate, filterEndDate]);
+
+  useEffect(() => {
+    fetchEmployees();
   }, []);
 
-  const fetchData = async () => {
+  const fetchEmployees = async () => {
     try {
-      const [leaveRes, employeeRes] = await Promise.all([
-        axiosInstance.get('/leave-requests/admin/all'),
-        axiosInstance.get('/users/admin'),
-      ]);
-
-      setLeaveRequests(leaveRes.data.data || []);
+      const employeeRes = await axiosInstance.get('/users/admin');
       setEmployees(employeeRes.data.data || []);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Gagal memuat data karyawan');
+    }
+  };
+
+  const fetchLeaveRequests = async (page = 1) => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      params.append('page', page);
+      params.append('limit', 20);
+      if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
+      if (filterStartDate) params.append('startDate', filterStartDate);
+      if (filterEndDate) params.append('endDate', filterEndDate);
+
+      const response = await axiosInstance.get(`/leave-requests/admin/all?${params.toString()}`);
+
+      // FIX 4: Handle both old format (array) and new responseHelper format
+      const responseData = response.data.data;
+      if (responseData && responseData.requests) {
+        // New format: { success, data: { requests: [...], pagination: { ... } } }
+        setLeaveRequests(responseData.requests);
+        const pagination = responseData.pagination || response.data.pagination;
+        if (pagination) {
+          setTotalPages(pagination.totalPages || 1);
+        }
+      } else {
+        // Old format: { data: [...] }
+        setLeaveRequests(responseData || []);
+        const pagination = response.data.pagination;
+        if (pagination) {
+          setTotalPages(pagination.totalPages || 1);
+        }
+      }
+
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch leave data');
+      toast.error(error.response?.data?.message || 'Gagal memuat data permohonan cuti');
       setLoading(false);
     }
   };
 
   const handleApprove = async (requestId) => {
     try {
-      if (!confirm('Are you sure you want to approve this leave request?')) return;
+      if (!confirm('Apakah Anda yakin ingin menyetujui permohonan cuti ini?')) return;
 
-      const response = await axiosInstance.put(
+      await axiosInstance.put(
         `/leave-requests/admin/${requestId}/approve`,
         { approvalNote }
       );
-      
-      console.log('Approve response:', response.data);
-      alert('Leave request approved successfully!');
+
+      toast.success('Permohonan cuti berhasil disetujui');
       setShowDetailModal(false);
       setApprovalNote('');
-      await fetchData();
+      await fetchLeaveRequests(currentPage);
     } catch (error) {
-      console.error('Error approving leave:', error);
-      toast.error(error.response?.data?.message || 'Failed to approve leave request');
-      alert(error.response?.data?.message || 'Failed to approve leave request');
+      toast.error(error.response?.data?.message || 'Gagal menyetujui permohonan cuti');
     }
   };
 
-  const handleReject = async (requestId) => {
-    try {
-      const note = prompt('Please provide a reason for rejection:');
-      if (!note || note.trim() === '') {
-        alert('Rejection reason is required');
-        return;
-      }
-
-      const response = await axiosInstance.put(
-        `/leave-requests/admin/${requestId}/reject`,
-        { approvalNote: note }
-      );
-      
-      console.log('Reject response:', response.data);
-      alert('Leave request rejected successfully!');
-      setShowDetailModal(false);
-      setApprovalNote('');
-      await fetchData();
-    } catch (error) {
-      console.error('Error rejecting leave:', error);
-      toast.error(error.response?.data?.message || 'Failed to reject leave request');
-      alert(error.response?.data?.message || 'Failed to reject leave request');
-    }
+  // FIX 1: handleReject now opens the reject modal instead of using prompt()
+  const handleReject = (requestId) => {
+    setRejectModal({ open: true, requestId });
+    setRejectNote('');
   };
 
-  const handleRejectFromModal = async () => {
+  // FIX 1: confirmReject performs the actual API call
+  const confirmReject = async () => {
     try {
-      if (!approvalNote || approvalNote.trim() === '') {
-        alert('Please provide a reason for rejection in the notes field');
-        return;
-      }
-
-      const response = await axiosInstance.put(
-        `/leave-requests/admin/${selectedRequest.id}/reject`,
-        { approvalNote: approvalNote }
+      await axiosInstance.put(
+        `/leave-requests/admin/${rejectModal.requestId}/reject`,
+        { approvalNote: rejectNote }
       );
-      
-      console.log('Reject response:', response.data);
-      alert('Leave request rejected successfully!');
+
+      toast.success('Permohonan cuti berhasil ditolak');
+      setRejectModal({ open: false, requestId: null });
+      setRejectNote('');
       setShowDetailModal(false);
       setSelectedRequest(null);
       setApprovalNote('');
-      await fetchData();
+      await fetchLeaveRequests(currentPage);
     } catch (error) {
-      console.error('Error rejecting leave:', error);
-      toast.error(error.response?.data?.message || 'Failed to reject leave request');
-      alert(error.response?.data?.message || 'Failed to reject leave request');
+      toast.error(error.response?.data?.message || 'Gagal menolak permohonan cuti');
     }
+  };
+
+  // FIX 1: handleRejectFromModal now routes through the unified reject modal
+  const handleRejectFromModal = () => {
+    handleReject(selectedRequest.id);
   };
 
   const handleAdjustQuota = async (e) => {
     e.preventDefault();
-    
-    // Validasi input
+
     if (!quotaAdjustment.userId) {
-      alert('Please select an employee');
+      toast.error('Pilih karyawan terlebih dahulu');
       return;
     }
-    
+
     if (!quotaAdjustment.annualLeaveQuota || !quotaAdjustment.usedLeaveQuota) {
-      alert('Please fill in all quota fields');
+      toast.error('Isi semua kolom kuota');
       return;
     }
-    
+
     try {
       await axiosInstance.put(
         `/leave-requests/admin/adjust-quota/${quotaAdjustment.userId}`,
@@ -137,41 +153,47 @@ const LeaveManagement = () => {
           usedLeaveQuota: parseInt(quotaAdjustment.usedLeaveQuota),
         }
       );
-      alert('Leave quota adjusted successfully!');
+      toast.success('Kuota cuti berhasil disesuaikan');
       setShowAdjustQuotaModal(false);
       setQuotaAdjustment({ userId: '', annualLeaveQuota: '', usedLeaveQuota: '' });
-      fetchData(); // Refresh data
+      setSelectedEmployeeBalance(null);
+      await fetchLeaveRequests(currentPage);
     } catch (error) {
-      console.error('Error adjusting quota:', error);
-      toast.error(error.response?.data?.message || 'Failed to adjust leave quota');
-      alert(error.response?.data?.message || 'Failed to adjust leave quota');
+      toast.error(error.response?.data?.message || 'Gagal menyesuaikan kuota cuti');
     }
   };
 
   const openDetailModal = (request) => {
-    console.log('Opening detail modal for request:', request); // Debug log
     setSelectedRequest(request);
     setShowDetailModal(true);
+  };
+
+  // FIX 5: When employee is selected in quota modal, populate current quota info
+  const handleEmployeeSelectForQuota = (e) => {
+    const userId = e.target.value;
+    const emp = employees.find((em) => String(em.id) === String(userId));
+    setQuotaAdjustment({
+      userId,
+      annualLeaveQuota: emp ? String(emp.annualLeaveQuota ?? '') : '',
+      usedLeaveQuota: emp ? String(emp.usedLeaveQuota ?? '') : '',
+    });
+    setSelectedEmployeeBalance(emp || null);
   };
 
   const handleViewAttachment = async (requestId) => {
     try {
       const response = await axiosInstance.get(
         `/leave-requests/admin/${requestId}/attachment/view`,
-        { responseType: 'blob' } // Important for file download
+        { responseType: 'blob' }
       );
 
-      // Create blob URL and open in new tab
       const blob = new Blob([response.data], { type: response.headers['content-type'] });
       const url = window.URL.createObjectURL(blob);
       window.open(url, '_blank');
-      
-      // Clean up the URL after opening
+
       setTimeout(() => window.URL.revokeObjectURL(url), 100);
     } catch (error) {
-      console.error('Error viewing attachment:', error);
-      toast.error(error.response?.data?.message || 'Failed to view attachment');
-      alert(error.response?.data?.message || 'Failed to view attachment');
+      toast.error(error.response?.data?.message || 'Gagal membuka lampiran');
     }
   };
 
@@ -179,10 +201,9 @@ const LeaveManagement = () => {
     try {
       const response = await axiosInstance.get(
         `/leave-requests/admin/${requestId}/attachment/download`,
-        { responseType: 'blob' } // Important for file download
+        { responseType: 'blob' }
       );
 
-      // Create blob URL and trigger download
       const blob = new Blob([response.data], { type: response.headers['content-type'] });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -191,19 +212,22 @@ const LeaveManagement = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
-      // Clean up the URL
+
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error downloading attachment:', error);
-      toast.error(error.response?.data?.message || 'Failed to download attachment');
-      alert(error.response?.data?.message || 'Failed to download attachment');
+      toast.error(error.response?.data?.message || 'Gagal mengunduh lampiran');
     }
   };
 
-  const filteredRequests = leaveRequests.filter(req => 
-    statusFilter === 'all' ? true : req.status === statusFilter
-  );
+  // FIX 3: Reset all filters including dates
+  const handleResetFilter = () => {
+    setStatusFilter('all');
+    setFilterStartDate('');
+    setFilterEndDate('');
+    setCurrentPage(1);
+  };
+
+  const filteredRequests = leaveRequests;
 
   const getStatusBadgeClass = (status) => {
     switch (status) {
@@ -224,7 +248,7 @@ const LeaveManagement = () => {
   };
 
   if (loading) {
-    return <div className="text-center py-8">Loading leave requests...</div>;
+    return <div className="text-center py-8">Memuat permohonan cuti...</div>;
   }
 
   return (
@@ -232,63 +256,100 @@ const LeaveManagement = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Leave Management</h2>
-          <p className="text-gray-600">Manage employee leave requests and quotas</p>
+          <h2 className="text-2xl font-bold text-gray-900">Manajemen Cuti</h2>
+          <p className="text-gray-600">Kelola permohonan cuti dan kuota karyawan</p>
         </div>
         <button
           type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            console.log('Opening adjust quota modal');
-            setShowAdjustQuotaModal(true);
-          }}
+          onClick={() => setShowAdjustQuotaModal(true)}
           className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors cursor-pointer"
         >
-          <Settings size={14} className="inline mr-1" /> Adjust Quota
+          <Settings size={14} className="inline mr-1" /> Sesuaikan Kuota
         </button>
       </div>
 
       {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="text-sm text-yellow-600 font-medium">Pending</div>
+          <div className="text-sm text-yellow-600 font-medium">Menunggu</div>
           <div className="text-2xl font-bold text-yellow-900">
             {leaveRequests.filter(r => r.status === 'PENDING').length}
           </div>
         </div>
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="text-sm text-green-600 font-medium">Approved</div>
+          <div className="text-sm text-green-600 font-medium">Disetujui</div>
           <div className="text-2xl font-bold text-green-900">
             {leaveRequests.filter(r => r.status === 'APPROVED').length}
           </div>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="text-sm text-red-600 font-medium">Rejected</div>
+          <div className="text-sm text-red-600 font-medium">Ditolak</div>
           <div className="text-2xl font-bold text-red-900">
             {leaveRequests.filter(r => r.status === 'REJECTED').length}
           </div>
         </div>
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="text-sm text-blue-600 font-medium">Total Requests</div>
+          <div className="text-sm text-blue-600 font-medium">Total Permohonan</div>
           <div className="text-2xl font-bold text-blue-900">
             {leaveRequests.length}
           </div>
         </div>
       </div>
 
-      {/* Filters */}
+      {/* FIX 3: Filters with date range and reset button */}
       <div className="bg-white border rounded-lg p-4">
-        <FormSelect
-          label="Filter by Status"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          options={[
-            { value: 'all', label: 'All Status' },
-            { value: 'PENDING', label: 'Pending' },
-            { value: 'APPROVED', label: 'Approved' },
-            { value: 'REJECTED', label: 'Rejected' },
-          ]}
-        />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          <FormSelect
+            label="Filter Status"
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            options={[
+              { value: 'all', label: 'Semua Status' },
+              { value: 'PENDING', label: 'Menunggu' },
+              { value: 'APPROVED', label: 'Disetujui' },
+              { value: 'REJECTED', label: 'Ditolak' },
+            ]}
+          />
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Dari Tanggal</label>
+            <input
+              type="date"
+              value={filterStartDate}
+              onChange={(e) => {
+                setFilterStartDate(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Sampai Tanggal</label>
+            <input
+              type="date"
+              value={filterEndDate}
+              onChange={(e) => {
+                setFilterEndDate(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <button
+              type="button"
+              onClick={handleResetFilter}
+              className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
+            >
+              Reset Filter
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Leave Requests Table */}
@@ -296,20 +357,20 @@ const LeaveManagement = () => {
         {filteredRequests.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <Calendar size={40} className="mx-auto mb-2 text-gray-300" />
-            <p>No leave requests found</p>
+            <p>Tidak ada permohonan cuti ditemukan</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Leave Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Karyawan</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jenis Cuti</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Periode</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hari</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Diajukan</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -330,10 +391,10 @@ const LeaveManagement = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <div>{new Date(request.startDate).toLocaleDateString('id-ID')}</div>
-                      <div className="text-xs text-gray-500">to {new Date(request.endDate).toLocaleDateString('id-ID')}</div>
+                      <div className="text-xs text-gray-500">s/d {new Date(request.endDate).toLocaleDateString('id-ID')}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {request.totalDays} day(s)
+                      {request.totalDays} hari
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeClass(request.status)}`}>
@@ -353,7 +414,7 @@ const LeaveManagement = () => {
                         }}
                         className="text-blue-600 hover:text-blue-900 cursor-pointer"
                       >
-                        <Eye size={14} className="inline mr-1" /> View
+                        <Eye size={14} className="inline mr-1" /> Lihat
                       </button>
                       {request.status === 'PENDING' && (
                         <>
@@ -366,8 +427,9 @@ const LeaveManagement = () => {
                             }}
                             className="text-green-600 hover:text-green-900 cursor-pointer"
                           >
-                            <CheckCircle2 size={14} className="inline mr-1" /> Approve
+                            <CheckCircle2 size={14} className="inline mr-1" /> Setujui
                           </button>
+                          {/* FIX 1: Reject from table now opens modal, no prompt() */}
                           <button
                             type="button"
                             onClick={(e) => {
@@ -377,7 +439,7 @@ const LeaveManagement = () => {
                             }}
                             className="text-red-600 hover:text-red-900 cursor-pointer"
                           >
-                            <XCircle size={14} className="inline mr-1" /> Reject
+                            <XCircle size={14} className="inline mr-1" /> Tolak
                           </button>
                         </>
                       )}
@@ -390,43 +452,117 @@ const LeaveManagement = () => {
         )}
       </div>
 
+      {/* FIX 2: Pagination Bar */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-4 mt-2">
+          <button
+            type="button"
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+          >
+            Sebelumnya
+          </button>
+          <span className="text-sm text-gray-700">
+            Halaman {currentPage} dari {totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+          >
+            Berikutnya
+          </button>
+        </div>
+      )}
+
+      {/* FIX 1: Reject Confirmation Modal */}
+      <Modal
+        isOpen={rejectModal.open}
+        onClose={() => {
+          setRejectModal({ open: false, requestId: null });
+          setRejectNote('');
+        }}
+        title="Tolak Permohonan Cuti"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Anda akan menolak permohonan cuti ini. Tindakan ini tidak dapat dibatalkan.
+          </p>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Alasan Penolakan (opsional)
+            </label>
+            <textarea
+              value={rejectNote}
+              onChange={(e) => setRejectNote(e.target.value)}
+              rows={4}
+              placeholder="Masukkan alasan penolakan..."
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setRejectModal({ open: false, requestId: null });
+                setRejectNote('');
+              }}
+              className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={confirmReject}
+              className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+            >
+              <XCircle size={14} className="inline mr-1" /> Tolak Permintaan
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Detail Modal */}
-      <Modal 
+      <Modal
         isOpen={showDetailModal && selectedRequest !== null}
         onClose={() => {
           setShowDetailModal(false);
           setSelectedRequest(null);
           setApprovalNote('');
         }}
-        title="Leave Request Detail"
+        title="Detail Permohonan Cuti"
       >
         {selectedRequest && (
           <div className="space-y-4">
-            <h3 className="text-xl font-bold text-gray-900">Leave Request Detail</h3>
-            
+            <h3 className="text-xl font-bold text-gray-900">Detail Permohonan Cuti</h3>
+
             <div className="bg-gray-50 rounded-lg p-4 space-y-3">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">Employee</p>
+                  <p className="text-sm text-gray-600">Karyawan</p>
                   <p className="font-medium">{selectedRequest.employee?.name}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Leave Type</p>
+                  <p className="text-sm text-gray-600">Jenis Cuti</p>
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getLeaveTypeBadgeClass(selectedRequest.leaveType)}`}>
                     {selectedRequest.leaveType?.replace('_', ' ')}
                   </span>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Start Date</p>
+                  <p className="text-sm text-gray-600">Tanggal Mulai</p>
                   <p className="font-medium">{new Date(selectedRequest.startDate).toLocaleDateString('id-ID')}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">End Date</p>
+                  <p className="text-sm text-gray-600">Tanggal Selesai</p>
                   <p className="font-medium">{new Date(selectedRequest.endDate).toLocaleDateString('id-ID')}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Total Days</p>
-                  <p className="font-medium">{selectedRequest.totalDays} day(s)</p>
+                  <p className="text-sm text-gray-600">Total Hari</p>
+                  <p className="font-medium">{selectedRequest.totalDays} hari</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Status</p>
@@ -435,15 +571,15 @@ const LeaveManagement = () => {
                   </span>
                 </div>
               </div>
-              
+
               <div>
-                <p className="text-sm text-gray-600">Reason</p>
+                <p className="text-sm text-gray-600">Alasan</p>
                 <p className="font-medium">{selectedRequest.reason}</p>
               </div>
-              
+
               {selectedRequest.attachmentPath && (
                 <div>
-                  <p className="text-sm text-gray-600 mb-2">Attachment</p>
+                  <p className="text-sm text-gray-600 mb-2">Lampiran</p>
                   <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
                     <div className="flex items-center gap-2 text-sm">
                       <Paperclip size={16} />
@@ -451,7 +587,7 @@ const LeaveManagement = () => {
                     </div>
                     {selectedRequest.attachmentSize && (
                       <p className="text-xs text-gray-500">
-                        Size: {(selectedRequest.attachmentSize / 1024).toFixed(2)} KB
+                        Ukuran: {(selectedRequest.attachmentSize / 1024).toFixed(2)} KB
                       </p>
                     )}
                     <div className="flex gap-2 mt-2">
@@ -460,30 +596,30 @@ const LeaveManagement = () => {
                         onClick={() => handleViewAttachment(selectedRequest.id)}
                         className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center gap-1"
                       >
-                        <Eye size={14} className="inline mr-1" /> View
+                        <Eye size={14} className="inline mr-1" /> Lihat
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDownloadAttachment(selectedRequest.id, selectedRequest.attachmentOriginalName)}
                         className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700 flex items-center gap-1"
                       >
-                        <Download size={14} className="inline mr-1" /> Download
+                        <Download size={14} className="inline mr-1" /> Unduh
                       </button>
                     </div>
                   </div>
                 </div>
               )}
-              
+
               {selectedRequest.approvalNote && (
                 <div>
-                  <p className="text-sm text-gray-600">Approval Note</p>
+                  <p className="text-sm text-gray-600">Catatan Persetujuan</p>
                   <p className="font-medium">{selectedRequest.approvalNote}</p>
                 </div>
               )}
 
               {selectedRequest.approver && (
                 <div>
-                  <p className="text-sm text-gray-600">Approved/Rejected By</p>
+                  <p className="text-sm text-gray-600">Disetujui/Ditolak Oleh</p>
                   <p className="font-medium">{selectedRequest.approver.name}</p>
                 </div>
               )}
@@ -492,24 +628,27 @@ const LeaveManagement = () => {
             {selectedRequest.status === 'PENDING' && (
               <div className="space-y-3">
                 <FormTextarea
-                  label="Approval Note (Optional)"
+                  label="Catatan Persetujuan (Opsional)"
                   value={approvalNote}
                   onChange={(e) => setApprovalNote(e.target.value)}
-                  placeholder="Add a note for this approval/rejection..."
+                  placeholder="Tambahkan catatan untuk persetujuan ini..."
                 />
-                
+
                 <div className="flex space-x-3">
                   <button
+                    type="button"
                     onClick={() => handleApprove(selectedRequest.id)}
                     className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                   >
-                    <CheckCircle2 size={14} className="inline mr-1" /> Approve
+                    <CheckCircle2 size={14} className="inline mr-1" /> Setujui
                   </button>
+                  {/* FIX 1: Routes through unified reject modal */}
                   <button
+                    type="button"
                     onClick={handleRejectFromModal}
                     className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
                   >
-                    <XCircle size={14} className="inline mr-1" /> Reject
+                    <XCircle size={14} className="inline mr-1" /> Tolak
                   </button>
                 </div>
               </div>
@@ -524,7 +663,7 @@ const LeaveManagement = () => {
               }}
               className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
             >
-              Close
+              Tutup
             </button>
           </div>
         )}
@@ -536,62 +675,84 @@ const LeaveManagement = () => {
         onClose={() => {
           setShowAdjustQuotaModal(false);
           setQuotaAdjustment({ userId: '', annualLeaveQuota: '', usedLeaveQuota: '' });
+          setSelectedEmployeeBalance(null);
         }}
-        title="Adjust Leave Quota"
+        title="Sesuaikan Kuota Cuti"
       >
         <form onSubmit={handleAdjustQuota} className="space-y-4">
-            <h3 className="text-xl font-bold text-gray-900">Adjust Leave Quota</h3>
-            
-            <FormSelect
-              label="Select Employee"
-              value={quotaAdjustment.userId}
-              onChange={(e) => setQuotaAdjustment({ ...quotaAdjustment, userId: e.target.value })}
-              options={[
-                { value: '', label: 'Select Employee' },
-                ...employees.map(emp => ({ value: emp.id, label: emp.name }))
-              ]}
-              required
-            />
-            
-            <FormInput
-              label="Annual Leave Quota (Total)"
-              type="number"
-              min="0"
-              value={quotaAdjustment.annualLeaveQuota}
-              onChange={(e) => setQuotaAdjustment({ ...quotaAdjustment, annualLeaveQuota: e.target.value })}
-              placeholder="e.g., 12"
-              required
-            />
-            
-            <FormInput
-              label="Used Leave Quota"
-              type="number"
-              min="0"
-              value={quotaAdjustment.usedLeaveQuota}
-              onChange={(e) => setQuotaAdjustment({ ...quotaAdjustment, usedLeaveQuota: e.target.value })}
-              placeholder="e.g., 5"
-              required
-            />
-            
-            <div className="flex space-x-4">
-              <button
-                type="submit"
-                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-              >
-                Adjust Quota
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAdjustQuotaModal(false);
-                  setQuotaAdjustment({ userId: '', annualLeaveQuota: '', usedLeaveQuota: '' });
-                }}
-                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-              >
-                Cancel
-              </button>
+          <h3 className="text-xl font-bold text-gray-900">Sesuaikan Kuota Cuti</h3>
+
+          <FormSelect
+            label="Pilih Karyawan"
+            value={quotaAdjustment.userId}
+            onChange={handleEmployeeSelectForQuota}
+            options={[
+              { value: '', label: 'Pilih Karyawan' },
+              ...employees.map(emp => ({ value: emp.id, label: emp.name }))
+            ]}
+            required
+          />
+
+          {/* FIX 5: Show current quota info before the input fields */}
+          {selectedEmployeeBalance && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-1">
+              <p className="text-sm font-medium text-blue-800">
+                Kuota saat ini:{' '}
+                <span className="font-bold">
+                  {selectedEmployeeBalance.annualLeaveQuota ?? '-'} hari
+                </span>{' '}
+                (Digunakan:{' '}
+                <span className="font-bold">
+                  {selectedEmployeeBalance.usedLeaveQuota ?? '-'} hari
+                </span>
+                )
+              </p>
+              <p className="text-xs text-blue-600">
+                Catatan: Kuota terpakai tidak boleh melebihi kuota tahunan
+              </p>
             </div>
-          </form>
+          )}
+
+          <FormInput
+            label="Kuota Cuti Tahunan (Total)"
+            type="number"
+            min="0"
+            value={quotaAdjustment.annualLeaveQuota}
+            onChange={(e) => setQuotaAdjustment({ ...quotaAdjustment, annualLeaveQuota: e.target.value })}
+            placeholder="cth: 12"
+            required
+          />
+
+          <FormInput
+            label="Kuota Cuti Terpakai"
+            type="number"
+            min="0"
+            value={quotaAdjustment.usedLeaveQuota}
+            onChange={(e) => setQuotaAdjustment({ ...quotaAdjustment, usedLeaveQuota: e.target.value })}
+            placeholder="cth: 5"
+            required
+          />
+
+          <div className="flex space-x-4">
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              Sesuaikan Kuota
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowAdjustQuotaModal(false);
+                setQuotaAdjustment({ userId: '', annualLeaveQuota: '', usedLeaveQuota: '' });
+                setSelectedEmployeeBalance(null);
+              }}
+              className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+            >
+              Batal
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );
