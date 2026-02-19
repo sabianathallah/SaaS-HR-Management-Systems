@@ -26,11 +26,14 @@ module.exports = (sequelize, DataTypes) => {
       });
       
       // Overtime belongs to Attendance
-      Overtime.belongsTo(models.Attendance, { 
+      Overtime.belongsTo(models.Attendance, {
         foreignKey: 'AttendanceId',
         as: 'attendance',
-        onDelete: 'SET NULL' 
+        onDelete: 'SET NULL'
       });
+
+      // Overtime belongs to Company
+      Overtime.belongsTo(models.Company, { foreignKey: 'companyId', as: 'company' });
     }
 
     // Status constants
@@ -127,6 +130,11 @@ module.exports = (sequelize, DataTypes) => {
           msg: 'Status must be pending, approved, or rejected'
         }
       }
+    },
+    companyId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'Companies', key: 'id' }
     },
     approvedBy: {
       type: DataTypes.INTEGER,

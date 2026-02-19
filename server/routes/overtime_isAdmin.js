@@ -22,4 +22,7 @@ router.patch('/:id/approve', OvertimeAdminController.approveOvertime);
 // Reject overtime request
 router.patch('/:id/reject', OvertimeAdminController.rejectOvertime);
 
+// Delete overtime record
+router.delete('/:id', OvertimeAdminController.deleteOvertime);
+
 module.exports = router;

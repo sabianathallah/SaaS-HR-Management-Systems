@@ -1,6 +1,7 @@
 const { Overtime, User, Attendance } = require('../models');
 const { Op } = require('sequelize');
 const AuditLogger = require('../helpers/auditLogger');
+const response = require('../helpers/responseHelper');
 
 class OvertimeController {
   
@@ -54,6 +55,16 @@ class OvertimeController {
         }
       }
 
+      // Validate clockOut is after clockIn when both are provided
+      const { clockIn, clockOut } = req.body;
+      if (clockIn && clockOut) {
+        if (new Date(clockOut) <= new Date(clockIn)) {
+          return res.status(400).json({
+            message: "Jam selesai lembur harus setelah jam mulai"
+          });
+        }
+      }
+
       // Check if overtime already requested for this date
       const existingOvertime = await Overtime.findOne({
         where: {
@@ -74,8 +85,11 @@ class OvertimeController {
       // Create overtime request
       const overtime = await Overtime.create({
         UserId: userId,
+        companyId: req.user.companyId,
         AttendanceId: attendanceId || null,
         overtimeDate: new Date(overtimeDate),
+        clockIn: clockIn ? new Date(clockIn) : null,
+        clockOut: clockOut ? new Date(clockOut) : null,
         requestedHours: parseFloat(requestedHours),
         reason: reason.trim(),
         status: Overtime.STATUS.PENDING

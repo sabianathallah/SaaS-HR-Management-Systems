@@ -1,27 +1,31 @@
-const { Overtime, User, Attendance, Notification } = require('../models');
+const { Overtime, User, Attendance, Notification, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { getDateRangeForPeriod } = require('../helpers/utils');
 const notificationHelper = require('../helpers/notificationHelper');
+const response = require('../helpers/responseHelper');
 const AuditLogger = require('../helpers/auditLogger');
 
 class OvertimeAdminController {
 
   /**
-   * Get all overtime requests (with filters)
+   * Get all overtime requests (with filters and pagination)
    * GET /overtimes/admin/requests
    */
-  static async getAllOvertimeRequests(req, res, next) {
+  static async getAllOvertimeRequests(req, res) {
     try {
-      const { status, userId, startDate, endDate } = req.query;
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
 
-      const whereClause = {};
+      const { status, userId, startDate, endDate } = req.query;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 20;
+      const offset = (page - 1) * limit;
+
+      const whereClause = { ...companyFilter };
 
       // Filter by status
       if (status) {
         if (!['pending', 'approved', 'rejected'].includes(status)) {
-          return res.status(400).json({
-            message: "Invalid status. Must be: pending, approved, or rejected"
-          });
+          return response.badRequest(res, 'Invalid status. Must be: pending, approved, or rejected');
         }
         whereClause.status = status;
       }
@@ -41,7 +45,7 @@ class OvertimeAdminController {
         };
       }
 
-      const overtimes = await Overtime.findAll({
+      const { count: total, rows } = await Overtime.findAndCountAll({
         where: whereClause,
         include: [
           {
@@ -60,45 +64,51 @@ class OvertimeAdminController {
             attributes: ['id', 'date', 'clockIn', 'clockOut', 'status']
           }
         ],
-        order: [['overtimeDate', 'DESC'], ['createdAt', 'DESC']]
+        order: [['overtimeDate', 'DESC'], ['createdAt', 'DESC']],
+        limit,
+        offset
       });
 
       // Group by status for summary
       const summary = {
-        total: overtimes.length,
-        pending: overtimes.filter(ot => ot.status === 'pending').length,
-        approved: overtimes.filter(ot => ot.status === 'approved').length,
-        rejected: overtimes.filter(ot => ot.status === 'rejected').length
+        total,
+        pending: rows.filter(ot => ot.status === 'pending').length,
+        approved: rows.filter(ot => ot.status === 'approved').length,
+        rejected: rows.filter(ot => ot.status === 'rejected').length
       };
 
-      res.status(200).json({
-        message: "All overtime requests",
-        summary,
-        data: overtimes.map(ot => ({
-          id: ot.id,
-          employee: {
-            id: ot.employee.id,
-            name: ot.employee.name,
-            email: ot.employee.email
-          },
-          overtimeDate: ot.overtimeDate,
-          requestedHours: ot.requestedHours,
-          actualHours: ot.actualHours,
-          reason: ot.reason,
-          status: ot.status,
-          approver: ot.approver ? {
-            id: ot.approver.id,
-            name: ot.approver.name
-          } : null,
-          approvedAt: ot.approvedAt,
-          rejectionReason: ot.rejectionReason,
-          attendance: ot.attendance,
-          createdAt: ot.createdAt
-        }))
+      const requests = rows.map(ot => ({
+        id: ot.id,
+        employee: {
+          id: ot.employee.id,
+          name: ot.employee.name,
+          email: ot.employee.email
+        },
+        overtimeDate: ot.overtimeDate,
+        requestedHours: ot.requestedHours,
+        actualHours: ot.actualHours,
+        reason: ot.reason,
+        status: ot.status,
+        approver: ot.approver ? {
+          id: ot.approver.id,
+          name: ot.approver.name
+        } : null,
+        approvedAt: ot.approvedAt,
+        rejectionReason: ot.rejectionReason,
+        attendance: ot.attendance,
+        createdAt: ot.createdAt
+      }));
+
+      return response.ok(res, 'Overtime requests fetched', { requests, summary }, {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
       });
 
     } catch (error) {
-      next(error);
+      console.error(error);
+      return response.serverError(res, 'Server error');
     }
   }
 
@@ -106,11 +116,12 @@ class OvertimeAdminController {
    * Approve overtime request
    * PATCH /overtimes/admin/:id/approve
    */
-  static async approveOvertime(req, res, next) {
+  static async approveOvertime(req, res) {
     try {
       const adminId = req.user.id;
       const { id } = req.params;
       const { actualHours } = req.body;
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
 
       const overtime = await Overtime.findByPk(id, {
         include: [
@@ -123,51 +134,54 @@ class OvertimeAdminController {
       });
 
       if (!overtime) {
-        return res.status(404).json({
-          message: "Overtime request not found"
-        });
+        return response.notFound(res, 'Overtime request not found');
+      }
+
+      // Company ownership check
+      if (req.user.role !== 'SUPER_ADMIN' && overtime.companyId !== req.user.companyId) {
+        return response.forbidden(res, 'Access denied');
       }
 
       if (overtime.status !== Overtime.STATUS.PENDING) {
-        return res.status(400).json({
-          message: `Cannot approve overtime with status: ${overtime.status}`
-        });
+        return response.badRequest(res, `Cannot approve overtime with status: ${overtime.status}`);
       }
 
       // Validate actual hours if provided
       let finalActualHours = overtime.requestedHours;
       if (actualHours !== undefined) {
         if (actualHours < 0 || actualHours > 12) {
-          return res.status(400).json({
-            message: "Actual hours must be between 0 and 12"
-          });
+          return response.badRequest(res, 'Actual hours must be between 0 and 12');
         }
         finalActualHours = parseFloat(actualHours);
       }
 
-      // Update overtime
-      overtime.status = Overtime.STATUS.APPROVED;
-      overtime.actualHours = finalActualHours;
-      overtime.approvedBy = adminId;
-      overtime.approvedAt = new Date();
-      await overtime.save();
+      const oldSnapshot = overtime.toJSON();
 
-      // ===== AUDIT LOG =====
-      await AuditLogger.logApprove({
-        userId: adminId,
+      // Wrap update in transaction
+      await sequelize.transaction(async (t) => {
+        overtime.status = Overtime.STATUS.APPROVED;
+        overtime.actualHours = finalActualHours;
+        overtime.approvedBy = adminId;
+        overtime.approvedAt = new Date();
+        await overtime.save({ transaction: t });
+      });
+
+      // Audit log
+      await AuditLogger.logUpdate({
+        userId: req.user.id,
         tableName: 'Overtimes',
         recordId: overtime.id,
-        oldData: { status: 'pending' },
-        newData: overtime.toJSON(),
+        oldData: oldSnapshot,
+        newData: { status: 'APPROVED', actualHours: finalActualHours },
         req,
-        description: `Approved overtime for ${overtime.employee?.name || 'user'} - ${finalActualHours} hours`
+        description: `Admin approved overtime for user ${overtime.UserId} - ${finalActualHours} hours`
       });
 
       // Send notification to employee
       await notificationHelper.sendNotification(
         overtime.UserId,
         Notification.NOTIFICATION_TYPE.OVERTIME_APPROVED,
-        '✅ Overtime Request Approved',
+        'Overtime Request Approved',
         `Your overtime request for ${overtime.overtimeDate} has been approved. Approved hours: ${overtime.actualHours} hours.`,
         {
           overtimeId: overtime.id,
@@ -178,25 +192,23 @@ class OvertimeAdminController {
         true // Send email
       );
 
-      res.status(200).json({
-        message: "Overtime approved successfully",
-        data: {
-          id: overtime.id,
-          employee: {
-            id: overtime.employee.id,
-            name: overtime.employee.name,
-            email: overtime.employee.email
-          },
-          overtimeDate: overtime.overtimeDate,
-          requestedHours: overtime.requestedHours,
-          actualHours: overtime.actualHours,
-          status: overtime.status,
-          approvedAt: overtime.approvedAt
-        }
+      return response.ok(res, 'Overtime approved successfully', {
+        id: overtime.id,
+        employee: {
+          id: overtime.employee.id,
+          name: overtime.employee.name,
+          email: overtime.employee.email
+        },
+        overtimeDate: overtime.overtimeDate,
+        requestedHours: overtime.requestedHours,
+        actualHours: overtime.actualHours,
+        status: overtime.status,
+        approvedAt: overtime.approvedAt
       });
 
     } catch (error) {
-      next(error);
+      console.error(error);
+      return response.serverError(res, 'Server error');
     }
   }
 
@@ -204,16 +216,15 @@ class OvertimeAdminController {
    * Reject overtime request
    * PATCH /overtimes/admin/:id/reject
    */
-  static async rejectOvertime(req, res, next) {
+  static async rejectOvertime(req, res) {
     try {
       const adminId = req.user.id;
       const { id } = req.params;
       const { rejectionReason } = req.body;
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
 
       if (!rejectionReason || rejectionReason.trim().length < 10) {
-        return res.status(400).json({
-          message: "Rejection reason is required (minimum 10 characters)"
-        });
+        return response.badRequest(res, 'Rejection reason is required (minimum 10 characters)');
       }
 
       const overtime = await Overtime.findByPk(id, {
@@ -227,40 +238,45 @@ class OvertimeAdminController {
       });
 
       if (!overtime) {
-        return res.status(404).json({
-          message: "Overtime request not found"
-        });
+        return response.notFound(res, 'Overtime request not found');
+      }
+
+      // Company ownership check
+      if (req.user.role !== 'SUPER_ADMIN' && overtime.companyId !== req.user.companyId) {
+        return response.forbidden(res, 'Access denied');
       }
 
       if (overtime.status !== Overtime.STATUS.PENDING) {
-        return res.status(400).json({
-          message: `Cannot reject overtime with status: ${overtime.status}`
-        });
+        return response.badRequest(res, `Cannot reject overtime with status: ${overtime.status}`);
       }
 
-      // Update overtime
-      overtime.status = Overtime.STATUS.REJECTED;
-      overtime.rejectionReason = rejectionReason.trim();
-      overtime.approvedBy = adminId;
-      overtime.approvedAt = new Date();
-      await overtime.save();
+      const oldSnapshot = overtime.toJSON();
 
-      // ===== AUDIT LOG =====
+      // Wrap update in transaction
+      await sequelize.transaction(async (t) => {
+        overtime.status = Overtime.STATUS.REJECTED;
+        overtime.rejectionReason = rejectionReason.trim();
+        overtime.approvedBy = adminId;
+        overtime.approvedAt = new Date();
+        await overtime.save({ transaction: t });
+      });
+
+      // Audit log
       await AuditLogger.logReject({
-        userId: adminId,
+        userId: req.user.id,
         tableName: 'Overtimes',
         recordId: overtime.id,
-        oldData: { status: 'pending' },
+        oldData: oldSnapshot,
         newData: overtime.toJSON(),
         req,
-        description: `Rejected overtime for ${overtime.employee?.name || 'user'}: ${rejectionReason.substring(0, 50)}`
+        description: `Admin rejected overtime for user ${overtime.UserId}: ${rejectionReason.substring(0, 50)}`
       });
 
       // Send notification to employee
       await notificationHelper.sendNotification(
         overtime.UserId,
         Notification.NOTIFICATION_TYPE.OVERTIME_REJECTED,
-        '❌ Overtime Request Rejected',
+        'Overtime Request Rejected',
         `Your overtime request for ${overtime.overtimeDate} has been rejected. Reason: ${rejectionReason}`,
         {
           overtimeId: overtime.id,
@@ -271,25 +287,23 @@ class OvertimeAdminController {
         true // Send email
       );
 
-      res.status(200).json({
-        message: "Overtime rejected successfully",
-        data: {
-          id: overtime.id,
-          employee: {
-            id: overtime.employee.id,
-            name: overtime.employee.name,
-            email: overtime.employee.email
-          },
-          overtimeDate: overtime.overtimeDate,
-          requestedHours: overtime.requestedHours,
-          status: overtime.status,
-          rejectionReason: overtime.rejectionReason,
-          approvedAt: overtime.approvedAt
-        }
+      return response.ok(res, 'Overtime rejected successfully', {
+        id: overtime.id,
+        employee: {
+          id: overtime.employee.id,
+          name: overtime.employee.name,
+          email: overtime.employee.email
+        },
+        overtimeDate: overtime.overtimeDate,
+        requestedHours: overtime.requestedHours,
+        status: overtime.status,
+        rejectionReason: overtime.rejectionReason,
+        approvedAt: overtime.approvedAt
       });
 
     } catch (error) {
-      next(error);
+      console.error(error);
+      return response.serverError(res, 'Server error');
     }
   }
 
@@ -297,8 +311,10 @@ class OvertimeAdminController {
    * Get overtime summary with period filter
    * GET /overtimes/admin/summary
    */
-  static async getOvertimeSummary(req, res, next) {
+  static async getOvertimeSummary(req, res) {
     try {
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
+
       const { period, userId, month, year, week, startDate, endDate } = req.query;
 
       // Default to monthly if no period specified
@@ -307,16 +323,12 @@ class OvertimeAdminController {
       // Validate period
       const validPeriods = ['daily', 'weekly', 'monthly', 'custom'];
       if (!validPeriods.includes(periodType)) {
-        return res.status(400).json({
-          message: `Invalid period. Must be one of: ${validPeriods.join(', ')}`
-        });
+        return response.badRequest(res, `Invalid period. Must be one of: ${validPeriods.join(', ')}`);
       }
 
       // Validate custom period
       if (periodType === 'custom' && (!startDate || !endDate)) {
-        return res.status(400).json({
-          message: "For custom period, both startDate and endDate are required (format: YYYY-MM-DD)"
-        });
+        return response.badRequest(res, 'For custom period, both startDate and endDate are required (format: YYYY-MM-DD)');
       }
 
       // Prepare options
@@ -333,6 +345,7 @@ class OvertimeAdminController {
 
       // Build where clause
       const whereClause = {
+        ...companyFilter,
         overtimeDate: {
           [Op.between]: [rangeStart, rangeEnd]
         },
@@ -363,19 +376,16 @@ class OvertimeAdminController {
 
       // If userId is provided, return summary for that user
       if (userId) {
-        const user = await User.findByPk(userId);
+        const user = await User.findOne({ where: { id: userId, ...companyFilter } });
         if (!user) {
-          return res.status(404).json({
-            message: "User not found"
-          });
+          return response.notFound(res, 'User not found');
         }
 
         const totalHours = overtimes.reduce((sum, ot) => {
           return sum + parseFloat(ot.actualHours || ot.requestedHours || 0);
         }, 0);
 
-        return res.status(200).json({
-          message: "Overtime summary for user",
+        return response.ok(res, 'Overtime summary for user', {
           period: periodLabel,
           dateRange: {
             start: rangeStart.toISOString().split('T')[0],
@@ -406,12 +416,11 @@ class OvertimeAdminController {
         });
       }
 
-      // Get summary for all users
+      // Get summary for all users (scoped to company)
+      const userWhereClause = { role: 'Employee', ...companyFilter };
       const allUsers = await User.findAll({
         attributes: ['id', 'name', 'email'],
-        where: {
-          role: 'Employee'
-        }
+        where: userWhereClause
       });
 
       // Group overtimes by user
@@ -447,8 +456,7 @@ class OvertimeAdminController {
         totalHours: parseFloat(data.totalHours.toFixed(2))
       })).sort((a, b) => b.totalHours - a.totalHours); // Sort by total hours descending
 
-      res.status(200).json({
-        message: "Overtime summary for all employees",
+      return response.ok(res, 'Overtime summary for all employees', {
         period: periodLabel,
         dateRange: {
           start: rangeStart.toISOString().split('T')[0],
@@ -459,15 +467,16 @@ class OvertimeAdminController {
           employeesWithOvertime,
           totalOvertimes,
           totalHours: parseFloat(totalHours.toFixed(2)),
-          averageHoursPerEmployee: employeesWithOvertime > 0 
-            ? parseFloat((totalHours / employeesWithOvertime).toFixed(2)) 
+          averageHoursPerEmployee: employeesWithOvertime > 0
+            ? parseFloat((totalHours / employeesWithOvertime).toFixed(2))
             : 0
         },
         employees: employeeSummaries
       });
 
     } catch (error) {
-      next(error);
+      console.error(error);
+      return response.serverError(res, 'Server error');
     }
   }
 
@@ -475,21 +484,22 @@ class OvertimeAdminController {
    * Get pending overtime requests count (for notifications)
    * GET /overtimes/admin/pending-count
    */
-  static async getPendingCount(req, res, next) {
+  static async getPendingCount(req, res) {
     try {
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
+
       const count = await Overtime.count({
         where: {
+          ...companyFilter,
           status: Overtime.STATUS.PENDING
         }
       });
 
-      res.status(200).json({
-        message: "Pending overtime requests count",
-        count
-      });
+      return response.ok(res, 'Pending overtime requests count', { count });
 
     } catch (error) {
-      next(error);
+      console.error(error);
+      return response.serverError(res, 'Server error');
     }
   }
 
@@ -498,17 +508,16 @@ class OvertimeAdminController {
    * PATCH /overtimes/admin/:id/update-status
    * This endpoint allows changing status from approved to rejected or vice versa
    */
-  static async updateOvertimeStatus(req, res, next) {
+  static async updateOvertimeStatus(req, res) {
     try {
       const adminId = req.user.id;
       const { id } = req.params;
       const { status, rejectionReason, actualHours } = req.body;
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
 
       // Validate status
       if (!status || !['approved', 'rejected'].includes(status)) {
-        return res.status(400).json({
-          message: "Status is required and must be either 'approved' or 'rejected'"
-        });
+        return response.badRequest(res, "Status is required and must be either 'approved' or 'rejected'");
       }
 
       const overtime = await Overtime.findByPk(id, {
@@ -522,38 +531,41 @@ class OvertimeAdminController {
       });
 
       if (!overtime) {
-        return res.status(404).json({
-          message: "Overtime request not found"
-        });
+        return response.notFound(res, 'Overtime request not found');
+      }
+
+      // Company ownership check
+      if (req.user.role !== 'SUPER_ADMIN' && overtime.companyId !== req.user.companyId) {
+        return response.forbidden(res, 'Access denied');
       }
 
       // Check if status is being changed
       if (overtime.status === status) {
-        return res.status(400).json({
-          message: `Overtime is already ${status}`
-        });
+        return response.badRequest(res, `Overtime is already ${status}`);
       }
 
       const oldStatus = overtime.status;
+      const oldSnapshot = overtime.toJSON();
 
       // If changing to rejected, require rejection reason
       if (status === 'rejected') {
         if (!rejectionReason || rejectionReason.trim().length < 10) {
-          return res.status(400).json({
-            message: "Rejection reason is required (minimum 10 characters)"
-          });
+          return response.badRequest(res, 'Rejection reason is required (minimum 10 characters)');
         }
-        
-        overtime.status = Overtime.STATUS.REJECTED;
-        overtime.rejectionReason = rejectionReason.trim();
-        overtime.approvedBy = adminId;
-        overtime.approvedAt = new Date();
-        
+
+        await sequelize.transaction(async (t) => {
+          overtime.status = Overtime.STATUS.REJECTED;
+          overtime.rejectionReason = rejectionReason.trim();
+          overtime.approvedBy = adminId;
+          overtime.approvedAt = new Date();
+          await overtime.save({ transaction: t });
+        });
+
         // Send notification
         await notificationHelper.sendNotification(
           overtime.UserId,
           Notification.NOTIFICATION_TYPE.OVERTIME_REJECTED,
-          '❌ Overtime Status Changed to Rejected',
+          'Overtime Status Changed to Rejected',
           `Your overtime request for ${overtime.overtimeDate} status has been changed from ${oldStatus} to rejected. Reason: ${rejectionReason}`,
           {
             overtimeId: overtime.id,
@@ -564,31 +576,32 @@ class OvertimeAdminController {
           },
           true
         );
-      } 
+      }
       // If changing to approved
       else if (status === 'approved') {
         let finalActualHours = overtime.actualHours || overtime.requestedHours;
-        
+
         if (actualHours !== undefined) {
           if (actualHours < 0 || actualHours > 12) {
-            return res.status(400).json({
-              message: "Actual hours must be between 0 and 12"
-            });
+            return response.badRequest(res, 'Actual hours must be between 0 and 12');
           }
           finalActualHours = parseFloat(actualHours);
         }
-        
-        overtime.status = Overtime.STATUS.APPROVED;
-        overtime.actualHours = finalActualHours;
-        overtime.approvedBy = adminId;
-        overtime.approvedAt = new Date();
-        overtime.rejectionReason = null; // Clear rejection reason
-        
+
+        await sequelize.transaction(async (t) => {
+          overtime.status = Overtime.STATUS.APPROVED;
+          overtime.actualHours = finalActualHours;
+          overtime.approvedBy = adminId;
+          overtime.approvedAt = new Date();
+          overtime.rejectionReason = null; // Clear rejection reason
+          await overtime.save({ transaction: t });
+        });
+
         // Send notification
         await notificationHelper.sendNotification(
           overtime.UserId,
           Notification.NOTIFICATION_TYPE.OVERTIME_APPROVED,
-          '✅ Overtime Status Changed to Approved',
+          'Overtime Status Changed to Approved',
           `Your overtime request for ${overtime.overtimeDate} status has been changed from ${oldStatus} to approved. Approved hours: ${overtime.actualHours} hours.`,
           {
             overtimeId: overtime.id,
@@ -601,29 +614,63 @@ class OvertimeAdminController {
         );
       }
 
-      await overtime.save();
+      // Audit log
+      await AuditLogger.logUpdate({
+        userId: req.user.id,
+        tableName: 'Overtimes',
+        recordId: overtime.id,
+        oldData: oldSnapshot,
+        newData: overtime.toJSON(),
+        req,
+        description: `Admin changed overtime status from ${oldStatus} to ${status} for user ${overtime.UserId}`
+      });
 
-      res.status(200).json({
-        message: `Overtime status updated from ${oldStatus} to ${status} successfully`,
-        data: {
-          id: overtime.id,
-          employee: {
-            id: overtime.employee.id,
-            name: overtime.employee.name,
-            email: overtime.employee.email
-          },
-          overtimeDate: overtime.overtimeDate,
-          requestedHours: overtime.requestedHours,
-          actualHours: overtime.actualHours,
-          status: overtime.status,
-          rejectionReason: overtime.rejectionReason,
-          approvedAt: overtime.approvedAt,
-          previousStatus: oldStatus
-        }
+      return response.ok(res, `Overtime status updated from ${oldStatus} to ${status} successfully`, {
+        id: overtime.id,
+        employee: {
+          id: overtime.employee.id,
+          name: overtime.employee.name,
+          email: overtime.employee.email
+        },
+        overtimeDate: overtime.overtimeDate,
+        requestedHours: overtime.requestedHours,
+        actualHours: overtime.actualHours,
+        status: overtime.status,
+        rejectionReason: overtime.rejectionReason,
+        approvedAt: overtime.approvedAt,
+        previousStatus: oldStatus
       });
 
     } catch (error) {
-      next(error);
+      console.error(error);
+      return response.serverError(res, 'Server error');
+    }
+  }
+
+  /**
+   * Delete overtime record (Admin only)
+   * DELETE /overtimes/admin/:id
+   */
+  static async deleteOvertime(req, res) {
+    try {
+      const { id } = req.params;
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
+      const overtime = await Overtime.findOne({ where: { id, ...companyFilter } });
+      if (!overtime) return response.notFound(res, 'Overtime record not found');
+      const oldData = overtime.toJSON();
+      await overtime.destroy();
+      await AuditLogger.logDelete({
+        userId: req.user.id,
+        tableName: 'Overtimes',
+        recordId: id,
+        oldData,
+        req,
+        description: `Admin deleted overtime record for user ${overtime.UserId}`
+      });
+      return response.ok(res, 'Overtime record deleted successfully');
+    } catch (err) {
+      console.error(err);
+      return response.serverError(res, 'Server error');
     }
   }
 }
