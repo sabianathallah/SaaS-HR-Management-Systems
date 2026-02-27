@@ -39,10 +39,18 @@ module.exports = (sequelize, DataTypes) => {
         as: 'processor',
         onDelete: 'SET NULL'
       });
+
+      // PayrollPeriod belongs to Company (multi-tenant)
+      PayrollPeriod.belongsTo(models.Company, { foreignKey: 'companyId', as: 'company' });
     }
   }
 
   PayrollPeriod.init({
+    companyId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'Companies', key: 'id' }
+    },
     periodName: {
       type: DataTypes.STRING,
       allowNull: false,

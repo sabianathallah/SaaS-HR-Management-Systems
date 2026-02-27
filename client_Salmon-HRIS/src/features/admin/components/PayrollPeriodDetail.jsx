@@ -38,10 +38,10 @@ import {
   CheckCircle as ApproveIcon,
   Payment as PaymentIcon,
   Receipt as ReceiptIcon,
-  Refresh as RefreshIcon,
-  PlayArrow as GenerateIcon
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { format } from 'date-fns';
+import { toast } from 'react-toastify';
 import axiosInstance from '../../../shared/config/axios';
 
 const PayrollPeriodDetail = () => {
@@ -51,10 +51,12 @@ const PayrollPeriodDetail = () => {
   const [payrolls, setPayrolls] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Adjustment dialog
   const [openAdjustmentDialog, setOpenAdjustmentDialog] = useState(false);
   const [selectedPayroll, setSelectedPayroll] = useState(null);
   const [adjustmentData, setAdjustmentData] = useState({
-    type: 'earning',
+    adjustmentType: 'EARNING',
     reason: '',
     amount: '',
     description: '',
@@ -62,17 +64,28 @@ const PayrollPeriodDetail = () => {
     referenceMonth: ''
   });
 
+  // Approve confirmation
+  const [approveConfirm, setApproveConfirm] = useState(false);
+  const [approvePayrollId, setApprovePayrollId] = useState(null);
+
+  // Process payment confirmation
+  const [paymentConfirm, setPaymentConfirm] = useState(false);
+
+  // Generate payslips confirmation
+  const [payslipConfirm, setPayslipConfirm] = useState(false);
+
   useEffect(() => {
-    fetchPeriodDetail();
+    fetchPayrollDetail();
   }, [periodId]);
 
-  const fetchPeriodDetail = async () => {
+  const fetchPayrollDetail = async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await axiosInstance.get(`/payroll_isAdmin/periods/${periodId}/payrolls`);
-      setPeriod(response.data.period);
-      setPayrolls(response.data.data || []);
+      const d = response.data.data;
+      setPeriod(d?.period ?? null);
+      setPayrolls(d?.payrolls ?? []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch payroll details');
     } finally {
@@ -80,10 +93,12 @@ const PayrollPeriodDetail = () => {
     }
   };
 
+  // --- Adjustment ---
+
   const handleOpenAdjustment = (payroll) => {
     setSelectedPayroll(payroll);
     setAdjustmentData({
-      type: 'earning',
+      adjustmentType: 'EARNING',
       reason: '',
       amount: '',
       description: '',
@@ -100,70 +115,96 @@ const PayrollPeriodDetail = () => {
 
   const handleAddAdjustment = async () => {
     if (!adjustmentData.reason || !adjustmentData.amount) {
-      alert('Please fill in reason and amount');
+      toast.error('Please fill in reason and amount');
+      return;
+    }
+
+    const amt = parseFloat(adjustmentData.amount);
+    if (isNaN(amt) || amt === 0) {
+      toast.error('Amount harus berupa angka yang tidak nol');
       return;
     }
 
     setLoading(true);
     try {
       await axiosInstance.post(`/payroll_isAdmin/payrolls/${selectedPayroll.id}/adjustments`, {
-        ...adjustmentData,
-        amount: parseFloat(adjustmentData.amount)
+        adjustmentType: adjustmentData.adjustmentType,
+        reason: adjustmentData.reason,
+        amount: amt,
+        description: adjustmentData.description,
+        isBackpay: adjustmentData.isBackpay,
+        referenceMonth: adjustmentData.referenceMonth
       });
-      alert('Adjustment added successfully!');
+      toast.success('Adjustment added successfully!');
       handleCloseAdjustment();
-      fetchPeriodDetail();
+      fetchPayrollDetail();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to add adjustment');
+      toast.error(err.response?.data?.message || 'Failed to add adjustment');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleApprovePayroll = async (payrollId) => {
-    if (!confirm('Approve this payroll?')) return;
+  // --- Approve Payroll ---
 
+  const handleApprove = (payrollId) => {
+    setApprovePayrollId(payrollId);
+    setApproveConfirm(true);
+  };
+
+  const confirmApprove = async () => {
+    setApproveConfirm(false);
     setLoading(true);
     try {
-      await axiosInstance.post(`/payroll_isAdmin/payrolls/${payrollId}/approve`);
-      alert('Payroll approved!');
-      fetchPeriodDetail();
+      await axiosInstance.post(`/payroll_isAdmin/payrolls/${approvePayrollId}/approve`);
+      toast.success('Payroll approved successfully');
+      setApprovePayrollId(null);
+      fetchPayrollDetail();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to approve payroll');
+      toast.error(err.response?.data?.message || 'Failed to approve payroll');
+      setApprovePayrollId(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleProcessPayment = async () => {
-    if (!confirm(`Process payment for ${payrolls.length} employees?`)) return;
+  // --- Process Payment ---
 
+  const handleProcessPayment = () => setPaymentConfirm(true);
+
+  const confirmProcessPayment = async () => {
+    setPaymentConfirm(false);
     setLoading(true);
     try {
       await axiosInstance.post(`/payroll_isAdmin/periods/${periodId}/process-payment`);
-      alert('Payment processing initiated!');
-      fetchPeriodDetail();
+      toast.success('Payment processing initiated!');
+      fetchPayrollDetail();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to process payment');
+      toast.error(err.response?.data?.message || 'Failed to process payment');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGeneratePayslips = async () => {
-    if (!confirm('Generate payslips for all employees?')) return;
+  // --- Generate Payslips ---
 
+  const handleGeneratePayslips = () => setPayslipConfirm(true);
+
+  const confirmGeneratePayslips = async () => {
+    setPayslipConfirm(false);
     setLoading(true);
     try {
       await axiosInstance.post(`/payroll_isAdmin/periods/${periodId}/generate-payslips`);
-      alert('Payslips generated successfully!');
-      fetchPeriodDetail();
+      toast.success('Payslips generated successfully!');
+      fetchPayrollDetail();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to generate payslips');
+      toast.error(err.response?.data?.message || 'Failed to generate payslips');
     } finally {
       setLoading(false);
     }
   };
+
+  // --- Helpers ---
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('id-ID', {
@@ -180,7 +221,11 @@ const PayrollPeriodDetail = () => {
       approved: 'success',
       processing: 'info',
       paid: 'success',
-      failed: 'error'
+      failed: 'error',
+      DRAFT: 'default',
+      SUBMITTED: 'warning',
+      APPROVED: 'success',
+      PAID: 'success'
     };
     return colors[status] || 'default';
   };
@@ -197,7 +242,7 @@ const PayrollPeriodDetail = () => {
     <Box sx={{ p: 3 }}>
       {/* Header */}
       <Stack direction="row" alignItems="center" spacing={2} mb={3}>
-        <IconButton onClick={() => navigate('/payroll/periods')}>
+        <IconButton onClick={() => navigate('/admin/payroll/periods')}>
           <BackIcon />
         </IconButton>
         <Typography variant="h4" fontWeight="bold">
@@ -246,13 +291,13 @@ const PayrollPeriodDetail = () => {
             <Button
               variant="outlined"
               startIcon={<RefreshIcon />}
-              onClick={fetchPeriodDetail}
+              onClick={fetchPayrollDetail}
               disabled={loading}
             >
               Refresh
             </Button>
 
-            {period?.status === 'approved' && (
+            {(period?.status === 'approved' || period?.status === 'APPROVED') && (
               <>
                 <Button
                   variant="contained"
@@ -282,7 +327,7 @@ const PayrollPeriodDetail = () => {
       <Card>
         <CardContent>
           <Typography variant="h6" mb={2}>Employee Payrolls</Typography>
-          
+
           {payrolls.length === 0 ? (
             <Box textAlign="center" py={5}>
               <Typography variant="h6" color="text.secondary">
@@ -350,13 +395,14 @@ const PayrollPeriodDetail = () => {
                             <IconButton
                               size="small"
                               color="primary"
-                              onClick={() => navigate(`/payroll/detail/${payroll.id}`)}
+                              onClick={() => navigate(`/admin/payroll/detail/${payroll.id}`)}
                             >
                               <ViewIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
 
-                          {(payroll.status === 'draft' || payroll.status === 'pending') && (
+                          {(payroll.status === 'draft' || payroll.status === 'pending' ||
+                            payroll.status === 'DRAFT' || payroll.status === 'SUBMITTED') && (
                             <Tooltip title="Add Adjustment">
                               <IconButton
                                 size="small"
@@ -368,12 +414,12 @@ const PayrollPeriodDetail = () => {
                             </Tooltip>
                           )}
 
-                          {payroll.status === 'pending' && (
+                          {(payroll.status === 'pending' || payroll.status === 'SUBMITTED') && (
                             <Tooltip title="Approve">
                               <IconButton
                                 size="small"
                                 color="success"
-                                onClick={() => handleApprovePayroll(payroll.id)}
+                                onClick={() => handleApprove(payroll.id)}
                               >
                                 <ApproveIcon fontSize="small" />
                               </IconButton>
@@ -400,12 +446,12 @@ const PayrollPeriodDetail = () => {
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>Type</InputLabel>
               <Select
-                value={adjustmentData.type}
+                value={adjustmentData.adjustmentType}
                 label="Type"
-                onChange={(e) => setAdjustmentData({ ...adjustmentData, type: e.target.value })}
+                onChange={(e) => setAdjustmentData({ ...adjustmentData, adjustmentType: e.target.value })}
               >
-                <MenuItem value="earning">Earning (Bonus/Allowance)</MenuItem>
-                <MenuItem value="deduction">Deduction (Cut/Penalty)</MenuItem>
+                <MenuItem value="EARNING">Earning (Bonus/Allowance)</MenuItem>
+                <MenuItem value="DEDUCTION">Deduction (Cut/Penalty)</MenuItem>
               </Select>
             </FormControl>
 
@@ -468,7 +514,7 @@ const PayrollPeriodDetail = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseAdjustment} disabled={loading}>
-            Cancel
+            Batalkan
           </Button>
           <Button
             variant="contained"
@@ -476,6 +522,71 @@ const PayrollPeriodDetail = () => {
             disabled={loading}
           >
             {loading ? <CircularProgress size={24} /> : 'Add Adjustment'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Approve Confirmation Dialog */}
+      <Dialog open={approveConfirm} onClose={() => setApproveConfirm(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Approve Payroll</DialogTitle>
+        <DialogContent>
+          <Typography>Approve this payroll record?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setApproveConfirm(false)} disabled={loading}>
+            Batalkan
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={confirmApprove}
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Setujui'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Process Payment Confirmation Dialog */}
+      <Dialog open={paymentConfirm} onClose={() => setPaymentConfirm(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Process Payment</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Process payment for <strong>{payrolls.length}</strong> employees?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPaymentConfirm(false)} disabled={loading}>
+            Batalkan
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={confirmProcessPayment}
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Konfirmasi'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Generate Payslips Confirmation Dialog */}
+      <Dialog open={payslipConfirm} onClose={() => setPayslipConfirm(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Generate Payslips</DialogTitle>
+        <DialogContent>
+          <Typography>Generate payslips for all employees in this period?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPayslipConfirm(false)} disabled={loading}>
+            Batalkan
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={confirmGeneratePayslips}
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Konfirmasi'}
           </Button>
         </DialogActions>
       </Dialog>

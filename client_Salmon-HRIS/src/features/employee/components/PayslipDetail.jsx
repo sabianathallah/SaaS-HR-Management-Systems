@@ -45,7 +45,7 @@ const PayslipDetail = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axiosInstance.get(`/payroll/payslips/${payrollId}`);
+      const response = await axiosInstance.get(`/payroll/my-payslips/${payrollId}`);
       setPayslip(response.data.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch payslip details');
@@ -56,7 +56,7 @@ const PayslipDetail = () => {
 
   const handleDownload = async () => {
     try {
-      const response = await axiosInstance.get(`/payroll/payslips/${payrollId}/download`, {
+      const response = await axiosInstance.get(`/payroll/my-payslips/${payrollId}/download`, {
         responseType: 'blob'
       });
       

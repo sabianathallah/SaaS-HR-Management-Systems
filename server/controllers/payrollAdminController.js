@@ -6,13 +6,15 @@ const {
   PayrollHistory,
   User,
   PayrollComponent,
-  EmployeeSalaryComponent
+  EmployeeSalaryComponent,
+  sequelize
 } = require('../models');
 const { Op } = require('sequelize');
 const PayrollCalculationService = require('../helpers/payrollCalculation');
 const PayslipGeneratorService = require('../helpers/payslipGenerator');
 const MidtransService = require('../helpers/midtransService');
 const AuditLogger = require('../helpers/auditLogger');
+const response = require('../helpers/responseHelper');
 
 class PayrollAdminController {
   /**
@@ -21,9 +23,9 @@ class PayrollAdminController {
   static async getPayrollPeriods(req, res, next) {
     try {
       const { status, year, page = 1, limit = 10 } = req.query;
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
 
-      const where = {};
-      where.companyId = req.user.companyId;
+      const where = { ...companyFilter };
       if (status) where.status = status;
       if (year) {
         const yearStart = new Date(`${year}-01-01`);
@@ -45,15 +47,11 @@ class PayrollAdminController {
         offset
       });
 
-      res.status(200).json({
-        success: true,
-        data: rows,
-        pagination: {
-          total: count,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          totalPages: Math.ceil(count / limit)
-        }
+      return response.ok(res, 'Payroll periods retrieved successfully', rows, {
+        total: count,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(count / limit)
       });
     } catch (error) {
       next(error);
@@ -65,14 +63,12 @@ class PayrollAdminController {
    */
   static async createPayrollPeriod(req, res, next) {
     try {
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
       const { periodName, periodStart, periodEnd, cutoffDate, paymentDate, notes } = req.body;
 
       // Validate dates
       if (new Date(periodEnd) <= new Date(periodStart)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Period end must be after period start'
-        });
+        return response.badRequest(res, 'Period end must be after period start');
       }
 
       // Check for overlapping periods
@@ -98,10 +94,7 @@ class PayrollAdminController {
       });
 
       if (overlapping) {
-        return res.status(400).json({
-          success: false,
-          message: 'A payroll period already exists for this date range'
-        });
+        return response.badRequest(res, 'A payroll period already exists for this date range');
       }
 
       const period = await PayrollPeriod.create({
@@ -125,11 +118,7 @@ class PayrollAdminController {
         userAgent: req.get('user-agent')
       });
 
-      res.status(201).json({
-        success: true,
-        message: 'Payroll period created successfully',
-        data: period
-      });
+      return response.created(res, 'Payroll period created successfully', period);
     } catch (error) {
       next(error);
     }
@@ -137,33 +126,37 @@ class PayrollAdminController {
 
   /**
    * Generate payrolls for a period
+   * CRITICAL: entire generation loop is wrapped in a sequelize transaction
    */
   static async generatePayrolls(req, res, next) {
-    try {
-      const { periodId } = req.params;
+    const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
+    const { periodId } = req.params;
 
-      const period = await PayrollPeriod.findByPk(periodId);
+    const t = await sequelize.transaction();
+    try {
+      const period = await PayrollPeriod.findOne({
+        where: { id: periodId, ...companyFilter },
+        transaction: t
+      });
+
       if (!period) {
-        return res.status(404).json({
-          success: false,
-          message: 'Payroll period not found'
-        });
+        await t.rollback();
+        return response.notFound(res, 'Payroll period not found');
       }
 
       if (period.status !== 'draft') {
-        return res.status(400).json({
-          success: false,
-          message: 'Can only generate payrolls for draft periods'
-        });
+        await t.rollback();
+        return response.badRequest(res, 'Can only generate payrolls for draft periods');
       }
 
-      // Get all active employees
+      // Get all active employees for this company
       const employees = await User.findAll({
         where: {
           isActive: true,
-          role: { [Op.ne]: 'SUPERADMIN' }, // Exclude superadmin
+          role: { [Op.ne]: 'SUPERADMIN' },
           companyId: req.user.companyId
-        }
+        },
+        transaction: t
       });
 
       const generatedPayrolls = [];
@@ -214,11 +207,11 @@ class PayrollAdminController {
             bankAccountHolderName: employee.bankAccountHolderName,
             status: 'draft',
             companyId: req.user.companyId
-          });
+          }, { transaction: t });
 
-          // Create payroll details
+          // Build payroll detail rows
           const details = [];
-          
+
           // Add base salary detail
           details.push({
             PayrollId: payroll.id,
@@ -286,9 +279,9 @@ class PayrollAdminController {
             });
           }
 
-          await PayrollDetail.bulkCreate(details);
+          await PayrollDetail.bulkCreate(details, { transaction: t });
 
-          // Log history
+          // Collect history record for bulk insert later
           payrollHistoryRecords.push({
             PayrollId: payroll.id,
             PayrollPeriodId: period.id,
@@ -304,18 +297,18 @@ class PayrollAdminController {
           totalDeductions += calculation.deductions.total;
           totalNet += calculation.net;
 
-        } catch (error) {
+        } catch (employeeError) {
           errors.push({
             employeeId: employee.id,
             employeeName: employee.name,
-            error: error.message
+            error: employeeError.message
           });
         }
       }
 
-      // Bulk insert all PayrollHistory records collected during the loop (avoids N+1 writes)
+      // Bulk insert all PayrollHistory records (avoids N+1 writes)
       if (payrollHistoryRecords.length > 0) {
-        await PayrollHistory.bulkCreate(payrollHistoryRecords);
+        await PayrollHistory.bulkCreate(payrollHistoryRecords, { transaction: t });
       }
 
       // Update period summary
@@ -326,9 +319,11 @@ class PayrollAdminController {
         totalDeductions: Math.round(totalDeductions),
         totalNetSalary: Math.round(totalNet),
         generatedAt: new Date()
-      });
+      }, { transaction: t });
 
-      // Log audit
+      await t.commit();
+
+      // Log audit (outside transaction — non-critical)
       await AuditLogger.log({
         userId: req.user.id,
         action: 'payroll_generated',
@@ -337,18 +332,16 @@ class PayrollAdminController {
         userAgent: req.get('user-agent')
       });
 
-      res.status(200).json({
-        success: true,
-        message: `Generated ${generatedPayrolls.length} payrolls successfully`,
-        data: {
-          period,
-          totalGenerated: generatedPayrolls.length,
-          totalErrors: errors.length,
-          errors: errors.length > 0 ? errors : undefined
-        }
+      return response.ok(res, `Generated ${generatedPayrolls.length} payrolls successfully`, {
+        period,
+        totalGenerated: generatedPayrolls.length,
+        totalErrors: errors.length,
+        errors: errors.length > 0 ? errors : undefined
       });
     } catch (error) {
-      next(error);
+      await t.rollback();
+      console.error(error);
+      return response.serverError(res, 'Failed to generate payrolls');
     }
   }
 
@@ -359,8 +352,15 @@ class PayrollAdminController {
     try {
       const { periodId } = req.params;
       const { status, search, page = 1, limit = 50 } = req.query;
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
 
-      const where = { PayrollPeriodId: periodId };
+      // Verify the period belongs to this company
+      const period = await PayrollPeriod.findOne({ where: { id: periodId, ...companyFilter } });
+      if (!period) {
+        return response.notFound(res, 'Period not found');
+      }
+
+      const where = { PayrollPeriodId: periodId, ...companyFilter };
       if (status) where.status = status;
       if (search) {
         where[Op.or] = [
@@ -383,15 +383,11 @@ class PayrollAdminController {
         offset
       });
 
-      res.status(200).json({
-        success: true,
-        data: rows,
-        pagination: {
-          total: count,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          totalPages: Math.ceil(count / limit)
-        }
+      return response.ok(res, 'Payrolls retrieved successfully', { period, payrolls: rows }, {
+        total: count,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(count / limit)
       });
     } catch (error) {
       next(error);
@@ -404,8 +400,10 @@ class PayrollAdminController {
   static async getPayrollDetail(req, res, next) {
     try {
       const { payrollId } = req.params;
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
 
-      const payroll = await Payroll.findByPk(payrollId, {
+      const payroll = await Payroll.findOne({
+        where: { id: payrollId, ...companyFilter },
         include: [
           { model: User, as: 'employee', attributes: ['id', 'name', 'email', 'position', 'department'] },
           { model: PayrollPeriod, as: 'period' },
@@ -428,16 +426,10 @@ class PayrollAdminController {
       });
 
       if (!payroll) {
-        return res.status(404).json({
-          success: false,
-          message: 'Payroll not found'
-        });
+        return response.notFound(res, 'Payroll not found');
       }
 
-      res.status(200).json({
-        success: true,
-        data: payroll
-      });
+      return response.ok(res, 'Payroll retrieved successfully', payroll);
     } catch (error) {
       next(error);
     }
@@ -450,20 +442,21 @@ class PayrollAdminController {
     try {
       const { payrollId } = req.params;
       const { adjustmentType, reason, amount, description, isBackpay, referenceMonth } = req.body;
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
 
-      const payroll = await Payroll.findByPk(payrollId);
+      // Validate amount
+      const parsedAmount = parseFloat(amount);
+      if (isNaN(parsedAmount) || parsedAmount === 0) {
+        return response.badRequest(res, 'Amount must be a non-zero number');
+      }
+
+      const payroll = await Payroll.findOne({ where: { id: payrollId, ...companyFilter } });
       if (!payroll) {
-        return res.status(404).json({
-          success: false,
-          message: 'Payroll not found'
-        });
+        return response.notFound(res, 'Payroll not found');
       }
 
       if (payroll.status !== 'draft' && payroll.status !== 'pending') {
-        return res.status(400).json({
-          success: false,
-          message: 'Cannot adjust payroll that is already approved or processed'
-        });
+        return response.badRequest(res, 'Cannot adjust payroll that is already approved or processed');
       }
 
       // Create adjustment
@@ -471,7 +464,7 @@ class PayrollAdminController {
         PayrollId: payroll.id,
         adjustmentType,
         reason,
-        amount: parseFloat(amount),
+        amount: parsedAmount,
         description,
         isBackpay: isBackpay || false,
         referenceMonth,
@@ -482,10 +475,11 @@ class PayrollAdminController {
       let newGross = parseFloat(payroll.totalEarnings);
       let newDeductions = parseFloat(payroll.totalDeductions);
 
-      if (adjustmentType === 'earning') {
-        newGross += parseFloat(amount);
+      const isEarning = adjustmentType?.toLowerCase() === 'earning';
+      if (isEarning) {
+        newGross += parsedAmount;
       } else {
-        newDeductions += parseFloat(amount);
+        newDeductions += parsedAmount;
       }
 
       const newNet = newGross - newDeductions;
@@ -494,11 +488,11 @@ class PayrollAdminController {
         totalEarnings: Math.round(newGross),
         totalDeductions: Math.round(newDeductions),
         netSalary: Math.round(newNet),
-        otherDeductions: adjustmentType === 'deduction' 
-          ? parseFloat(payroll.otherDeductions) + parseFloat(amount)
+        otherDeductions: !isEarning
+          ? parseFloat(payroll.otherDeductions) + parsedAmount
           : payroll.otherDeductions,
-        totalBonuses: adjustmentType === 'earning'
-          ? parseFloat(payroll.totalBonuses) + parseFloat(amount)
+        totalBonuses: isEarning
+          ? parseFloat(payroll.totalBonuses) + parsedAmount
           : payroll.totalBonuses
       });
 
@@ -510,7 +504,7 @@ class PayrollAdminController {
         performedBy: req.user.id,
         performedByName: req.user.name,
         performedByRole: req.user.role,
-        notes: `Added ${adjustmentType}: ${reason} - ${amount}`,
+        notes: `Added ${adjustmentType}: ${reason} - ${parsedAmount}`,
         metadata: { adjustmentId: adjustment.id }
       });
 
@@ -518,16 +512,57 @@ class PayrollAdminController {
       await AuditLogger.log({
         userId: req.user.id,
         action: 'payroll_adjusted',
-        description: `Added ${adjustmentType} adjustment to payroll for ${payroll.employeeName}`,
+        description: `Added ${adjustmentType} adjustment (id: ${adjustment.id}) to payroll for ${payroll.employeeName}`,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        newData: { adjustmentId: adjustment.id, adjustmentType, reason, amount: parsedAmount }
+      });
+
+      return response.created(res, 'Adjustment added successfully', { adjustment, payroll });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Approve a single payroll record
+   */
+  static async approveIndividualPayroll(req, res, next) {
+    try {
+      const { payrollId } = req.params;
+      const { notes } = req.body;
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
+
+      const payroll = await Payroll.findOne({ where: { id: payrollId, ...companyFilter } });
+      if (!payroll) {
+        return response.notFound(res, 'Payroll not found');
+      }
+
+      if (payroll.status !== 'pending' && payroll.status !== 'draft') {
+        return response.badRequest(res, 'Only draft or pending payrolls can be approved');
+      }
+
+      await payroll.update({ status: 'approved' });
+
+      await PayrollHistory.create({
+        PayrollId: payroll.id,
+        PayrollPeriodId: payroll.PayrollPeriodId,
+        action: 'approved',
+        performedBy: req.user.id,
+        performedByName: req.user.name,
+        performedByRole: req.user.role,
+        notes: notes || 'Payroll approved by admin'
+      });
+
+      await AuditLogger.log({
+        userId: req.user.id,
+        action: 'payroll_individual_approved',
+        description: `Approved payroll for ${payroll.employeeName}`,
         ipAddress: req.ip,
         userAgent: req.get('user-agent')
       });
 
-      res.status(201).json({
-        success: true,
-        message: 'Adjustment added successfully',
-        data: { adjustment, payroll }
-      });
+      return response.ok(res, 'Payroll approved successfully', payroll);
     } catch (error) {
       next(error);
     }
@@ -539,23 +574,18 @@ class PayrollAdminController {
   static async submitForApproval(req, res, next) {
     try {
       const { periodId } = req.params;
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
 
-      const period = await PayrollPeriod.findByPk(periodId);
+      const period = await PayrollPeriod.findOne({ where: { id: periodId, ...companyFilter } });
       if (!period) {
-        return res.status(404).json({
-          success: false,
-          message: 'Payroll period not found'
-        });
+        return response.notFound(res, 'Payroll period not found');
       }
 
       if (period.status !== 'pending_review') {
-        return res.status(400).json({
-          success: false,
-          message: 'Can only submit periods with pending_review status'
-        });
+        return response.badRequest(res, 'Can only submit periods with pending_review status');
       }
 
-      // Update all payrolls in this period
+      // Update all draft payrolls in this period to pending
       await Payroll.update(
         { status: 'pending' },
         { where: { PayrollPeriodId: period.id, status: 'draft' } }
@@ -575,11 +605,7 @@ class PayrollAdminController {
         notes: 'Payroll period submitted for approval'
       });
 
-      res.status(200).json({
-        success: true,
-        message: 'Payroll period submitted successfully',
-        data: period
-      });
+      return response.ok(res, 'Payroll period submitted successfully', period);
     } catch (error) {
       next(error);
     }
@@ -592,20 +618,15 @@ class PayrollAdminController {
     try {
       const { periodId } = req.params;
       const { notes } = req.body;
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
 
-      const period = await PayrollPeriod.findByPk(periodId);
+      const period = await PayrollPeriod.findOne({ where: { id: periodId, ...companyFilter } });
       if (!period) {
-        return res.status(404).json({
-          success: false,
-          message: 'Payroll period not found'
-        });
+        return response.notFound(res, 'Payroll period not found');
       }
 
       if (period.status !== 'pending_review') {
-        return res.status(400).json({
-          success: false,
-          message: 'Only pending_review periods can be approved'
-        });
+        return response.badRequest(res, 'Only pending_review periods can be approved');
       }
 
       // Update period
@@ -616,7 +637,7 @@ class PayrollAdminController {
         notes: notes || period.notes
       });
 
-      // Update all payrolls
+      // Update all payrolls in this period
       await Payroll.update(
         { status: 'approved' },
         { where: { PayrollPeriodId: period.id } }
@@ -641,11 +662,7 @@ class PayrollAdminController {
         userAgent: req.get('user-agent')
       });
 
-      res.status(200).json({
-        success: true,
-        message: 'Payroll period approved successfully',
-        data: period
-      });
+      return response.ok(res, 'Payroll period approved successfully', period);
     } catch (error) {
       next(error);
     }
@@ -657,20 +674,15 @@ class PayrollAdminController {
   static async processPayment(req, res, next) {
     try {
       const { periodId } = req.params;
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
 
-      const period = await PayrollPeriod.findByPk(periodId);
+      const period = await PayrollPeriod.findOne({ where: { id: periodId, ...companyFilter } });
       if (!period) {
-        return res.status(404).json({
-          success: false,
-          message: 'Payroll period not found'
-        });
+        return response.notFound(res, 'Payroll period not found');
       }
 
       if (period.status !== 'approved') {
-        return res.status(400).json({
-          success: false,
-          message: 'Only approved periods can be processed'
-        });
+        return response.badRequest(res, 'Only approved periods can be processed');
       }
 
       // Get all approved payrolls
@@ -683,10 +695,7 @@ class PayrollAdminController {
       });
 
       if (payrolls.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'No approved payrolls to process'
-        });
+        return response.badRequest(res, 'No approved payrolls to process');
       }
 
       // Prepare batch payout data
@@ -704,10 +713,7 @@ class PayrollAdminController {
         }));
 
       if (payoutData.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'No valid bank accounts found for payout'
-        });
+        return response.badRequest(res, 'No valid bank accounts found for payout');
       }
 
       // Create batch payout via Midtrans
@@ -724,7 +730,7 @@ class PayrollAdminController {
         midtransBatchId: batchResult.batchId
       });
 
-      // Update payrolls with reference IDs
+      // Update payrolls with Midtrans reference IDs
       for (const result of batchResult.results) {
         await Payroll.update(
           {
@@ -755,13 +761,9 @@ class PayrollAdminController {
         userAgent: req.get('user-agent')
       });
 
-      res.status(200).json({
-        success: true,
-        message: 'Payment processing initiated successfully',
-        data: {
-          period,
-          batchResult
-        }
+      return response.ok(res, 'Payment processing initiated successfully', {
+        period,
+        batchResult
       });
     } catch (error) {
       next(error);
@@ -773,7 +775,7 @@ class PayrollAdminController {
    */
   static getBankCode(bankName) {
     if (!bankName) return 'bca';
-    
+
     const name = bankName.toLowerCase();
     if (name.includes('bca')) return 'bca';
     if (name.includes('mandiri')) return 'mandiri';
@@ -785,7 +787,7 @@ class PayrollAdminController {
     if (name.includes('btn')) return 'btn';
     if (name.includes('mega')) return 'mega';
     if (name.includes('bsi') || name.includes('syariah')) return 'bsi';
-    
+
     return 'bca'; // default
   }
 
@@ -795,13 +797,11 @@ class PayrollAdminController {
   static async generatePayslips(req, res, next) {
     try {
       const { periodId } = req.params;
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
 
-      const period = await PayrollPeriod.findByPk(periodId);
+      const period = await PayrollPeriod.findOne({ where: { id: periodId, ...companyFilter } });
       if (!period) {
-        return res.status(404).json({
-          success: false,
-          message: 'Payroll period not found'
-        });
+        return response.notFound(res, 'Payroll period not found');
       }
 
       const payrolls = await Payroll.findAll({
@@ -816,7 +816,7 @@ class PayrollAdminController {
 
       for (const payroll of payrolls) {
         try {
-          // Format data for payslip
+          // Format data for payslip generator
           const payrollData = {
             employee: {
               id: payroll.UserId,
@@ -879,23 +879,59 @@ class PayrollAdminController {
             payslipUrl,
             success: true
           });
-        } catch (error) {
+        } catch (payslipError) {
           payslipResults.push({
             employeeId: payroll.UserId,
             employeeName: payroll.employeeName,
-            error: error.message,
+            error: payslipError.message,
             success: false
           });
         }
       }
 
-      res.status(200).json({
-        success: true,
-        message: 'Payslips generated',
-        data: payslipResults
-      });
+      return response.ok(res, 'Payslips generated', payslipResults);
     } catch (error) {
       next(error);
+    }
+  }
+
+  /**
+   * Delete a draft payroll record
+   */
+  static async deletePayroll(req, res) {
+    try {
+      const { payrollId } = req.params;
+      const companyFilter = req.user.role === 'SUPER_ADMIN' ? {} : { companyId: req.user.companyId };
+
+      const payroll = await Payroll.findOne({ where: { id: payrollId, ...companyFilter } });
+      if (!payroll) {
+        return response.notFound(res, 'Payroll record not found');
+      }
+
+      if (payroll.status !== 'draft' && payroll.status !== 'DRAFT') {
+        return response.badRequest(res, 'Only draft payrolls can be deleted');
+      }
+
+      const oldData = payroll.toJSON();
+
+      // Remove related PayrollDetail records
+      await PayrollDetail.destroy({ where: { PayrollId: payrollId } }).catch(() => {});
+
+      await payroll.destroy();
+
+      await AuditLogger.logDelete({
+        userId: req.user.id,
+        tableName: 'Payrolls',
+        recordId: payrollId,
+        oldData,
+        req,
+        description: `Admin deleted payroll record ${payrollId}`
+      });
+
+      return response.ok(res, 'Payroll deleted successfully');
+    } catch (err) {
+      console.error(err);
+      return response.serverError(res, 'Server error');
     }
   }
 }

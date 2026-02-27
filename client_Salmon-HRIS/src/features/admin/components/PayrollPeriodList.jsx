@@ -23,19 +23,22 @@ import {
   CircularProgress,
   Alert,
   Stack,
-  Tooltip
+  Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import {
   Add as AddIcon,
   Visibility as ViewIcon,
   PlayArrow as GenerateIcon,
   CheckCircle as ApproveIcon,
-  Payment as PaymentIcon,
-  Receipt as ReceiptIcon,
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'react-toastify';
 import axiosInstance from '../../../shared/config/axios';
 
 const PayrollPeriodList = () => {
@@ -43,6 +46,15 @@ const PayrollPeriodList = () => {
   const [periods, setPeriods] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Status filter
+  const [statusFilter, setStatusFilter] = useState('');
+
+  // Create period dialog
   const [openDialog, setOpenDialog] = useState(false);
   const [formData, setFormData] = useState({
     periodName: '',
@@ -54,16 +66,31 @@ const PayrollPeriodList = () => {
   });
   const [formErrors, setFormErrors] = useState({});
 
+  // Generate confirmation modal
+  const [generateConfirm, setGenerateConfirm] = useState(null); // holds period object
+
+  // Submit confirmation modal
+  const [submitConfirm, setSubmitConfirm] = useState(null); // holds period object
+
   useEffect(() => {
     fetchPeriods();
-  }, []);
+  }, [currentPage, statusFilter]);
 
   const fetchPeriods = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axiosInstance.get('/payroll_isAdmin/periods');
-      setPeriods(response.data.data || []);
+      let url = `/payroll_isAdmin/periods?page=${currentPage}&limit=10`;
+      if (statusFilter) {
+        url += `&status=${statusFilter}`;
+      }
+      const response = await axiosInstance.get(url);
+      const d = response.data.data;
+      const list = Array.isArray(d) ? d : (d?.periods ?? d?.rows ?? []);
+      setPeriods(list);
+      if (d?.pagination) {
+        setTotalPages(d.pagination.totalPages ?? 1);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch payroll periods');
     } finally {
@@ -71,12 +98,13 @@ const PayrollPeriodList = () => {
     }
   };
 
+  // --- Create Period ---
+
   const handleOpenDialog = () => {
-    // Auto-generate dates for next month
     const now = new Date();
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const monthName = format(nextMonth, 'MMMM yyyy');
-    
+
     const periodStart = format(new Date(nextMonth.getFullYear(), nextMonth.getMonth() - 1, 21), 'yyyy-MM-dd');
     const periodEnd = format(new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 20), 'yyyy-MM-dd');
     const cutoffDate = format(new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 20), 'yyyy-MM-dd');
@@ -115,7 +143,6 @@ const PayrollPeriodList = () => {
     if (!formData.cutoffDate) errors.cutoffDate = 'Cutoff date is required';
     if (!formData.paymentDate) errors.paymentDate = 'Payment date is required';
 
-    // Validate date logic
     if (formData.periodStart && formData.periodEnd) {
       if (new Date(formData.periodStart) >= new Date(formData.periodEnd)) {
         errors.periodEnd = 'Period end must be after period start';
@@ -141,40 +168,51 @@ const PayrollPeriodList = () => {
     }
   };
 
-  const handleGeneratePayrolls = async (periodId) => {
-    if (!confirm('Generate payrolls for all active employees?')) return;
+  // --- Generate Payrolls ---
 
+  const handleGenerate = (period) => setGenerateConfirm(period);
+
+  const confirmGenerate = async () => {
+    const period = generateConfirm;
+    setGenerateConfirm(null);
     setLoading(true);
     try {
-      const response = await axiosInstance.post(`/payroll_isAdmin/periods/${periodId}/generate`);
-      alert(`Successfully generated ${response.data.data.totalGenerated} payrolls!`);
+      const response = await axiosInstance.post(`/payroll_isAdmin/periods/${period.id}/generate`);
+      const total = response.data?.data?.totalGenerated ?? 0;
+      toast.success(`Successfully generated ${total} payrolls!`);
       fetchPeriods();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to generate payrolls');
+      toast.error(err.response?.data?.message || 'Failed to generate payrolls');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmitForApproval = async (periodId) => {
-    if (!confirm('Submit this period for approval?')) return;
+  // --- Submit for Approval ---
 
+  const handleSubmit = (period) => setSubmitConfirm(period);
+
+  const confirmSubmit = async () => {
+    const period = submitConfirm;
+    setSubmitConfirm(null);
     setLoading(true);
     try {
-      await axiosInstance.post(`/payroll_isAdmin/periods/${periodId}/submit`);
-      alert('Payroll submitted for approval!');
+      await axiosInstance.post(`/payroll_isAdmin/periods/${period.id}/submit`);
+      toast.success('Payroll submitted for approval!');
       fetchPeriods();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to submit for approval');
+      toast.error(err.response?.data?.message || 'Failed to submit for approval');
     } finally {
       setLoading(false);
     }
   };
+
+  // --- Helpers ---
 
   const getStatusColor = (status) => {
     const colors = {
       draft: 'default',
-      pending: 'warning',
+      pending_review: 'warning',
       approved: 'success',
       processing: 'info',
       paid: 'success',
@@ -187,7 +225,7 @@ const PayrollPeriodList = () => {
   const getStatusLabel = (status) => {
     const labels = {
       draft: 'Draft',
-      pending: 'Pending Review',
+      pending_review: 'Pending Review',
       approved: 'Approved',
       processing: 'Processing Payment',
       paid: 'Paid',
@@ -231,6 +269,29 @@ const PayrollPeriodList = () => {
         </Alert>
       )}
 
+      {/* Status Filter */}
+      <Box sx={{ mb: 2 }}>
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Status</InputLabel>
+          <Select
+            value={statusFilter}
+            label="Status"
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+          >
+            <MenuItem value="">Semua</MenuItem>
+            <MenuItem value="draft">Draft</MenuItem>
+            <MenuItem value="pending_review">Pending Review</MenuItem>
+            <MenuItem value="approved">Approved</MenuItem>
+            <MenuItem value="processing">Processing</MenuItem>
+            <MenuItem value="paid">Paid</MenuItem>
+            <MenuItem value="cancelled">Cancelled</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+
       {/* Periods Table */}
       <Card>
         <CardContent>
@@ -269,7 +330,8 @@ const PayrollPeriodList = () => {
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">
-                          {format(new Date(period.periodStart), 'MMM dd, yyyy')} - {format(new Date(period.periodEnd), 'MMM dd, yyyy')}
+                          {format(new Date(period.periodStart), 'MMM dd, yyyy')} -{' '}
+                          {format(new Date(period.periodEnd), 'MMM dd, yyyy')}
                         </Typography>
                       </TableCell>
                       <TableCell>
@@ -300,18 +362,18 @@ const PayrollPeriodList = () => {
                             <IconButton
                               size="small"
                               color="primary"
-                              onClick={() => navigate(`/payroll/periods/${period.id}`)}
+                              onClick={() => navigate(`/admin/payroll/periods/${period.id}`)}
                             >
                               <ViewIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
 
-                          {period.status === 'draft' && (
+                          {(period.status === 'draft' || period.status === 'DRAFT') && (
                             <Tooltip title="Generate Payrolls">
                               <IconButton
                                 size="small"
                                 color="success"
-                                onClick={() => handleGeneratePayrolls(period.id)}
+                                onClick={() => handleGenerate(period)}
                                 disabled={loading}
                               >
                                 <GenerateIcon fontSize="small" />
@@ -319,12 +381,12 @@ const PayrollPeriodList = () => {
                             </Tooltip>
                           )}
 
-                          {period.status === 'pending' && (
+                          {period.status === 'pending_review' && (
                             <Tooltip title="Submit for Approval">
                               <IconButton
                                 size="small"
                                 color="warning"
-                                onClick={() => handleSubmitForApproval(period.id)}
+                                onClick={() => handleSubmit(period)}
                                 disabled={loading}
                               >
                                 <ApproveIcon fontSize="small" />
@@ -338,6 +400,31 @@ const PayrollPeriodList = () => {
                 </TableBody>
               </Table>
             </TableContainer>
+          )}
+
+          {/* Pagination Bar */}
+          {totalPages > 1 && (
+            <Stack direction="row" justifyContent="center" alignItems="center" spacing={2} mt={2}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1 || loading}
+              >
+                Sebelumnya
+              </Button>
+              <Typography variant="body2">
+                Halaman {currentPage} dari {totalPages}
+              </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || loading}
+              >
+                Berikutnya
+              </Button>
+            </Stack>
           )}
         </CardContent>
       </Card>
@@ -418,7 +505,7 @@ const PayrollPeriodList = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog} disabled={loading}>
-            Cancel
+            Batalkan
           </Button>
           <Button
             variant="contained"
@@ -426,6 +513,53 @@ const PayrollPeriodList = () => {
             disabled={loading}
           >
             {loading ? <CircularProgress size={24} /> : 'Create Period'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Generate Confirmation Dialog */}
+      <Dialog open={Boolean(generateConfirm)} onClose={() => setGenerateConfirm(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Generate Payrolls</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Generate payrolls for all active employees in period{' '}
+            <strong>{generateConfirm?.periodName}</strong>?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setGenerateConfirm(null)} disabled={loading}>
+            Batalkan
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={confirmGenerate}
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Konfirmasi'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Submit for Approval Confirmation Dialog */}
+      <Dialog open={Boolean(submitConfirm)} onClose={() => setSubmitConfirm(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Submit for Approval</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Submit period <strong>{submitConfirm?.periodName}</strong> for approval?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSubmitConfirm(null)} disabled={loading}>
+            Batalkan
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={confirmSubmit}
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Konfirmasi'}
           </Button>
         </DialogActions>
       </Dialog>

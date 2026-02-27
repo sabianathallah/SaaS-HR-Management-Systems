@@ -52,7 +52,7 @@ const MyPayslips = () => {
 
   const fetchSummary = async () => {
     try {
-      const response = await axiosInstance.get('/payroll/summary');
+      const response = await axiosInstance.get('/payroll/my-payslips/summary');
       setSummary(response.data.data || null);
     } catch (err) {
       console.error('Failed to fetch summary:', err);
@@ -61,7 +61,7 @@ const MyPayslips = () => {
 
   const handleDownloadPayslip = async (payrollId, periodName) => {
     try {
-      const response = await axiosInstance.get(`/payroll/payslips/${payrollId}/download`, {
+      const response = await axiosInstance.get(`/payroll/my-payslips/${payrollId}/download`, {
         responseType: 'blob'
       });
       

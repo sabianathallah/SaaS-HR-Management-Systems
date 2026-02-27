@@ -23,6 +23,7 @@ import WorkLocationPage from './features/admin/views/WorkLocationPage.jsx'
 // Payroll Pages - Admin Only
 import PayrollPeriodList from './features/admin/components/PayrollPeriodList.jsx'
 import PayrollPeriodDetail from './features/admin/components/PayrollPeriodDetail.jsx'
+import AdminPayrollDetail from './features/admin/components/AdminPayrollDetail.jsx'
 
 // Payroll Pages - Employee & Admin
 import MyPayslips from './features/employee/components/MyPayslips.jsx'
@@ -81,6 +82,7 @@ export default function App() {
             {/* Payroll Routes - Admin */}
             <Route path="payroll/periods" element={<PayrollPeriodList />} />
             <Route path="payroll/periods/:periodId" element={<PayrollPeriodDetail />} />
+            <Route path="payroll/detail/:payrollId" element={<AdminPayrollDetail />} />
           </Route>
 
           {/* Super Admin Protected Routes */}

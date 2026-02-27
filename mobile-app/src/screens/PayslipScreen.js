@@ -8,11 +8,9 @@ import {
   RefreshControl,
   Modal,
   Alert,
-  Linking,
   Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import * as FileSystem from 'expo-file-system';
 import { payrollService } from '../services';
 import { formatDate } from '../utils/dateFormatter';
 import { formatCurrency, getPayslipStatusColor, getPayslipStatusLabel } from '../utils/helpers';
@@ -147,14 +145,14 @@ export default function PayslipScreen() {
               <View style={styles.summaryItem}>
                 <Text style={styles.summaryLabel}>Total Payslip</Text>
                 <Text style={styles.summaryValue}>
-                  {payslipSummary.totalPayslips || 0}
+                  {payslipSummary.yearToDate?.totalMonths || 0}
                 </Text>
               </View>
-              
+
               <View style={styles.summaryItem}>
                 <Text style={styles.summaryLabel}>Total Gaji (YTD)</Text>
                 <Text style={[styles.summaryValue, { color: '#10b981' }]}>
-                  {formatCurrency(payslipSummary.totalGrossPayYTD || 0)}
+                  {formatCurrency(payslipSummary.yearToDate?.totalGross || 0)}
                 </Text>
               </View>
             </View>
@@ -166,7 +164,7 @@ export default function PayslipScreen() {
                   {payslipSummary.latestPayslip.periodName}
                 </Text>
                 <Text style={styles.latestAmount}>
-                  {formatCurrency(payslipSummary.latestPayslip.netPay)}
+                  {formatCurrency(payslipSummary.latestPayslip.netSalary)}
                 </Text>
               </View>
             )}
@@ -185,9 +183,9 @@ export default function PayslipScreen() {
                 <View key={payslip.id} style={styles.payslipCard}>
                   <View style={styles.payslipHeader}>
                     <View style={styles.payslipInfo}>
-                      <Text style={styles.payslipPeriod}>{payslip.periodName}</Text>
+                      <Text style={styles.payslipPeriod}>{payslip.period?.periodName}</Text>
                       <Text style={styles.payslipDate}>
-                        {formatDate(payslip.payDate)}
+                        {formatDate(payslip.paidAt)}
                       </Text>
                     </View>
                     <View style={[
@@ -207,7 +205,7 @@ export default function PayslipScreen() {
                     <View style={styles.payslipRow}>
                       <Text style={styles.payslipLabel}>Gaji Kotor:</Text>
                       <Text style={styles.payslipValue}>
-                        {formatCurrency(payslip.grossPay)}
+                        {formatCurrency(payslip.totalEarnings)}
                       </Text>
                     </View>
                     <View style={styles.payslipRow}>
@@ -219,7 +217,7 @@ export default function PayslipScreen() {
                     <View style={[styles.payslipRow, styles.netPayRow]}>
                       <Text style={styles.netPayLabel}>Gaji Bersih:</Text>
                       <Text style={styles.netPayValue}>
-                        {formatCurrency(payslip.netPay)}
+                        {formatCurrency(payslip.netSalary)}
                       </Text>
                     </View>
                   </View>
@@ -234,7 +232,7 @@ export default function PayslipScreen() {
                     
                     <TouchableOpacity
                       style={styles.downloadButton}
-                      onPress={() => handleDownloadPayslip(payslip.id, payslip.periodName)}
+                      onPress={() => handleDownloadPayslip(payslip.id, payslip.period?.periodName)}
                     >
                       <Text style={styles.downloadButtonText}>📥 Download</Text>
                     </TouchableOpacity>
@@ -288,12 +286,12 @@ export default function PayslipScreen() {
                     <Text style={styles.detailSectionTitle}>Informasi Periode</Text>
                     <View style={styles.detailRow}>
                       <Text style={styles.detailLabel}>Periode:</Text>
-                      <Text style={styles.detailValue}>{selectedPayslip.periodName}</Text>
+                      <Text style={styles.detailValue}>{selectedPayslip.period?.periodName}</Text>
                     </View>
                     <View style={styles.detailRow}>
                       <Text style={styles.detailLabel}>Tanggal Bayar:</Text>
                       <Text style={styles.detailValue}>
-                        {formatDate(selectedPayslip.payDate)}
+                        {formatDate(selectedPayslip.paidAt)}
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
@@ -313,12 +311,12 @@ export default function PayslipScreen() {
                         {formatCurrency(selectedPayslip.baseSalary)}
                       </Text>
                     </View>
-                    {selectedPayslip.allowances && selectedPayslip.allowances.length > 0 && (
+                    {selectedPayslip.groupedDetails?.earnings && selectedPayslip.groupedDetails.earnings.length > 0 && (
                       <>
-                        <Text style={styles.subSectionTitle}>Tunjangan:</Text>
-                        {selectedPayslip.allowances.map((allowance, index) => (
+                        <Text style={styles.subSectionTitle}>Tunjangan & Komponen:</Text>
+                        {selectedPayslip.groupedDetails.earnings.map((allowance, index) => (
                           <View key={index} style={styles.detailRow}>
-                            <Text style={styles.detailLabel}>• {allowance.name}:</Text>
+                            <Text style={styles.detailLabel}>• {allowance.componentName}:</Text>
                             <Text style={styles.detailValue}>
                               {formatCurrency(allowance.amount)}
                             </Text>
@@ -329,7 +327,7 @@ export default function PayslipScreen() {
                     <View style={[styles.detailRow, styles.totalRow]}>
                       <Text style={styles.totalLabel}>Total Pendapatan:</Text>
                       <Text style={styles.totalValue}>
-                        {formatCurrency(selectedPayslip.grossPay)}
+                        {formatCurrency(selectedPayslip.totalEarnings)}
                       </Text>
                     </View>
                   </View>
@@ -337,10 +335,10 @@ export default function PayslipScreen() {
                   {/* Deductions */}
                   <View style={styles.detailSection}>
                     <Text style={styles.detailSectionTitle}>💸 Potongan</Text>
-                    {selectedPayslip.deductions && selectedPayslip.deductions.length > 0 ? (
-                      selectedPayslip.deductions.map((deduction, index) => (
+                    {selectedPayslip.groupedDetails?.deductions && selectedPayslip.groupedDetails.deductions.length > 0 ? (
+                      selectedPayslip.groupedDetails.deductions.map((deduction, index) => (
                         <View key={index} style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>• {deduction.name}:</Text>
+                          <Text style={styles.detailLabel}>• {deduction.componentName}:</Text>
                           <Text style={[styles.detailValue, { color: '#ef4444' }]}>
                             - {formatCurrency(deduction.amount)}
                           </Text>
@@ -362,7 +360,7 @@ export default function PayslipScreen() {
                     <View style={styles.detailRow}>
                       <Text style={styles.netPayLabelLarge}>Gaji Bersih:</Text>
                       <Text style={styles.netPayValueLarge}>
-                        {formatCurrency(selectedPayslip.netPay)}
+                        {formatCurrency(selectedPayslip.netSalary)}
                       </Text>
                     </View>
                   </View>

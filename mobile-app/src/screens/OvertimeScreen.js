@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { overtimeService } from '../services';
-import { formatDate, formatDateTime } from '../utils/dateFormatter';
+import { formatDate } from '../utils/dateFormatter';
 import { getStatusLabel, getStatusColor } from '../utils/helpers';
 
 export default function OvertimeScreen() {

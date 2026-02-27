@@ -14,6 +14,8 @@ router.post('/periods/:periodId/generate-payslips', PayrollAdminController.gener
 // Payrolls
 router.get('/periods/:periodId/payrolls', PayrollAdminController.getPayrollsByPeriod);
 router.get('/payrolls/:payrollId', PayrollAdminController.getPayrollDetail);
+router.post('/payrolls/:payrollId/approve', PayrollAdminController.approveIndividualPayroll);
 router.post('/payrolls/:payrollId/adjustments', PayrollAdminController.addAdjustment);
+router.delete('/payrolls/:payrollId', PayrollAdminController.deletePayroll);
 
 module.exports = router;

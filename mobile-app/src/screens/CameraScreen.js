@@ -66,9 +66,9 @@ export default function CameraScreen({ route, navigation }) {
       Alert.alert(
         'Berhasil!',
         successMessage,
-        [{ 
-          text: 'OK', 
-          onPress: () => navigation.navigate('Dashboard')
+        [{
+          text: 'OK',
+          onPress: () => navigation.navigate('Main', { screen: 'Dashboard' })
         }]
       );
     } catch (error) {

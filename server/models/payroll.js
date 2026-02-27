@@ -39,6 +39,9 @@ module.exports = (sequelize, DataTypes) => {
         as: 'histories',
         onDelete: 'CASCADE'
       });
+
+      // Payroll belongs to Company (multi-tenant)
+      Payroll.belongsTo(models.Company, { foreignKey: 'companyId', as: 'company' });
     }
   }
 
@@ -50,6 +53,11 @@ module.exports = (sequelize, DataTypes) => {
     UserId: {
       type: DataTypes.INTEGER,
       allowNull: false
+    },
+    companyId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'Companies', key: 'id' }
     },
     employeeName: {
       type: DataTypes.STRING,
