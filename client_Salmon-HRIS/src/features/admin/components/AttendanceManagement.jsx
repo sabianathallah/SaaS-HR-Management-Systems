@@ -353,12 +353,7 @@ const AttendanceManagement = () => {
   };
 
   const openPhotoModal = (attendance) => {
-    // Clean up path to prevent double slashes
-    const baseUrl = import.meta.env.VITE_BASE_URL.replace(/\/$/, ''); // Remove trailing slash
-    const photoPath = attendance.photoCheckIn?.replace(/^\//, '') || ''; // Remove leading slash
-    const fullUrl = `${baseUrl}/${photoPath}`;
-
-    setSelectedAttendance({ ...attendance, _resolvedPhotoUrl: fullUrl });
+    setSelectedAttendance(attendance);
     setShowPhotoModal(true);
   };
 
@@ -634,11 +629,11 @@ const AttendanceManagement = () => {
                           >
                             <Trash2 size={14} />
                           </button>
-                          {attendance.photoCheckIn && (
+                          {(attendance.photoCheckIn || attendance.photoCheckOut) && (
                             <button
                               onClick={() => openPhotoModal(attendance)}
                               className="text-green-600 hover:text-green-900"
-                              title="View Photo"
+                              title="View Clock In/Out Photos"
                             >
                               <Camera size={14} />
                             </button>
@@ -1027,32 +1022,60 @@ const AttendanceManagement = () => {
                 {selectedAttendance.User?.name}
               </h3>
               <p className="text-sm text-gray-600">
-                Clock In: {new Date(selectedAttendance.clockIn).toLocaleString('id-ID')}
+                Clock In: {selectedAttendance.clockIn ? new Date(selectedAttendance.clockIn).toLocaleString('id-ID') : '-'}
+              </p>
+              <p className="text-sm text-gray-600">
+                Clock Out: {selectedAttendance.clockOut ? new Date(selectedAttendance.clockOut).toLocaleString('id-ID') : '-'}
               </p>
             </div>
 
-            {/* Photo */}
-            {selectedAttendance.photoCheckIn ? (
+            {/* Photos */}
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <div className="border rounded-lg overflow-hidden bg-gray-50">
-                  <img
-                    src={getPhotoUrl(selectedAttendance.photoCheckIn)}
-                    alt="Check-in selfie"
-                    className="w-full h-auto max-h-96 object-contain mx-auto"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext fill="%239ca3af" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3EPhoto not available%3C/text%3E%3C/svg%3E';
-                    }}
-                  />
-                </div>
+                <h4 className="text-sm font-semibold text-gray-700">Clock In Photo</h4>
+                {selectedAttendance.photoCheckIn ? (
+                  <div className="border rounded-lg overflow-hidden bg-gray-50">
+                    <img
+                      src={getPhotoUrl(selectedAttendance.photoCheckIn)}
+                      alt="Clock-in selfie"
+                      className="w-full h-auto max-h-80 object-contain mx-auto"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext fill="%239ca3af" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3EPhoto not available%3C/text%3E%3C/svg%3E';
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="border rounded-lg p-6 text-center text-gray-500">
+                    <Camera size={32} className="mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">No clock-in photo</p>
+                    <p className="text-xs mt-1 text-gray-400">photoCheckIn field is null or empty</p>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="border rounded-lg p-12 text-center text-gray-500">
-                <Camera size={40} className="mx-auto mb-2 text-gray-300" />
-                <p>No photo available</p>
-                <p className="text-xs mt-2 text-gray-400">photoCheckIn field is null or empty</p>
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-gray-700">Clock Out Photo</h4>
+                {selectedAttendance.photoCheckOut ? (
+                  <div className="border rounded-lg overflow-hidden bg-gray-50">
+                    <img
+                      src={getPhotoUrl(selectedAttendance.photoCheckOut)}
+                      alt="Clock-out selfie"
+                      className="w-full h-auto max-h-80 object-contain mx-auto"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f3f4f6" width="400" height="300"/%3E%3Ctext fill="%239ca3af" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3EPhoto not available%3C/text%3E%3C/svg%3E';
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="border rounded-lg p-6 text-center text-gray-500">
+                    <Camera size={32} className="mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">No clock-out photo</p>
+                    <p className="text-xs mt-1 text-gray-400">photoCheckOut field is null or empty</p>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         )}
       </Modal>

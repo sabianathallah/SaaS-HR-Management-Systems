@@ -1,0 +1,27 @@
+# Build configuration for Railway/Heroku deployment
+# This tells the platform how to build and start the app
+
+# Use Node.js 18 or higher
+engines:
+  node: ">=18.0.0"
+  npm: ">=9.0.0"
+
+# Install dependencies
+install:
+  - npm install
+
+# Run migrations before starting
+preDeploy:
+  - npx sequelize-cli db:migrate
+  - npx sequelize-cli db:seed:all
+
+# Start command
+start:
+  - npm start
+
+# Health check
+healthCheck:
+  path: /test-ip
+  interval: 30
+  timeout: 10
+  retries: 3
